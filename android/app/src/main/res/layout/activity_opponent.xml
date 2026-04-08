@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".OpponentActivity"
+    android:background="@drawable/bg_opponent"
+    >
+
+    <TextView
+        android:id="@+id/txtVs"
+        android:layout_width="100dp"
+        android:layout_height="180dp"
+        android:layout_centerInParent="true"
+        android:gravity="center"
+        android:text="@string/txtVs"
+        android:textColor="#fff"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        />
+
+    <TextView
+        android:id="@+id/txtStatus"
+        android:layout_width="260dp"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/txtVs"
+        android:layout_marginTop="16dp"
+        android:fontFamily="@font/baloo"
+        android:gravity="center"
+        android:text="جاري البحث عن منافس..."
+        android:textColor="#FFFFFF"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/txtOpponent1"
+        android:layout_width="120dp"
+        android:layout_height="30dp"
+        android:gravity="center"
+        android:layout_toRightOf="@id/txtVs"
+        android:layout_alignTop="@id/txtVs"
+        android:text="@string/txtOpponent1"
+        android:textSize="20sp"
+        android:textColor="#fff"
+        android:textStyle="bold"
+        />
+
+    <RelativeLayout
+        android:layout_width="120dp"
+        android:layout_height="150dp"
+        android:layout_toRightOf="@id/txtVs"
+        android:layout_below="@id/txtOpponent1"
+        >
+
+        <RelativeLayout
+            android:layout_width="90dp"
+            android:layout_height="130dp"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="5dp"
+            >
+            <ImageView
+                android:id="@+id/imgPhoto1"
+                android:layout_width="90dp"
+                android:layout_height="90dp"
+                android:scaleType="fitXY"
+                android:contentDescription="@string/todo40" />
+        </RelativeLayout>
+
+        <ImageView
+            android:layout_width="120dp"
+            android:layout_height="150dp"
+            android:src="@drawable/opponent1"
+            android:contentDescription="@string/todo44" />
+
+        <TextView
+            android:id="@+id/txtLevel1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="17dp"
+            android:text="@string/txtLevel1"
+            android:textSize="24sp"
+            android:textColor="#FFFFFF"
+            android:fontFamily="@font/baloo"
+            />
+
+    </RelativeLayout>
+
+    <TextView
+        android:id="@+id/txtOpponent2"
+        android:layout_width="120dp"
+        android:layout_height="30dp"
+        android:gravity="center"
+        android:layout_toLeftOf="@id/txtVs"
+        android:layout_alignTop="@id/txtVs"
+        android:text="@string/txtOpponent2"
+        android:textSize="20sp"
+        android:textColor="#fff"
+        android:textStyle="bold"
+        />
+
+    <RelativeLayout
+        android:layout_width="120dp"
+        android:layout_height="150dp"
+        android:layout_toLeftOf="@id/txtVs"
+        android:layout_below="@id/txtOpponent2"
+        >
+
+        <RelativeLayout
+            android:layout_width="90dp"
+            android:layout_height="130dp"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="5dp"
+            >
+            <ImageView
+                android:id="@+id/imgPhoto2"
+                android:layout_width="90dp"
+                android:layout_height="90dp"
+                android:scaleType="fitXY"
+                android:visibility="invisible"
+                android:contentDescription="@string/todo41" />
+
+            <ImageView
+                android:id="@+id/imgPhoto21"
+                android:layout_width="90dp"
+                android:layout_height="wrap_content"
+                android:scaleType="fitXY"
+                android:contentDescription="@string/todo45" />
+
+            <ImageView
+                android:id="@+id/imgPhoto22"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scaleType="fitXY"
+                android:contentDescription="@string/todo46" />
+        </RelativeLayout>
+
+        <ImageView
+            android:layout_width="120dp"
+            android:layout_height="150dp"
+            android:src="@drawable/opponent2"
+            android:contentDescription="@string/todo42" />
+
+        <!--
+                <ImageView
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_alignParentLeft="true"
+                    android:layout_alignParentBottom="true"
+                    android:layout_marginLeft="7dp"
+                    android:layout_marginBottom="23dp"
+                    android:src="@drawable/ranking"
+                    />
+        -->
+
+        <TextView
+            android:id="@+id/txtLevel2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="17dp"
+            android:text="@string/txtLevel2"
+            android:textSize="24sp"
+            android:textColor="#FFFFFF"
+            android:fontFamily="@font/baloo"
+            />
+
+    </RelativeLayout>
+
+
+</RelativeLayout>

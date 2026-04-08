@@ -1,0 +1,15 @@
+version:
+  revision: "manual-rebuild"
+  channel: "stable"
+project_type: app
+migration:
+  platforms:
+    - platform: root
+      create_revision: manual-rebuild
+      base_revision: manual-rebuild
+    - platform: android
+      create_revision: manual-rebuild
+      base_revision: manual-rebuild
+unmanaged_files:
+  - 'lib/main.dart'
+  - 'android/app/src/main/AndroidManifest.xml'

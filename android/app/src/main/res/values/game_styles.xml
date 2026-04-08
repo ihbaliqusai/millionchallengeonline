@@ -1,0 +1,170 @@
+<resources>
+    <style name="FrameAnswer">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:src">@drawable/frame</item>
+        <item name="android:scaleType">fitXY</item>
+        <item name="android:layout_centerInParent">true</item>
+    </style>
+
+    <style name="TextAnswer">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_centerInParent">true</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">#fff</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="LayoutAnswer">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingLeft">4dp</item>
+        <item name="android:paddingRight">4dp</item>
+    </style>
+
+    <style name="StepNumber">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingLeft">10dp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">10sp</item>
+    </style>
+
+    <style name="StepNumberNormal" parent="StepNumber">
+        <item name="android:textColor">@color/stepTextNormal</item>
+    </style>
+
+    <style name="StepNumberSpecial" parent="StepNumber">
+        <item name="android:textColor">@color/stepTextSpecial</item>
+    </style>
+
+    <style name="StepAmount">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_weight">3</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">10sp</item>
+    </style>
+
+    <style name="StepAmountNormal" parent="StepAmount">
+        <item name="android:textColor">@color/stepTextNormal</item>
+    </style>
+
+    <style name="StepAmountSpecial" parent="StepAmount">
+        <item name="android:textColor">@color/stepTextSpecial</item>
+    </style>
+
+    <style name="StepRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">16dp</item>
+        <item name="android:orientation">horizontal</item>
+    </style>
+
+    <style name="StepRowSelected" parent="StepRow">
+        <item name="android:background">@color/stepSelected</item>
+    </style>
+
+    <style name="voteLetter">
+        <item name="android:layout_width">15dp</item>
+        <item name="android:layout_height">20dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:layout_marginRight">5dp</item>
+        <item name="android:layout_marginLeft">5dp</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">#fff</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="voteBar">
+        <item name="android:layout_width">15dp</item>
+        <item name="android:layout_height">0dp</item>
+        <item name="android:layout_gravity">bottom</item>
+        <item name="android:layout_marginRight">5dp</item>
+        <item name="android:layout_marginLeft">5dp</item>
+        <item name="android:layout_marginBottom">1dp</item>
+        <item name="android:background">@color/pinkApp</item>
+    </style>
+
+    <style name="button_main_menu">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="android:layout_marginBottom">6dp</item>
+        <item name="android:paddingLeft">16dp</item>
+        <item name="android:paddingRight">16dp</item>
+        <item name="android:textColor">#fff</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">@font/baloo</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:letterSpacing">0.01</item>
+        <item name="android:elevation">10dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:background">@drawable/menu_button_frame</item>
+    </style>
+
+    <style name="thumbAnswerPlayer1">
+        <item name="android:layout_width">20dp</item>
+        <item name="android:layout_height">20dp</item>
+        <item name="android:layout_centerVertical">true</item>
+        <item name="android:layout_alignParentRight">true</item>
+        <item name="android:layout_marginRight">10dp</item>
+        <item name="civ_border_width">2dp</item>
+        <item name="civ_border_color">@color/player1</item>
+        <item name="android:visibility">invisible</item>
+    </style>
+
+    <style name="thumbAnswerPlayer2">
+        <item name="android:layout_width">20dp</item>
+        <item name="android:layout_height">20dp</item>
+        <item name="android:layout_centerVertical">true</item>
+        <item name="android:layout_alignParentLeft">true</item>
+        <item name="android:layout_marginLeft">10dp</item>
+        <item name="civ_border_width">2dp</item>
+        <item name="civ_border_color">@color/player2</item>
+        <item name="android:visibility">invisible</item>
+    </style>
+
+    <style name="AchievementCard">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginBottom">10dp</item>
+        <item name="android:padding">14dp</item>
+        <item name="android:background">@drawable/user_frame</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:fontFamily">@font/baloo</item>
+    </style>
+
+    <style name="StoreSectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/stepSelected</item>
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+
+    <style name="StoreInfoText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">@font/baloo</item>
+    </style>
+
+    <style name="StoreCountText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#FFD54F</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:fontFamily">@font/baloo</item>
+    </style>
+</resources>

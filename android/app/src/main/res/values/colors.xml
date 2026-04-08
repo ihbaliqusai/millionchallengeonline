@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#6200EE</color>
+    <color name="colorPrimaryDark">#3700B3</color>
+    <color name="colorAccent">#03DAC5</color>
+
+    <color name="black_overlay">#66000000</color>
+
+    <color name="darkBlueApp">#020e31</color>
+    <color name="darkBlue2App">#141d3a</color>
+    <color name="lightBlueApp">#6fbadc</color>
+    <color name="buttonBlueStart">#273CFF</color>
+    <color name="buttonBlueEnd">#14B8FF</color>
+    <color name="buttonBluePressedStart">#1E2FBF</color>
+    <color name="buttonBluePressedEnd">#0D8BC2</color>
+    <color name="buttonDisabledStart">#364156</color>
+    <color name="buttonDisabledEnd">#4B5563</color>
+    <color name="panelStart">#4C1D95</color>
+    <color name="panelEnd">#0F172A</color>
+    <color name="panelStroke">#8BE7FF</color>
+    <color name="stepTextNormal">#68aac2</color>
+    <color name="stepTextSpecial">#dce2ef</color>
+    <color name="stepSelected">#DAB703</color>
+    <color name="pinkApp">#ff0099</color>
+
+    <color name="progressGreen">#65CC1F</color>
+    <color name="progressOrange">#FF8F00</color>
+    <color name="progressRed">#C62828</color>
+
+    <color name="player1">#007beb</color>
+    <color name="player2">#e8006e</color>
+</resources>

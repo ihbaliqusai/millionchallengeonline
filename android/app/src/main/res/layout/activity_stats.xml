@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_main"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/txtStatsTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:text="إحصائياتي"
+        android:textColor="#FFFFFF"
+        android:textSize="26sp"
+        android:fontFamily="@font/baloo" />
+
+    <LinearLayout
+        android:id="@+id/cardStats"
+        android:layout_width="420dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/txtStatsTitle"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/user_frame"
+        android:orientation="vertical"
+        android:padding="18dp">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+            <TextView style="@style/statsLabel" android:text="عدد الألعاب" />
+            <TextView android:id="@+id/txtStatsGames" style="@style/statsValue" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+            <TextView style="@style/statsLabel" android:text="مرات الفوز" />
+            <TextView android:id="@+id/txtStatsWins" style="@style/statsValue" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+            <TextView style="@style/statsLabel" android:text="مرات الخسارة" />
+            <TextView android:id="@+id/txtStatsLosses" style="@style/statsValue" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+            <TextView style="@style/statsLabel" android:text="أعلى مبلغ" />
+            <TextView android:id="@+id/txtStatsHighest" style="@style/statsValue" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+            <TextView style="@style/statsLabel" android:text="آخر مبلغ" />
+            <TextView android:id="@+id/txtStatsLastPrize" style="@style/statsValue" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+            <TextView style="@style/statsLabel" android:text="إجابات صحيحة" />
+            <TextView android:id="@+id/txtStatsCorrect" style="@style/statsValue" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+            <TextView style="@style/statsLabel" android:text="إجابات خاطئة" />
+            <TextView android:id="@+id/txtStatsWrong" style="@style/statsValue" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+            <TextView style="@style/statsLabel" android:text="نسبة الدقة" />
+            <TextView android:id="@+id/txtStatsAccuracy" style="@style/statsValue" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:weightSum="2">
+            <TextView style="@style/statsLabel" android:text="أفضل سلسلة صحيحة" />
+            <TextView android:id="@+id/txtStatsBestStreak" style="@style/statsValue" />
+        </LinearLayout>
+        <TextView
+            android:id="@+id/txtStatsExtra"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:fontFamily="@font/baloo"
+            android:text="المستوى: 1 | القطع: 0 | الجواهر: 0" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="420dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/cardStats"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal"
+        android:weightSum="2">
+        <Button
+            android:id="@+id/btnStatsBack"
+            style="@style/button_main_menu"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:text="رجوع"/>
+        <Button
+            android:id="@+id/btnResetStats"
+            style="@style/button_main_menu"
+            android:layout_width="0dp"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:text="تصفير"/>
+    </LinearLayout>
+</RelativeLayout>

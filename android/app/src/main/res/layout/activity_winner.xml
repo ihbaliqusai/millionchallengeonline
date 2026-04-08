@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    android:id="@+id/rlyScreen"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".WinnerActivity"
+    android:background="@drawable/bg_main"
+    >
+
+    <ImageView
+        android:id="@+id/imgPerson"
+        android:layout_width="150dp"
+        android:layout_height="310dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginRight="200dp"
+        android:src="@drawable/person_celebrate"
+        android:contentDescription="@string/todo1" />
+
+    <ImageView
+        android:id="@+id/imgClosedEyes"
+        android:layout_width="31.5dp"
+        android:layout_height="wrap_content"
+        android:src="@drawable/closed_eyes"
+        android:layout_alignLeft="@id/imgPerson"
+        android:layout_alignTop="@id/imgPerson"
+        android:layout_marginLeft="77.5dp"
+        android:layout_marginTop="28.5dp"
+        android:visibility="invisible"
+        android:contentDescription="@string/todo2" />
+
+    <RelativeLayout
+        android:id="@+id/rlyDialog"
+        android:layout_width="210dp"
+        android:layout_height="130dp"
+        android:layout_alignRight="@id/imgPerson"
+        android:layout_alignTop="@id/imgPerson"
+        android:layout_marginRight="-150dp"
+        android:layout_marginTop="-40dp"
+        android:visibility="invisible"
+        >
+        <ImageView
+            android:layout_width="200dp"
+            android:layout_height="110dp"
+            android:src="@drawable/dialog"
+            android:contentDescription="@string/todo4" />
+        <com.Qi7bali.millionchallengeonline.Typewriter
+            android:id="@+id/txtDialog"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingBottom="40dp"
+            android:paddingTop="10dp"
+            android:paddingLeft="20dp"
+            android:paddingRight="10dp"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+    </RelativeLayout>
+
+    <ImageView
+        android:id="@+id/imgHome"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="30dp"
+        android:layout_marginLeft="30dp"
+        android:src="@drawable/home"
+        android:tag="1"
+        android:contentDescription="@string/todo3" />
+
+
+</RelativeLayout>

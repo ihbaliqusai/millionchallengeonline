@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_main"
+    tools:context=".MainActivity">
+
+    <ImageView
+        android:id="@+id/imgLight1"
+        android:layout_width="120dp"
+        android:layout_height="350dp"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginLeft="80dp"
+        android:layout_marginTop="-30dp"
+        android:contentDescription="@string/todo50"
+        android:src="@drawable/light_main" />
+
+    <ImageView
+        android:id="@+id/imgLight2"
+        android:layout_width="120dp"
+        android:layout_height="350dp"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:layout_marginRight="80dp"
+        android:layout_marginTop="-30dp"
+        android:contentDescription="@string/todo51"
+        android:src="@drawable/light_main" />
+
+    <ImageView
+        android:id="@+id/imgPerson"
+        android:layout_width="150dp"
+        android:layout_height="310dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginRight="100dp"
+        android:contentDescription="@string/todo55"
+        android:src="@drawable/person_welcome" />
+
+    <ImageView
+        android:id="@+id/imgClosedEyes"
+        android:layout_width="31.5dp"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@id/imgPerson"
+        android:layout_alignTop="@id/imgPerson"
+        android:layout_marginLeft="77.5dp"
+        android:layout_marginTop="28.5dp"
+        android:contentDescription="@string/todo53"
+        android:src="@drawable/closed_eyes"
+        android:visibility="invisible" />
+
+    <LinearLayout
+        android:id="@+id/llyCurrency"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/user_frame"
+        android:elevation="8dp"
+        android:orientation="horizontal"
+        android:paddingLeft="18dp"
+        android:paddingTop="10dp"
+        android:paddingRight="18dp"
+        android:paddingBottom="10dp">
+
+        <TextView
+            android:id="@+id/txtCoins"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/baloo"
+            android:text="@string/currency_coins_default"
+            android:textColor="@color/stepSelected"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="16dp"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:id="@+id/txtGems"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/baloo"
+            android:text="@string/currency_gems_default"
+            android:textColor="#C7A8FF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/llyMenuActions"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/llyQuickActions"
+        android:layout_below="@id/llyCurrency"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="12dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btnPlay"
+            style="@style/button_main_menu"
+            android:drawableStart="@android:drawable/ic_media_play"
+            android:drawablePadding="10dp"
+            android:text="@string/btnPlay" />
+
+        <Button
+            android:id="@+id/btnPlayOnline"
+            style="@style/button_main_menu"
+            android:drawableStart="@android:drawable/ic_menu_share"
+            android:drawablePadding="10dp"
+            android:text="@string/btnPlayOnline" />
+
+        <Button
+            android:id="@+id/btnStats"
+            style="@style/button_main_menu"
+            android:drawableStart="@android:drawable/ic_menu_sort_by_size"
+            android:drawablePadding="10dp"
+            android:text="@string/menu_stats" />
+
+        <Button
+            android:id="@+id/btnAchievements"
+            style="@style/button_main_menu"
+            android:drawableStart="@android:drawable/btn_star_big_on"
+            android:drawablePadding="10dp"
+            android:text="@string/menu_achievements" />
+
+        <Button
+            android:id="@+id/btnStore"
+            style="@style/button_main_menu"
+            android:drawableStart="@android:drawable/ic_menu_agenda"
+            android:drawablePadding="10dp"
+            android:text="@string/menu_store" />
+
+        <Button
+            android:id="@+id/btnSettings"
+            style="@style/button_main_menu"
+            android:drawableStart="@android:drawable/ic_menu_preferences"
+            android:drawablePadding="10dp"
+            android:text="@string/menu_settings" />
+
+        <Button
+            android:id="@+id/btnPolicy"
+            style="@style/button_main_menu"
+            android:drawableStart="@android:drawable/ic_menu_info_details"
+            android:drawablePadding="10dp"
+            android:text="@string/btnPolicy" />
+
+        <Button
+            android:id="@+id/btnExit"
+            style="@style/button_main_menu"
+            android:drawableStart="@android:drawable/ic_lock_power_off"
+            android:drawablePadding="10dp"
+            android:text="@string/btnExit" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/llyQuickActions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:layout_margin="10dp">
+
+        <ImageView
+            android:id="@+id/imgShare"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginRight="10dp"
+            android:contentDescription="@string/todo56"
+            android:src="@drawable/share" />
+
+        <ImageView
+            android:id="@+id/imgRate"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:contentDescription="@string/todo52"
+            android:src="@drawable/rate" />
+    </LinearLayout>
+
+    <RelativeLayout
+        android:id="@+id/cardProfile"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        android:background="@drawable/user_frame"
+        android:elevation="8dp"
+        android:padding="12dp">
+
+        <de.hdodenhof.circleimageview.CircleImageView
+            android:id="@+id/imgPhoto"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:src="@drawable/user" />
+
+        <TextView
+            android:id="@+id/txtName"
+            android:layout_width="140dp"
+            android:layout_height="wrap_content"
+            android:layout_alignTop="@id/imgPhoto"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="4dp"
+            android:layout_toRightOf="@id/imgPhoto"
+            android:ellipsize="end"
+            android:fontFamily="@font/baloo"
+            android:maxLines="1"
+            android:textColor="@color/stepTextSpecial"
+            android:textDirection="locale"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtLevel"
+            android:layout_width="140dp"
+            android:layout_height="wrap_content"
+            android:layout_alignLeft="@id/txtName"
+            android:layout_below="@id/txtName"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:fontFamily="@font/baloo"
+            android:gravity="left"
+            android:maxLines="1"
+            android:text="@string/level_8"
+            android:textColor="@color/stepSelected"
+            android:textDirection="locale"
+            android:textSize="14sp" />
+
+        <ProgressBar
+            android:id="@+id/pbLevel"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="140dp"
+            android:layout_height="8dp"
+            android:layout_alignLeft="@id/txtLevel"
+            android:layout_below="@id/txtLevel"
+            android:layout_marginTop="5dp"
+            android:progress="75"
+            android:progressDrawable="@drawable/level_progressbar" />
+    </RelativeLayout>
+
+    <LinearLayout
+        android:id="@+id/llyCredit"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#fff"
+        android:orientation="vertical"
+        android:visibility="invisible">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_margin="10dp"
+            android:text="@string/credits_for_application_person_graphics_and_soundtrack" />
+
+        <ScrollView
+            android:id="@+id/scrolCredit"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_margin="10dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
+
+            <TextView
+                android:id="@+id/txtCredit"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </ScrollView>
+
+        <TextView
+            android:id="@+id/txtCloseCredit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_margin="10dp"
+            android:text="@string/close" />
+    </LinearLayout>
+
+</RelativeLayout>

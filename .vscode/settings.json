@@ -1,0 +1,5 @@
+{
+  "dart.flutterHotReloadOnSave": "all",
+  "dart.lineLength": 100,
+  "editor.formatOnSave": true
+}

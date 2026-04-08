@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_main">
+
+    <TextView
+        android:id="@+id/txtStoreTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:text="المتجر"
+        android:textColor="#FFFFFF"
+        android:textSize="28sp"
+        android:fontFamily="@font/baloo" />
+
+    <LinearLayout
+        android:id="@+id/llyStoreWallet"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/txtStoreTitle"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/user_frame"
+        android:orientation="horizontal"
+        android:padding="10dp">
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🪙 " android:textSize="18sp" />
+        <TextView android:id="@+id/txtStoreCoins" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="@color/stepSelected" android:textSize="18sp" android:fontFamily="@font/baloo" />
+        <TextView android:layout_width="18dp" android:layout_height="wrap_content" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="💎 " android:textSize="18sp" />
+        <TextView android:id="@+id/txtStoreGems" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#C7A8FF" android:textSize="18sp" android:fontFamily="@font/baloo" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/llyStoreWallet"
+        android:layout_above="@id/btnStoreBack"
+        android:layout_margin="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView style="@style/StoreSectionTitle" android:text="المخزون" />
+            <TextView style="@style/StoreInfoText" android:text="50:50 الإضافية:" />
+            <TextView android:id="@+id/txtInv5050" style="@style/StoreCountText" />
+            <TextView style="@style/StoreInfoText" android:text="مساعدة الجمهور الإضافية:" />
+            <TextView android:id="@+id/txtInvAudience" style="@style/StoreCountText" />
+            <TextView style="@style/StoreInfoText" android:text="الاتصال الإضافي:" />
+            <TextView android:id="@+id/txtInvCall" style="@style/StoreCountText" />
+
+            <TextView style="@style/StoreSectionTitle" android:text="المشتريات" />
+            <Button android:id="@+id/btnBuy5050" style="@style/button_main_menu" android:text="شراء 50:50 إضافية - 600 قطعة" />
+            <Button android:id="@+id/btnBuyAudience" style="@style/button_main_menu" android:text="شراء مساعدة الجمهور - 700 قطعة" />
+            <Button android:id="@+id/btnBuyCall" style="@style/button_main_menu" android:text="شراء الاتصال بصديق - 700 قطعة" />
+            <Button android:id="@+id/btnBuyGemPack" style="@style/button_main_menu" android:text="شراء 5 جواهر - 1500 قطعة" />
+            <Button android:id="@+id/btnExchangeGems" style="@style/button_main_menu" android:text="تحويل 3 جواهر إلى 900 قطعة" />
+        </LinearLayout>
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btnStoreBack"
+        android:layout_width="220dp"
+        android:layout_height="42dp"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/menu_button_frame"
+        android:text="رجوع"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp" />
+
+</RelativeLayout>

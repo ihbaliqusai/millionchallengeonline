@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_main">
+
+    <TextView
+        android:id="@+id/txtAchievementsTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:text="الإنجازات"
+        android:textColor="#FFFFFF"
+        android:textSize="28sp"
+        android:fontFamily="@font/baloo" />
+
+    <TextView
+        android:id="@+id/txtAchievementsSummary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/txtAchievementsTitle"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/stepSelected"
+        android:textSize="16sp"
+        android:fontFamily="@font/baloo" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/txtAchievementsSummary"
+        android:layout_above="@id/btnAchievementsBack"
+        android:layout_margin="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView android:id="@+id/txtAch1" style="@style/AchievementCard" />
+            <TextView android:id="@+id/txtAch2" style="@style/AchievementCard" />
+            <TextView android:id="@+id/txtAch3" style="@style/AchievementCard" />
+            <TextView android:id="@+id/txtAch4" style="@style/AchievementCard" />
+            <TextView android:id="@+id/txtAch5" style="@style/AchievementCard" />
+            <TextView android:id="@+id/txtAch6" style="@style/AchievementCard" />
+            <TextView android:id="@+id/txtAch7" style="@style/AchievementCard" />
+            <TextView android:id="@+id/txtAch8" style="@style/AchievementCard" />
+            <TextView android:id="@+id/txtAch9" style="@style/AchievementCard" />
+            <TextView android:id="@+id/txtAch10" style="@style/AchievementCard" />
+        </LinearLayout>
+    </ScrollView>
+
+    <Button
+        android:id="@+id/btnAchievementsBack"
+        android:layout_width="220dp"
+        android:layout_height="42dp"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/menu_button_frame"
+        android:text="رجوع"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp" />
+
+</RelativeLayout>
