@@ -16,6 +16,40 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                         finish()
                     }
+                    "launchOfflineGame" -> {
+                        val intent = Intent(this, GameActivity::class.java).apply {
+                            putExtra("mode", "mono")
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    }
+                    "launchStats" -> {
+                        startActivity(Intent(this, StatsActivity::class.java))
+                        result.success(true)
+                    }
+                    "launchAchievements" -> {
+                        startActivity(Intent(this, AchievementsActivity::class.java))
+                        result.success(true)
+                    }
+                    "launchStore" -> {
+                        startActivity(Intent(this, StoreActivity::class.java))
+                        result.success(true)
+                    }
+                    "launchSettings" -> {
+                        startActivity(Intent(this, SettingsActivity::class.java))
+                        result.success(true)
+                    }
+                    "launchSpeedBattle" -> {
+                        // يفتح شاشة البحث عن خصم عشوائي مباشرة
+                        val intent = Intent(this, OpponentActivity::class.java)
+                        startActivity(intent)
+                        result.success(true)
+                    }
+                    "getUserCurrency" -> {
+                        val coins = AppPrefs.getCoins(this)
+                        val gems  = AppPrefs.getGems(this)
+                        result.success(mapOf("coins" to coins, "gems" to gems))
+                    }
                     "launchRoomMatch" -> {
                         val intent = Intent(this, GameActivity::class.java).apply {
                             putExtra("mode", "online")

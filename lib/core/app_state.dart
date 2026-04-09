@@ -25,6 +25,8 @@ class AppState extends ChangeNotifier {
   User? user;
   bool isBusy = false;
   String? error;
+  int coins = 0;
+  int gems = 0;
 
   Future<void> initialize() async {}
 
@@ -33,6 +35,7 @@ class AppState extends ChangeNotifier {
 
     if (nextUser != null) {
       unawaited(_syncLegacyUser());
+      unawaited(loadCurrency());
     } else {
       unawaited(_nativeBridgeService.resetLegacyUser());
     }
@@ -72,6 +75,44 @@ class AppState extends ChangeNotifier {
     if (currentUser == null) return;
     await _syncLegacyUser();
     await _nativeBridgeService.launchLegacyGame();
+  }
+
+  Future<void> openOfflineGame() async {
+    await _syncLegacyUser();
+    await _nativeBridgeService.launchOfflineGame();
+  }
+
+  Future<void> openStats() async {
+    await _syncLegacyUser();
+    await _nativeBridgeService.launchStats();
+  }
+
+  Future<void> openAchievements() async {
+    await _syncLegacyUser();
+    await _nativeBridgeService.launchAchievements();
+  }
+
+  Future<void> openStore() async {
+    await _syncLegacyUser();
+    await _nativeBridgeService.launchStore();
+  }
+
+  Future<void> openNativeSettings() async {
+    await _nativeBridgeService.launchNativeSettings();
+  }
+
+  Future<void> openSpeedBattle() async {
+    await _syncLegacyUser();
+    await _nativeBridgeService.launchSpeedBattle();
+  }
+
+  Future<void> loadCurrency() async {
+    try {
+      final data = await _nativeBridgeService.getUserCurrency();
+      coins = data['coins'] ?? 0;
+      gems = data['gems'] ?? 0;
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> _syncLegacyUser() async {

@@ -48,4 +48,34 @@ class NativeBridgeService {
   Future<void> resetLegacyUser() async {
     await _channel.invokeMethod('resetLegacyUser');
   }
+
+  Future<void> launchOfflineGame() async {
+    await _channel.invokeMethod('launchOfflineGame');
+  }
+
+  Future<void> launchStats() async {
+    await _channel.invokeMethod('launchStats');
+  }
+
+  Future<void> launchAchievements() async {
+    await _channel.invokeMethod('launchAchievements');
+  }
+
+  Future<void> launchStore() async {
+    await _channel.invokeMethod('launchStore');
+  }
+
+  Future<void> launchNativeSettings() async {
+    await _channel.invokeMethod('launchSettings');
+  }
+
+  Future<void> launchSpeedBattle() async {
+    await _channel.invokeMethod('launchSpeedBattle');
+  }
+
+  /// يُعيد {'coins': int, 'gems': int} من SharedPreferences الـ native
+  Future<Map<String, int>> getUserCurrency() async {
+    final result = await _channel.invokeMapMethod<String, int>('getUserCurrency');
+    return result ?? {'coins': 0, 'gems': 0};
+  }
 }

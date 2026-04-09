@@ -17,6 +17,9 @@ Future<void> main() async {
     DeviceOrientation.landscapeRight,
   ]);
 
+  // إخفاء شريط الحالة وأزرار التنقل (الرجوع / Home) نهائياً في كل الشاشات
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
   try {
     await Firebase.initializeApp();
   } catch (_) {
@@ -37,8 +40,7 @@ class MillionaireOnlineApp extends StatelessWidget {
         Provider<ProfileService>(create: (_) => ProfileService()),
         Provider<NativeBridgeService>(create: (_) => NativeBridgeService()),
         Provider<RoomService>(create: (_) => RoomService()),
-        ChangeNotifierProxyProvider3<AuthService, ProfileService,
-            NativeBridgeService, AppState>(
+        ChangeNotifierProxyProvider3<AuthService, ProfileService, NativeBridgeService, AppState>(
           create: (context) => AppState(
             authService: context.read<AuthService>(),
             profileService: context.read<ProfileService>(),
@@ -79,8 +81,7 @@ class MillionaireOnlineApp extends StatelessWidget {
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
             fillColor: Colors.white.withOpacity(0.08),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             labelStyle: const TextStyle(color: Colors.white70),
             prefixIconColor: const Color(0xFF7DD3FC),
             border: OutlineInputBorder(
@@ -93,8 +94,7 @@ class MillionaireOnlineApp extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
-              borderSide:
-                  const BorderSide(color: Color(0xFF7DD3FC), width: 1.8),
+              borderSide: const BorderSide(color: Color(0xFF7DD3FC), width: 1.8),
             ),
           ),
           filledButtonTheme: FilledButtonThemeData(
@@ -102,16 +102,14 @@ class MillionaireOnlineApp extends StatelessWidget {
               backgroundColor: const Color(0xFF6D28D9),
               foregroundColor: Colors.white,
               textStyle: const TextStyle(fontWeight: FontWeight.w800),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             ),
           ),
           outlinedButtonTheme: OutlinedButtonThemeData(
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
               side: BorderSide(color: Colors.white.withOpacity(0.22)),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             ),
           ),
         ),
