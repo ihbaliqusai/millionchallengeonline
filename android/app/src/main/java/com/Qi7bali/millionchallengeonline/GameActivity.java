@@ -147,7 +147,8 @@ public class GameActivity extends AppCompatActivity {
             imgSelected, imgRight, imgHelp5050, imgHelpCall, imgHelpAudience, imgHome, imgVolume,
             imgAnswer1Player1, imgAnswer1Player2, imgAnswer2Player1, imgAnswer2Player2,
             imgAnswer3Player1, imgAnswer3Player2, imgAnswer4Player1, imgAnswer4Player2;
-    RelativeLayout rlySelected, rlyRight, rlyDialog, rlyVotes, rlyCall, rlyProgress, rlyScore;
+    RelativeLayout rlySelected, rlyRight, rlyDialog, rlyVotes, rlyCall, rlyProgress;
+    LinearLayout rlyScore;
     LinearLayout llyQA, llySteps, llySolde, llyPlayer1, llyPlayer2;
     Typewriter txtDialog, txtCallAnswer;
     Button btnDialogYes, btnDialogNo, btnGetMoney;
