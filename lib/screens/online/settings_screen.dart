@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../services/native_bridge_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -12,16 +13,106 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool _loading = true;
   bool _sfx = true;
   bool _music = true;
   bool _haptic = true;
-  bool _notifications = false;
-  bool _performance = false;
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final bridge = context.read<NativeBridgeService>();
+      final settings = await bridge.getSettings();
+      if (!mounted) return;
+      setState(() {
+        _sfx    = settings['sfx']    ?? true;
+        _music  = settings['music']  ?? true;
+        _haptic = settings['haptic'] ?? true;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _setSfx(bool value) async {
+    setState(() => _sfx = value);
+    await context.read<NativeBridgeService>().setSoundEnabled(value);
+    if (_haptic) HapticFeedback.lightImpact();
+  }
+
+  Future<void> _setMusic(bool value) async {
+    setState(() => _music = value);
+    await context.read<NativeBridgeService>().setMusicEnabled(value);
+    if (_haptic) HapticFeedback.lightImpact();
+  }
+
+  Future<void> _setHaptic(bool value) async {
+    setState(() => _haptic = value);
+    await context.read<NativeBridgeService>().setHapticEnabled(value);
+    if (value) HapticFeedback.mediumImpact();
+  }
+
+  Future<void> _openNotifications() async {
+    if (_haptic) HapticFeedback.lightImpact();
+    await context.read<NativeBridgeService>().openNotificationSettings();
+  }
+
+  void _openLanguage() {}
+
+  void _openPrivacyPolicy() {
+    if (_haptic) HapticFeedback.lightImpact();
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF152055),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Text(
+          'Privacy Policy',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+        ),
+        content: SingleChildScrollView(
+          child: Text(
+            'We collect only the data necessary to run the game, '
+            'including your username, profile photo, and game progress.\n\n'
+            'Your data is stored securely using Firebase and is never sold '
+            'or shared with third parties for advertising.\n\n'
+            'You may delete your account and all associated data at any time '
+            'by contacting us through the app store listing.\n\n'
+            'By using this app you agree to these terms.',
+            style: const TextStyle(color: Colors.white70, height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'Close',
+              style: TextStyle(color: Color(0xFF7DD3FC), fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _restorePurchases() async {
+    if (_haptic) HapticFeedback.lightImpact();
+    final restored = await context.read<NativeBridgeService>().restorePurchases();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          restored ? 'Purchases restored successfully.' : 'No purchases found to restore.',
+        ),
+      ),
+    );
   }
 
   @override
@@ -33,59 +124,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header ────────────────────────────────────────────────
             _Header(onBack: () => Navigator.of(context).pop()),
-
-            // ── Settings rows ─────────────────────────────────────────
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                children: [
-                  _LanguageRow(),
-                  const SizedBox(height: 6),
-                  _ToggleRow(
-                    icon: Icons.volume_up_rounded,
-                    label: 'SFX',
-                    value: _sfx,
-                    onChanged: (v) => setState(() => _sfx = v),
-                  ),
-                  const SizedBox(height: 6),
-                  _ToggleRow(
-                    icon: Icons.music_note_rounded,
-                    label: 'Music',
-                    value: _music,
-                    onChanged: (v) => setState(() => _music = v),
-                  ),
-                  const SizedBox(height: 6),
-                  _ToggleRow(
-                    icon: Icons.vibration_rounded,
-                    label: 'Haptic',
-                    value: _haptic,
-                    onChanged: (v) => setState(() => _haptic = v),
-                  ),
-                  const SizedBox(height: 6),
-                  _ToggleRow(
-                    icon: Icons.notifications_rounded,
-                    label: 'Notifications',
-                    value: _notifications,
-                    onChanged: (v) => setState(() => _notifications = v),
-                  ),
-                  const SizedBox(height: 6),
-                  _ToggleRow(
-                    icon: Icons.bolt_rounded,
-                    label: 'Performance',
-                    value: _performance,
-                    onChanged: (v) => setState(() => _performance = v),
-                  ),
-                  const SizedBox(height: 16),
-                  // Sign-out row
-                  _SignOutRow(appState: appState),
-                ],
-              ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      children: [
+                        _TappableRow(
+                          icon: Icons.language_rounded,
+                          label: 'Language',
+                          trailing: Container(
+                            width: 38,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      color: const Color(0xFFB22234),
+                                      child: Column(
+                                        children: List.generate(
+                                          7,
+                                          (i) => Expanded(
+                                            child: Container(
+                                              color: i.isEven
+                                                  ? const Color(0xFFB22234)
+                                                  : Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 15,
+                                    color: const Color(0xFF3C3B6E),
+                                    child: const Center(
+                                      child: Text(
+                                        '★',
+                                        style: TextStyle(color: Colors.white, fontSize: 6),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          onTap: _openLanguage,
+                        ),
+                        const SizedBox(height: 6),
+                        _ToggleRow(
+                          icon: Icons.volume_up_rounded,
+                          label: 'SFX',
+                          value: _sfx,
+                          onChanged: _setSfx,
+                        ),
+                        const SizedBox(height: 6),
+                        _ToggleRow(
+                          icon: Icons.music_note_rounded,
+                          label: 'Music',
+                          value: _music,
+                          onChanged: _setMusic,
+                        ),
+                        const SizedBox(height: 6),
+                        _ToggleRow(
+                          icon: Icons.vibration_rounded,
+                          label: 'Haptic',
+                          value: _haptic,
+                          onChanged: _setHaptic,
+                        ),
+                        const SizedBox(height: 6),
+                        _TappableRow(
+                          icon: Icons.notifications_rounded,
+                          label: 'Notifications',
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            color: Colors.white38,
+                            size: 16,
+                          ),
+                          onTap: _openNotifications,
+                        ),
+                        const SizedBox(height: 16),
+                        _SignOutRow(appState: appState),
+                      ],
+                    ),
             ),
-
-            // ── Bottom buttons ────────────────────────────────────────
-            _BottomButtons(appState: appState),
+            _BottomButtons(
+              onPrivacyPolicy: _openPrivacyPolicy,
+              onRestorePurchases: _restorePurchases,
+            ),
           ],
         ),
       ),
@@ -133,57 +266,25 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ─── Language row ─────────────────────────────────────────────────────────────
+// ─── Tappable row (Language / Notifications) ──────────────────────────────────
 
-class _LanguageRow extends StatelessWidget {
+class _TappableRow extends StatelessWidget {
+  const _TappableRow({
+    required this.icon,
+    required this.label,
+    required this.trailing,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final Widget trailing;
+  final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) {
-    return _RowShell(
-      icon: Icons.language_rounded,
-      label: 'Language',
-      trailing: Container(
-        width: 38,
-        height: 26,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(3),
-          // US flag using color blocks as placeholder
-          child: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  color: const Color(0xFFB22234),
-                  child: Column(
-                    children: List.generate(
-                      7,
-                      (i) => Expanded(
-                        child: Container(
-                          color: i.isEven
-                              ? const Color(0xFFB22234)
-                              : Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Container(
-                width: 15,
-                color: const Color(0xFF3C3B6E),
-                child: const Center(
-                  child: Text(
-                    '★',
-                    style: TextStyle(color: Colors.white, fontSize: 6),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return GestureDetector(
+      onTap: onTap,
+      child: _RowShell(icon: icon, label: label, trailing: trailing),
     );
   }
 }
@@ -331,8 +432,12 @@ class _RowShell extends StatelessWidget {
 // ─── Bottom buttons ───────────────────────────────────────────────────────────
 
 class _BottomButtons extends StatelessWidget {
-  const _BottomButtons({required this.appState});
-  final AppState appState;
+  const _BottomButtons({
+    required this.onPrivacyPolicy,
+    required this.onRestorePurchases,
+  });
+  final VoidCallback onPrivacyPolicy;
+  final VoidCallback onRestorePurchases;
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +449,7 @@ class _BottomButtons extends StatelessWidget {
             child: _ActionButton(
               label: 'PRIVACY\nPOLICY',
               color: const Color(0xFF2563EB),
-              onTap: () {},
+              onTap: onPrivacyPolicy,
             ),
           ),
           const SizedBox(width: 12),
@@ -352,7 +457,7 @@ class _BottomButtons extends StatelessWidget {
             child: _ActionButton(
               label: 'RESTORE\nPURCHASES',
               color: const Color(0xFF16A34A),
-              onTap: () {},
+              onTap: onRestorePurchases,
             ),
           ),
         ],

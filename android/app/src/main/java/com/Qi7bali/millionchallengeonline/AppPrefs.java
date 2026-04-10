@@ -52,6 +52,22 @@ public final class AppPrefs {
         return settingsPrefs(c).getBoolean("soundEnabled", true);
     }
 
+    public static void setMusicEnabled(Context c, boolean enabled) {
+        settingsPrefs(c).edit().putBoolean("musicEnabled", enabled).apply();
+    }
+
+    public static boolean isMusicEnabled(Context c) {
+        return settingsPrefs(c).getBoolean("musicEnabled", true);
+    }
+
+    public static void setHapticEnabled(Context c, boolean enabled) {
+        settingsPrefs(c).edit().putBoolean("hapticEnabled", enabled).apply();
+    }
+
+    public static boolean isHapticEnabled(Context c) {
+        return settingsPrefs(c).getBoolean("hapticEnabled", true);
+    }
+
     public static void setDialogsEnabled(Context c, boolean enabled) {
         settingsPrefs(c).edit().putBoolean("dialogsEnabled", enabled).apply();
     }

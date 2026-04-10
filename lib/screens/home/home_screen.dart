@@ -23,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _idleCtrl;
   late final AnimationController _glowCtrl;
+  late final AnimationController _bgCtrl;
 
   @override
   void initState() {
@@ -41,6 +42,11 @@ class _HomeScreenState extends State<HomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
+
+    _bgCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
   }
 
   @override
@@ -55,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _idleCtrl.dispose();
     _glowCtrl.dispose();
+    _bgCtrl.dispose();
     super.dispose();
   }
 
@@ -92,29 +99,42 @@ class _HomeScreenState extends State<HomeScreen>
               ),
             ),
 
-            // ── Main layout: LEFT sidebar | CENTER castle | RIGHT sidebar ──
+            // ── Animated sparkles ─────────────────────────────────────
             Positioned.fill(
-              child: Row(
-                children: [
-                  // ── LEFT SIDEBAR ─────────────────────────────────────
-                  _LeftSidebar(appState: appState),
+              child: AnimatedBuilder(
+                animation: _bgCtrl,
+                builder: (_, __) => CustomPaint(
+                  painter: _SparklesPainter(_bgCtrl.value),
+                ),
+              ),
+            ),
 
-                  // ── CENTER: Castle + Battle button ───────────────────
-                  Expanded(
-                    child: _CenterArena(
-                      appState: appState,
-                      idleCtrl: _idleCtrl,
-                      glowCtrl: _glowCtrl,
-                    ),
-                  ),
+            // ── CENTER arena — full screen width so content is truly centred ──
+            Positioned.fill(
+              child: _CenterArena(
+                appState: appState,
+                idleCtrl: _idleCtrl,
+                glowCtrl: _glowCtrl,
+              ),
+            ),
 
-                  // ── RIGHT SIDEBAR ────────────────────────────────────
-                  _RightSidebar(
-                    appState: appState,
-                    username: username,
-                    user: user,
-                  ),
-                ],
+            // ── LEFT SIDEBAR — overlays the center ───────────────────────
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: 0,
+              child: _LeftSidebar(appState: appState),
+            ),
+
+            // ── RIGHT SIDEBAR — overlays the center ──────────────────────
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: 0,
+              child: _RightSidebar(
+                appState: appState,
+                username: username,
+                user: user,
               ),
             ),
 
@@ -480,52 +500,58 @@ class _CenterArena extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
+      alignment: Alignment.center,
       children: [
-        const Spacer(),
-
-        // ── Castle illustration (idle float) ──────────────────
-        Expanded(
-          flex: 5,
-          child: AnimatedBuilder(
-            animation: idleCtrl,
-            builder: (_, child) => Transform.translate(
-              offset: Offset(0, math.sin(idleCtrl.value * math.pi) * 6),
-              child: child,
+        // ── Logo — slightly above centre ──────────────────────
+        Align(
+          alignment: const Alignment(0, -0.2),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 220, maxWidth: 340),
+            child: AnimatedBuilder(
+              animation: idleCtrl,
+              builder: (_, child) => Transform.translate(
+                offset: Offset(0, math.sin(idleCtrl.value * math.pi) * 6),
+                child: child,
+              ),
+              child: _CastleWidget(),
             ),
-            child: _CastleWidget(),
           ),
         ),
 
-        // ── Ranking button ────────────────────────────────────
-        _RankingButton(),
-
-        const SizedBox(height: 8),
-
-        // ── BATTLE + SPEED BATTLE buttons ─────────────────────
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _BattleButton(
-              glowCtrl: glowCtrl,
-              label: 'Battle',
-              gold: true,
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const RoomsScreen()),
+        // ── Ranking + Battle buttons — pinned to bottom ───────
+        Positioned(
+          bottom: MediaQuery.of(context).padding.bottom + 8,
+          left: 0,
+          right: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _RankingButton(),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _BattleButton(
+                    glowCtrl: glowCtrl,
+                    label: 'Battle',
+                    gold: true,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(builder: (_) => const RoomsScreen()),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _BattleButton(
+                    glowCtrl: glowCtrl,
+                    label: 'Speed Battle',
+                    gold: false,
+                    onPressed: () => context.read<AppState>().openSpeedBattle(),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 12),
-            _BattleButton(
-              glowCtrl: glowCtrl,
-              label: 'Speed Battle',
-              gold: false,
-              onPressed: () => context.read<AppState>().openSpeedBattle(),
-            ),
-          ],
+            ],
+          ),
         ),
-
-        SizedBox(height: MediaQuery.of(context).padding.bottom + 4),
       ],
     );
   }
@@ -534,148 +560,22 @@ class _CenterArena extends StatelessWidget {
 class _CastleWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _CastlePainter(),
-      child: const SizedBox.expand(),
-    );
-  }
-}
-
-class _CastlePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height * 0.55;
-    final w = size.width * 0.38;
-    final h = size.height * 0.65;
-
-    final wallPaint = Paint()..color = const Color(0xFF8B6914);
-    final darkPaint = Paint()..color = const Color(0xFF5C4510);
-    final roofPaint = Paint()..color = const Color(0xFF1D4ED8);
-    final stonePaint = Paint()
-      ..color = const Color(0xFF6B7280).withOpacity(0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final shadowPaint = Paint()
-      ..color = Colors.black.withOpacity(0.3)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
-
-    // Shadow
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, cy + h / 2 + 8), width: w * 1.1, height: 16),
-      shadowPaint,
-    );
-
-    // Main tower body
-    final body = Rect.fromCenter(center: Offset(cx, cy), width: w, height: h);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(body, const Radius.circular(6)),
-      wallPaint,
-    );
-
-    // Wood panels
-    final panelPaint = Paint()..color = const Color(0xFF92400E).withOpacity(0.65);
-    for (int row = 0; row < 3; row++) {
-      for (int col = 0; col < 2; col++) {
-        final px = cx - w / 2 + 8 + col * (w / 2 - 8);
-        final py = cy - h / 4 + row * (h / 3.5);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(px, py, w / 2 - 16, h / 4.5),
-            const Radius.circular(4),
-          ),
-          panelPaint,
-        );
-      }
-    }
-
-    // Stone grid lines
-    for (int row = 0; row < 6; row++) {
-      canvas.drawLine(
-        Offset(cx - w / 2, cy - h / 2 + row * (h / 6)),
-        Offset(cx + w / 2, cy - h / 2 + row * (h / 6)),
-        stonePaint,
-      );
-    }
-
-    // Roof triangle
-    final roofPath = Path()
-      ..moveTo(cx, cy - h / 2 - h * 0.28)
-      ..lineTo(cx - w * 0.42, cy - h / 2)
-      ..lineTo(cx + w * 0.42, cy - h / 2)
-      ..close();
-    canvas.drawPath(roofPath, roofPaint);
-
-    // Roof outline
-    canvas.drawPath(
-      roofPath,
-      Paint()
-        ..color = const Color(0xFF1E40AF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
-
-    // Gate arch
-    final gateW = w * 0.28;
-    final gateH = h * 0.22;
-    final gatePath = Path()
-      ..moveTo(cx - gateW / 2, cy + h / 2)
-      ..lineTo(cx - gateW / 2, cy + h / 4)
-      ..arcToPoint(
-        Offset(cx + gateW / 2, cy + h / 4),
-        radius: Radius.circular(gateW / 2),
-        clockwise: false,
-      )
-      ..lineTo(cx + gateW / 2, cy + h / 2)
-      ..close();
-    canvas.drawPath(gatePath, darkPaint);
-
-    // Crenellations
-    final crenW = w / 10;
-    final crenH = h * 0.07;
-    for (int i = 0; i < 5; i++) {
-      if (i.isEven) {
-        canvas.drawRect(
-          Rect.fromLTWH(
-            cx - w / 2 + i * (w / 5),
-            cy - h / 2 - crenH,
-            crenW * 1.5,
-            crenH,
-          ),
-          wallPaint,
-        );
-      }
-    }
-
-    // Gear wheels on gate
-    final gearPaint = Paint()
-      ..color = const Color(0xFF374151)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-    canvas.drawCircle(Offset(cx - gateW / 2 - 10, cy + h / 2 - 8), 8, gearPaint);
-    canvas.drawCircle(Offset(cx + gateW / 2 + 10, cy + h / 2 - 8), 8, gearPaint);
-
-    // Player figure at gate
-    final figPaint = Paint()..color = const Color(0xFF92400E);
-    canvas.drawCircle(Offset(cx, cy + h / 2 + 2), 9, figPaint);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(cx, cy + h / 2 + 16), width: 14, height: 18),
-        const Radius.circular(3),
+    return Center(
+      child: Image.asset(
+        'assets/ui/logo.png',
+        fit: BoxFit.contain,
       ),
-      figPaint,
     );
   }
-
-  @override
-  bool shouldRepaint(_CastlePainter old) => false;
 }
 
 class _RankingButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {},
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const StatsScreen()),
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
@@ -840,7 +740,12 @@ class _RightSidebar extends StatelessWidget {
           ),
 
           // Daily chests — center
-          _DailyChests(),
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
+            ),
+            child: _DailyChests(),
+          ),
 
           // Player profile card — bottom
           _PlayerCard(
@@ -948,6 +853,72 @@ class _DailyChests extends StatelessWidget {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+//  SPARKLES BACKGROUND PAINTER
+// ──────────────────────────────────────────────────────────────────────────────
+class _SparklesPainter extends CustomPainter {
+  _SparklesPainter(this.t);
+  final double t; // 0..1 repeating
+
+  static const int _count = 55;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < _count; i++) {
+      final seed = i * 2654435761 & 0xFFFFFFFF;
+      final fx = ((seed ^ (seed >> 16)) & 0xFFFF) / 0xFFFF;
+      final fy = ((seed ^ (seed >> 8)) & 0xFFFF) / 0xFFFF;
+      final phase = (i * 0.37) % 1.0;
+      // Integer speed (1, 2, 3): particle travels exactly N full screen heights
+      // per cycle → position at t=0 equals position at t=1 → zero visible jump.
+      final speed = (1 + i % 3).toDouble();
+      final radius = 1.0 + (i % 4) * 0.9;
+
+      // Upward drift with seamless full loop
+      final raw = (fy - t * speed) % 1.0;
+      final dy = raw < 0 ? raw + 1.0 : raw;
+
+      final alpha = math.sin((t * speed + phase) * 2 * math.pi) * 0.5 + 0.5;
+      final opacity = (0.15 + alpha * 0.75).clamp(0.0, 1.0);
+
+      final Color base;
+      final mod = i % 3;
+      if (mod == 0) {
+        base = const Color(0xFFFACC15);
+      } else if (mod == 1) {
+        base = const Color(0xFF38BDF8);
+      } else {
+        base = Colors.white;
+      }
+
+      // Glow halo for larger particles
+      if (radius > 2.2) {
+        paint
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
+          ..color = base.withValues(alpha: opacity * 0.35);
+        canvas.drawCircle(
+          Offset(fx * size.width, dy * size.height),
+          radius * 1.8,
+          paint,
+        );
+        paint.maskFilter = null;
+      }
+
+      paint.color = base.withValues(alpha: opacity);
+      canvas.drawCircle(
+        Offset(fx * size.width, dy * size.height),
+        radius,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SparklesPainter old) => old.t != t;
+}
+
 class _PlayerCard extends StatelessWidget {
   const _PlayerCard({
     required this.appState,
@@ -961,7 +932,9 @@ class _PlayerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {},
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+      ),
       child: Container(
         width: 160,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

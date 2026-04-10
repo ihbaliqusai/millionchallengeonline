@@ -1,6 +1,7 @@
 package com.Qi7bali.millionchallengeonline
 
 import android.content.Intent
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -83,6 +84,63 @@ class MainActivity : FlutterActivity() {
                     "resetLegacyUser" -> {
                         AppPrefs.setGuestUser(this)
                         result.success(true)
+                    }
+                    "getPlayerStats" -> {
+                        val games   = PlayerStats.getGamesPlayed(this)
+                        val wins    = PlayerStats.getWins(this)
+                        val losses  = PlayerStats.getLosses(this)
+                        val correct = PlayerStats.getCorrectAnswers(this)
+                        val wrong   = PlayerStats.getWrongAnswers(this)
+                        val total   = correct + wrong
+                        val streak  = PlayerStats.getBestStreak(this)
+                        val highest = PlayerStats.getHighestMoney(this)
+                        val winPct  = if (games > 0) (wins * 100 / games) else 0
+                        val accPct  = if (total > 0) (correct * 100 / total) else 0
+                        result.success(mapOf(
+                            "gamesPlayed"    to games,
+                            "wins"           to wins,
+                            "losses"         to losses,
+                            "correctAnswers" to correct,
+                            "wrongAnswers"   to wrong,
+                            "totalAnswered"  to total,
+                            "bestStreak"     to streak,
+                            "highestMoney"   to highest,
+                            "winPercent"     to winPct,
+                            "accuracy"       to accPct
+                        ))
+                    }
+                    "getSettings" -> {
+                        result.success(mapOf(
+                            "sfx"    to AppPrefs.isSoundEnabled(this),
+                            "music"  to AppPrefs.isMusicEnabled(this),
+                            "haptic" to AppPrefs.isHapticEnabled(this)
+                        ))
+                    }
+                    "setSoundEnabled" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: true
+                        AppPrefs.setSoundEnabled(this, enabled)
+                        result.success(true)
+                    }
+                    "setMusicEnabled" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: true
+                        AppPrefs.setMusicEnabled(this, enabled)
+                        result.success(true)
+                    }
+                    "setHapticEnabled" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: true
+                        AppPrefs.setHapticEnabled(this, enabled)
+                        result.success(true)
+                    }
+                    "openNotificationSettings" -> {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    }
+                    "restorePurchases" -> {
+                        // Placeholder: wire up to billing client when ready
+                        result.success(false)
                     }
                     else -> result.notImplemented()
                 }

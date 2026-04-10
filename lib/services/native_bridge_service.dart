@@ -73,9 +73,47 @@ class NativeBridgeService {
     await _channel.invokeMethod('launchSpeedBattle');
   }
 
+  /// يُعيد إحصائيات اللاعب الحقيقية من PlayerStats
+  Future<Map<String, int>> getPlayerStats() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>('getPlayerStats');
+    if (result == null) return {};
+    return result.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
   /// يُعيد {'coins': int, 'gems': int} من SharedPreferences الـ native
   Future<Map<String, int>> getUserCurrency() async {
     final result = await _channel.invokeMapMethod<String, int>('getUserCurrency');
     return result ?? {'coins': 0, 'gems': 0};
+  }
+
+  /// يُعيد قيم الإعدادات المحفوظة من Android SharedPreferences
+  Future<Map<String, bool>> getSettings() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>('getSettings');
+    return {
+      'sfx':    result?['sfx']    as bool? ?? true,
+      'music':  result?['music']  as bool? ?? true,
+      'haptic': result?['haptic'] as bool? ?? true,
+    };
+  }
+
+  Future<void> setSoundEnabled(bool enabled) async {
+    await _channel.invokeMethod<void>('setSoundEnabled', {'enabled': enabled});
+  }
+
+  Future<void> setMusicEnabled(bool enabled) async {
+    await _channel.invokeMethod<void>('setMusicEnabled', {'enabled': enabled});
+  }
+
+  Future<void> setHapticEnabled(bool enabled) async {
+    await _channel.invokeMethod<void>('setHapticEnabled', {'enabled': enabled});
+  }
+
+  Future<void> openNotificationSettings() async {
+    await _channel.invokeMethod<void>('openNotificationSettings');
+  }
+
+  Future<bool> restorePurchases() async {
+    final result = await _channel.invokeMethod<bool>('restorePurchases');
+    return result ?? false;
   }
 }

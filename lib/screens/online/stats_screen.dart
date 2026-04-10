@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../services/native_bridge_service.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -12,10 +13,35 @@ class StatsScreen extends StatefulWidget {
 }
 
 class _StatsScreenState extends State<StatsScreen> {
+  bool _loading = true;
+  Map<String, int> _stats = {};
+
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final stats = await context.read<NativeBridgeService>().getPlayerStats();
+      if (!mounted) return;
+      setState(() {
+        _stats = stats;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _fmt(String key) {
+    final v = _stats[key] ?? 0;
+    if (v >= 1000) {
+      return '${(v / 1000).toStringAsFixed(1)}k';
+    }
+    return '$v';
   }
 
   @override
@@ -29,88 +55,83 @@ class _StatsScreenState extends State<StatsScreen> {
           children: [
             _Header(onBack: () => Navigator.of(context).pop()),
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                children: [
-                  _PlayerInfoCard(appState: appState),
-                  const SizedBox(height: 12),
-                  Text(
-                    'الأداء العام',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white.withValues(alpha: 0.6),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      children: [
+                        _PlayerInfoCard(appState: appState),
+                        const SizedBox(height: 12),
+                        Text(
+                          'الأداء العام',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GridView.count(
+                          crossAxisCount: 2,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          childAspectRatio: 1.4,
+                          children: [
+                            _StatCard(
+                              icon: Icons.sports_esports_rounded,
+                              color: const Color(0xFF38BDF8),
+                              value: _fmt('gamesPlayed'),
+                              label: 'المباريات',
+                            ),
+                            _StatCard(
+                              icon: Icons.emoji_events_rounded,
+                              color: const Color(0xFFFACC15),
+                              value: _fmt('wins'),
+                              label: 'انتصارات',
+                            ),
+                            _StatCard(
+                              icon: Icons.trending_up_rounded,
+                              color: const Color(0xFF4ADE80),
+                              value: '${_stats['winPercent'] ?? 0}%',
+                              label: 'نسبة الفوز',
+                            ),
+                            _StatCard(
+                              icon: Icons.bolt_rounded,
+                              color: const Color(0xFFF97316),
+                              value: _fmt('bestStreak'),
+                              label: 'أفضل تتالي',
+                            ),
+                            _StatCard(
+                              icon: Icons.quiz_rounded,
+                              color: const Color(0xFFA78BFA),
+                              value: _fmt('totalAnswered'),
+                              label: 'الأسئلة',
+                            ),
+                            _StatCard(
+                              icon: Icons.check_circle_rounded,
+                              color: const Color(0xFF34D399),
+                              value: '${_stats['accuracy'] ?? 0}%',
+                              label: 'الدقة',
+                            ),
+                          ],
+                        ),
+                        if ((_stats['gamesPlayed'] ?? 0) == 0) ...[
+                          const SizedBox(height: 24),
+                          Center(
+                            child: Text(
+                              'العب مباراة لترى إحصائياتك هنا',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.4),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                    childAspectRatio: 1.4,
-                    children: const [
-                      _StatCard(
-                        icon: Icons.sports_esports_rounded,
-                        color: Color(0xFF38BDF8),
-                        value: '142',
-                        label: 'المباريات',
-                      ),
-                      _StatCard(
-                        icon: Icons.emoji_events_rounded,
-                        color: Color(0xFFFACC15),
-                        value: '89',
-                        label: 'انتصارات',
-                      ),
-                      _StatCard(
-                        icon: Icons.trending_up_rounded,
-                        color: Color(0xFF4ADE80),
-                        value: '62%',
-                        label: 'نسبة الفوز',
-                      ),
-                      _StatCard(
-                        icon: Icons.bolt_rounded,
-                        color: Color(0xFFF97316),
-                        value: '12',
-                        label: 'أفضل تتالي',
-                      ),
-                      _StatCard(
-                        icon: Icons.quiz_rounded,
-                        color: Color(0xFFA78BFA),
-                        value: '1,847',
-                        label: 'الأسئلة',
-                      ),
-                      _StatCard(
-                        icon: Icons.check_circle_rounded,
-                        color: Color(0xFF34D399),
-                        value: '74%',
-                        label: 'الدقة',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'السجل الأخير',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const _MatchRow(isWin: true, points: 850, date: 'اليوم'),
-                  const SizedBox(height: 6),
-                  const _MatchRow(isWin: true, points: 920, date: 'اليوم'),
-                  const SizedBox(height: 6),
-                  const _MatchRow(isWin: false, points: 340, date: 'أمس'),
-                  const SizedBox(height: 6),
-                  const _MatchRow(isWin: true, points: 1100, date: 'أمس'),
-                  const SizedBox(height: 6),
-                  const _MatchRow(isWin: false, points: 290, date: '3 أيام'),
-                  const SizedBox(height: 16),
-                ],
-              ),
             ),
           ],
         ),
@@ -247,10 +268,7 @@ class _StatCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1A2B6B),
-            Color(0xFF152055),
-          ],
+          colors: [Color(0xFF1A2B6B), Color(0xFF152055)],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
@@ -275,82 +293,6 @@ class _StatCard extends StatelessWidget {
               fontSize: 11,
               color: Colors.white.withValues(alpha: 0.6),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Match row ────────────────────────────────────────────────────────────────
-
-class _MatchRow extends StatelessWidget {
-  const _MatchRow({
-    required this.isWin,
-    required this.points,
-    required this.date,
-  });
-
-  final bool isWin;
-  final int points;
-  final String date;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF152055),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            isWin ? Icons.check_circle_rounded : Icons.cancel_rounded,
-            color: isWin ? const Color(0xFF4ADE80) : const Color(0xFFEF4444),
-            size: 22,
-          ),
-          const SizedBox(width: 10),
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E3A8A).withValues(alpha: 0.6),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'مباراة عشوائية',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '$points نقطة',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: isWin ? const Color(0xFF4ADE80) : const Color(0xFFEF4444),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                date,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.4),
-                ),
-              ),
-            ],
           ),
         ],
       ),

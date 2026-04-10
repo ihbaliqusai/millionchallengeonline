@@ -19,7 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
-            android:src="@drawable/bg_game"
+            android:src="@drawable/bg_game2"
             android:contentDescription="@string/todo5" />
 
         <!-- LIGHTS -->
