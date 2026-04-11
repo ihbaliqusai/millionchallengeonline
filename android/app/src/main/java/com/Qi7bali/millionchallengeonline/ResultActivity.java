@@ -83,6 +83,10 @@ public class ResultActivity extends AppCompatActivity {
         txtOpponentScore.setText(String.valueOf(opponentScore));
         txtOpponentSets.setText(String.valueOf(opponentSets));
 
+        // Award XP for the online Speed Battle match
+        PlayerProgress.onOnlineMatchFinished(this, didWin || opponentLeft, mySets);
+        PlayerStats.recordGameEnd(this, didWin || opponentLeft, 0);
+
         if (opponentLeft) {
             txtResult.setText("Opponent left the match");
             txtScore.setText("Your new score: " + myNewScore);

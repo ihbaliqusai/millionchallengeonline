@@ -35,6 +35,10 @@ class _HomeScreenState extends State<HomeScreen>
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppState>().loadCurrency();
+      // loadLevelData sets _lastKnownGamesPlayed then calls checkAndAwardXpForGames.
+      // Called here because didChangeAppLifecycleState(resumed) is NOT fired
+      // when the native game Activity restarts MainActivity with FLAG_ACTIVITY_CLEAR_TASK.
+      context.read<AppState>().loadLevelData();
     });
     _idleCtrl = AnimationController(
       vsync: this,
@@ -965,6 +969,24 @@ class _PlayerCard extends StatelessWidget {
   final String username;
   final dynamic user;
 
+  static String _rankTitle(int level) {
+    if (level >= 50) return 'Legend';
+    if (level >= 30) return 'Diamond';
+    if (level >= 20) return 'Gold';
+    if (level >= 10) return 'Silver';
+    if (level >= 5)  return 'Bronze';
+    return 'Beginner';
+  }
+
+  static Color _rankColor(int level) {
+    if (level >= 50) return const Color(0xFFA855F7);
+    if (level >= 30) return const Color(0xFF38BDF8);
+    if (level >= 20) return const Color(0xFFFACC15);
+    if (level >= 10) return const Color(0xFF94A3B8);
+    if (level >= 5)  return const Color(0xFFB45309);
+    return const Color(0xFF38BDF8);
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -1013,13 +1035,13 @@ class _PlayerCard extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded, size: 12, color: Color(0xFF38BDF8)),
+                      Icon(Icons.circle, size: 8, color: _rankColor(appState.level)),
                       const SizedBox(width: 3),
                       Text(
-                        'Beginner',
+                        _rankTitle(appState.level),
                         style: TextStyle(
                           fontSize: 11,
-                          color: const Color(0xFF38BDF8),
+                          color: _rankColor(appState.level),
                           fontWeight: FontWeight.w700,
                         ),
                       ),

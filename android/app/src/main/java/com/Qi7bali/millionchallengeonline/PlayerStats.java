@@ -30,8 +30,8 @@ public class PlayerStats {
                 .putInt("currentStreak", current)
                 .putInt("bestStreak", best)
                 .apply();
-        PlayerProgress.addXp(c, 35);
-        PlayerProgress.addCoins(c, 40);
+        PlayerProgress.addXp(c, 10);
+        PlayerProgress.addCoins(c, 20);
         if (best >= 5) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_5);
         if (best >= 10) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_10);
     }
@@ -42,7 +42,7 @@ public class PlayerStats {
                 .putInt("wrongAnswers", p.getInt("wrongAnswers", 0) + 1)
                 .putInt("currentStreak", 0)
                 .apply();
-        PlayerProgress.addXp(c, 10);
+        PlayerProgress.addXp(c, 3);
     }
 
     public static void recordGameEnd(Context c, boolean won, int prizeMoney) {

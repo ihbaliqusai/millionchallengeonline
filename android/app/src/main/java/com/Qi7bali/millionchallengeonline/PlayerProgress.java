@@ -68,17 +68,39 @@ public class PlayerProgress {
         return true;
     }
 
+    // Level n requires n*100 XP to advance — matches Flutter's _computeLevel()
     public static int getLevel(Context c) {
         int xp = getXp(c);
-        return Math.max(1, (xp / 300) + 1);
+        int lv = 1;
+        while (xp >= lv * 100) {
+            xp -= lv * 100;
+            lv++;
+        }
+        return lv;
     }
 
     public static int getXpIntoLevel(Context c) {
-        return getXp(c) % 300;
+        int xp = getXp(c);
+        int lv = 1;
+        while (xp >= lv * 100) {
+            xp -= lv * 100;
+            lv++;
+        }
+        return xp;
     }
 
     public static int getXpNeededForNextLevel(Context c) {
-        return 300;
+        return getLevel(c) * 100;
+    }
+
+    // Rank title — mirrors Flutter's _rankTitle()
+    public static String getRankTitle(int level) {
+        if (level >= 50) return "Legend";
+        if (level >= 30) return "Diamond";
+        if (level >= 20) return "Gold";
+        if (level >= 10) return "Silver";
+        if (level >= 5)  return "Bronze";
+        return "Beginner";
     }
 
     public static void addInventory(Context c, String type, int amount) {
@@ -137,6 +159,14 @@ public class PlayerProgress {
         return new DailyReward(coins, gems, streak);
     }
 
+    // XP constants — keep in sync with AppState.dart
+    public static final int XP_ONLINE_WIN  = 100;
+    public static final int XP_ONLINE_LOSS = 30;
+    public static final int XP_ONLINE_ROUND_WON = 15; // per round won in Speed Battle
+    public static final int XP_OFFLINE_WIN  = 80;
+    public static final int XP_OFFLINE_LOSS = 20;
+
+    /** Called when an offline (Million) game ends. */
     public static void onGameFinished(Context c, boolean won, int prizeMoney, int bestStreak, boolean usedAllHelps) {
         unlockAchievement(c, ACH_FIRST_GAME);
         if (won) unlockAchievement(c, ACH_FIRST_WIN);
@@ -147,7 +177,15 @@ public class PlayerProgress {
         if (prizeMoney >= 1000000) unlockAchievement(c, ACH_PRIZE_1000000);
         if (usedAllHelps) unlockAchievement(c, ACH_USE_ALL_HELPS);
         addCoins(c, Math.max(50, prizeMoney / 40));
-        addXp(c, won ? 180 : 90);
+        addXp(c, won ? XP_OFFLINE_WIN : XP_OFFLINE_LOSS); // addXp already checks ACH_LEVEL_5
+    }
+
+    /** Called when an online Speed Battle match ends. */
+    public static void onOnlineMatchFinished(Context c, boolean won, int roundsWon) {
+        int xp = won ? XP_ONLINE_WIN : XP_ONLINE_LOSS;
+        xp += roundsWon * XP_ONLINE_ROUND_WON;
+        addXp(c, xp); // addXp already checks ACH_LEVEL_5
+        if (won) unlockAchievement(c, ACH_FIRST_WIN);
     }
 
     public static void resetAll(Context c) {

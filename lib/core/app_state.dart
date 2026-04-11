@@ -36,6 +36,8 @@ class AppState extends ChangeNotifier {
   int xpInCurrentLevel = 0;
   int xpNeededForLevel = 100;
   int _lastKnownGamesPlayed = -1;
+  int _lastKnownWins        = -1;
+  bool _checkingXp          = false;
 
   static int _computeLevel(int totalXp) {
     int lv = 1;
@@ -65,43 +67,69 @@ class AppState extends ChangeNotifier {
       final data = doc.data() ?? {};
       xp = (data['xp'] as num?)?.toInt() ?? 0;
       _lastKnownGamesPlayed = (data['lastKnownGamesPlayed'] as num?)?.toInt() ?? -1;
+      _lastKnownWins        = (data['lastKnownWins']        as num?)?.toInt() ?? -1;
       level = _computeLevel(xp);
       xpInCurrentLevel = _computeXpInLevel(xp);
       xpNeededForLevel = level * 100;
       notifyListeners();
+      // After Firestore data is ready, check for new games immediately
+      unawaited(checkAndAwardXpForGames());
     } catch (_) {}
   }
 
+  // XP constants — keep in sync with PlayerProgress.java
+  static const int xpPerWin  = 100;
+  static const int xpPerLoss = 30;
+
   Future<void> checkAndAwardXpForGames() async {
+    if (_checkingXp) return;
+    _checkingXp = true;
     final uid = user?.uid;
-    if (uid == null) return;
+    if (uid == null) { _checkingXp = false; return; }
     try {
       final stats = await _nativeBridgeService.getPlayerStats();
       final gamesPlayed = stats['gamesPlayed'] ?? 0;
+      final wins       = stats['wins']        ?? 0;
+
+      // First run: just snapshot, no XP awarded yet
       if (_lastKnownGamesPlayed < 0) {
         _lastKnownGamesPlayed = gamesPlayed;
+        _lastKnownWins        = wins;
         await _firestore.collection('users').doc(uid).set(
-          {'lastKnownGamesPlayed': _lastKnownGamesPlayed},
+          {'lastKnownGamesPlayed': _lastKnownGamesPlayed, 'lastKnownWins': _lastKnownWins},
           SetOptions(merge: true),
         );
         return;
       }
+
       final newGames = gamesPlayed - _lastKnownGamesPlayed;
       if (newGames > 0) {
-        final wins = stats['wins'] ?? 0;
-        final earned = newGames * 40; // 40 XP per game
+        final newWins   = (wins - _lastKnownWins).clamp(0, newGames);
+        final newLosses = newGames - newWins;
+        final earned    = newWins * xpPerWin + newLosses * xpPerLoss;
+
         xp += earned;
         _lastKnownGamesPlayed = gamesPlayed;
-        level = _computeLevel(xp);
-        xpInCurrentLevel = _computeXpInLevel(xp);
-        xpNeededForLevel = level * 100;
+        _lastKnownWins        = wins;
+        level             = _computeLevel(xp);
+        xpInCurrentLevel  = _computeXpInLevel(xp);
+        xpNeededForLevel  = level * 100;
         notifyListeners();
         await _firestore.collection('users').doc(uid).set(
-          {'xp': xp, 'level': level, 'trophies': wins * 30, 'lastKnownGamesPlayed': gamesPlayed},
+          {
+            'xp': xp,
+            'level': level,
+            'trophies': wins * 30,
+            'lastKnownGamesPlayed': gamesPlayed,
+            'lastKnownWins': wins,
+          },
           SetOptions(merge: true),
         );
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _checkingXp = false;
+    }
   }
 
   Future<void> initialize() async {}
