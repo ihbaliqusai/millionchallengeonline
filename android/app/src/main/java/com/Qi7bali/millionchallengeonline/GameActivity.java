@@ -201,6 +201,7 @@ public class GameActivity extends AppCompatActivity {
     private boolean opponentAnswerSubmitted = false;
     private boolean resolvingRound = false;
     private boolean roundResolved = false;
+    private boolean resolvingFinal = false;  // guard: only one Firebase read in-flight
     private int mySubmittedAnswerKey = 0;
     private int opponentSubmittedAnswerKey = 0;
     private int myRoundPoints = 0;
@@ -1772,10 +1773,8 @@ public class GameActivity extends AppCompatActivity {
         if (!modeOnline || !"fictitious".equals(opponentID) || opponentAnswerSubmitted) {
             return;
         }
-        if (roundSyncRef == null) {
-            roundSyncRef = getRoundSyncRef(currentQuestion);
-        }
-        if (roundSyncRef == null) {
+        final DatabaseReference fictitiousRef = getRoundSyncRef(currentQuestion);
+        if (fictitiousRef == null) {
             return;
         }
 
@@ -1788,7 +1787,7 @@ public class GameActivity extends AppCompatActivity {
         payload.put("players/" + opponentID + "/submitted", true);
         payload.put("players/" + opponentID + "/correct", opponentSubmittedAnswerKey == ANSWER_KEY_RIGHT);
         payload.put("players/" + opponentID + "/elapsedMs", elapsedMs);
-        roundSyncRef.updateChildren(payload);
+        fictitiousRef.updateChildren(payload);
         if (myAnswerSubmitted) {
             resolveOnlineRoundIfReady();
         }
@@ -1840,10 +1839,12 @@ public class GameActivity extends AppCompatActivity {
         if (!modeOnline || opponent == null || !opponent.bot) {
             return;
         }
-        if (roundSyncRef == null) {
-            roundSyncRef = getRoundSyncRef(currentQuestion);
-        }
-        if (roundSyncRef == null) {
+        // Always get a fresh ref for the current question — don't rely on the
+        // shared roundSyncRef which may have been reassigned for a different
+        // question by the time this callback fires.
+        final int botQuestion = currentQuestion;
+        final DatabaseReference botRef = getRoundSyncRef(botQuestion);
+        if (botRef == null) {
             return;
         }
 
@@ -1857,8 +1858,8 @@ public class GameActivity extends AppCompatActivity {
         payload.put("players/" + opponent.id + "/submitted", true);
         payload.put("players/" + opponent.id + "/correct", opponent.submittedAnswerKey == ANSWER_KEY_RIGHT);
         payload.put("players/" + opponent.id + "/elapsedMs", opponent.answerElapsedMs);
-        roundSyncRef.updateChildren(payload);
-        if (myAnswerSubmitted) {
+        botRef.updateChildren(payload);
+        if (myAnswerSubmitted && botQuestion == currentQuestion) {
             resolveOnlineRoundIfReady();
         }
     }
@@ -2174,18 +2175,15 @@ public class GameActivity extends AppCompatActivity {
         if (roundSyncRef == null) {
             return;
         }
-
+        // IMPORTANT: only write OWN data — writing opponent's data causes a race
+        // condition where a late reset can overwrite an already-submitted opponent
+        // answer, causing the game to freeze waiting for a re-submission that
+        // will never come.
         HashMap<String, Object> payload = new HashMap<>();
         payload.put("players/" + myID + "/answerKey", 0);
         payload.put("players/" + myID + "/submitted", false);
         payload.put("players/" + myID + "/correct", false);
         payload.put("players/" + myID + "/elapsedMs", QUESTION_TIMEOUT_MS);
-        for (MatchOpponent opponent : opponents) {
-            payload.put("players/" + opponent.id + "/answerKey", 0);
-            payload.put("players/" + opponent.id + "/submitted", false);
-            payload.put("players/" + opponent.id + "/correct", false);
-            payload.put("players/" + opponent.id + "/elapsedMs", QUESTION_TIMEOUT_MS);
-        }
         roundSyncRef.updateChildren(payload);
     }
 
@@ -2385,7 +2383,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void resolveOnlineRoundIfReady() {
-        if (!modeOnline || roundResolved || !resolvingRound || !myAnswerSubmitted || !allOpponentsSubmitted()) {
+        if (!modeOnline || roundResolved || resolvingFinal || !resolvingRound || !myAnswerSubmitted || !allOpponentsSubmitted()) {
             return;
         }
         if (roundSyncRef == null) {
@@ -2394,11 +2392,13 @@ public class GameActivity extends AppCompatActivity {
         if (roundSyncRef == null) {
             return;
         }
+        resolvingFinal = true;  // prevent duplicate Firebase reads
 
         roundSyncRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 if (EXITING || roundResolved) {
+                    resolvingFinal = false;
                     return;
                 }
                 DataSnapshot mySnapshot = snapshot.child("players").child(myID);
@@ -2443,6 +2443,7 @@ public class GameActivity extends AppCompatActivity {
                 }
                 roundResolved = true;
                 resolvingRound = false;
+                resolvingFinal = false;
 
                 for (MatchOpponent opponent : opponents) {
                     if (opponent.displayedAnswer > 0) {
@@ -2454,6 +2455,7 @@ public class GameActivity extends AppCompatActivity {
 
             @Override
             public void onCancelled(DatabaseError error) {
+                resolvingFinal = false;  // allow retry on network error
             }
         });
     }
@@ -2647,8 +2649,14 @@ public class GameActivity extends AppCompatActivity {
                             //TIMER_VALUE = 10000;
                             if (modeOnline) {
                                 CAN_PLAY = false;
-                                submitOnlineAnswer(0);
-                                resolveOnlineRoundIfReady();
+                                // Only submit timeout if the player hasn't already
+                                // submitted (or selected an answer awaiting confirm).
+                                // This prevents the timer from overwriting a valid
+                                // answer with a timeout right before resolution.
+                                if (!myAnswerSubmitted) {
+                                    submitOnlineAnswer(0);
+                                    resolveOnlineRoundIfReady();
+                                }
                             } else {
                                 checkAnswer(true);
                             }
@@ -2894,6 +2902,7 @@ public class GameActivity extends AppCompatActivity {
             myAnswerSubmitted = false;
             resolvingRound = false;
             roundResolved = false;
+            resolvingFinal = false;
             mySubmittedAnswerKey = 0;
             myRoundPoints = 0;
             myAnswerElapsedMs = QUESTION_TIMEOUT_MS;
