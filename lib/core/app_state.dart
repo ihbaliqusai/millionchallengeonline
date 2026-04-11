@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
@@ -19,6 +20,7 @@ class AppState extends ChangeNotifier {
 
   final AuthService _authService;
   final NativeBridgeService _nativeBridgeService;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   StreamSubscription<User?>? _authSubscription;
 
@@ -28,6 +30,80 @@ class AppState extends ChangeNotifier {
   int coins = 0;
   int gems = 0;
 
+  // ── Level / XP ──────────────────────────────────────────────────────────────
+  int level = 1;
+  int xp = 0;
+  int xpInCurrentLevel = 0;
+  int xpNeededForLevel = 100;
+  int _lastKnownGamesPlayed = -1;
+
+  static int _computeLevel(int totalXp) {
+    int lv = 1;
+    int remaining = totalXp;
+    while (remaining >= lv * 100) {
+      remaining -= lv * 100;
+      lv++;
+    }
+    return lv;
+  }
+
+  static int _computeXpInLevel(int totalXp) {
+    int lv = 1;
+    int remaining = totalXp;
+    while (remaining >= lv * 100) {
+      remaining -= lv * 100;
+      lv++;
+    }
+    return remaining;
+  }
+
+  Future<void> loadLevelData() async {
+    final uid = user?.uid;
+    if (uid == null) return;
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      final data = doc.data() ?? {};
+      xp = (data['xp'] as num?)?.toInt() ?? 0;
+      _lastKnownGamesPlayed = (data['lastKnownGamesPlayed'] as num?)?.toInt() ?? -1;
+      level = _computeLevel(xp);
+      xpInCurrentLevel = _computeXpInLevel(xp);
+      xpNeededForLevel = level * 100;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> checkAndAwardXpForGames() async {
+    final uid = user?.uid;
+    if (uid == null) return;
+    try {
+      final stats = await _nativeBridgeService.getPlayerStats();
+      final gamesPlayed = stats['gamesPlayed'] ?? 0;
+      if (_lastKnownGamesPlayed < 0) {
+        _lastKnownGamesPlayed = gamesPlayed;
+        await _firestore.collection('users').doc(uid).set(
+          {'lastKnownGamesPlayed': _lastKnownGamesPlayed},
+          SetOptions(merge: true),
+        );
+        return;
+      }
+      final newGames = gamesPlayed - _lastKnownGamesPlayed;
+      if (newGames > 0) {
+        final wins = stats['wins'] ?? 0;
+        final earned = newGames * 40; // 40 XP per game
+        xp += earned;
+        _lastKnownGamesPlayed = gamesPlayed;
+        level = _computeLevel(xp);
+        xpInCurrentLevel = _computeXpInLevel(xp);
+        xpNeededForLevel = level * 100;
+        notifyListeners();
+        await _firestore.collection('users').doc(uid).set(
+          {'xp': xp, 'level': level, 'trophies': wins * 30, 'lastKnownGamesPlayed': gamesPlayed},
+          SetOptions(merge: true),
+        );
+      }
+    } catch (_) {}
+  }
+
   Future<void> initialize() async {}
 
   Future<void> _onAuthChanged(User? nextUser) async {
@@ -36,6 +112,7 @@ class AppState extends ChangeNotifier {
     if (nextUser != null) {
       unawaited(_syncLegacyUser());
       unawaited(loadCurrency());
+      unawaited(loadLevelData());
     } else {
       unawaited(_nativeBridgeService.resetLegacyUser());
     }

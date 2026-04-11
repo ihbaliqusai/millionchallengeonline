@@ -8,6 +8,9 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import 'store_screen.dart';
+import 'leaderboard_screen.dart';
+import 'daily_streak_screen.dart';
+import 'profile_screen.dart';
 import '../online/settings_screen.dart';
 import '../online/stats_screen.dart';
 import '../online/achievements_screen.dart';
@@ -53,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       context.read<AppState>().loadCurrency();
+      context.read<AppState>().checkAndAwardXpForGames();
     }
   }
 
@@ -177,12 +181,18 @@ class _TopBar extends StatelessWidget {
                   icon: Icons.monetization_on_rounded,
                   color: const Color(0xFFFACC15),
                   label: appState.coins.toString(),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 _CurrencyChip(
                   icon: Icons.diamond_rounded,
                   color: const Color(0xFF38BDF8),
                   label: appState.gems.toString(),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
+                  ),
                 ),
               ],
             ),
@@ -192,8 +202,8 @@ class _TopBar extends StatelessWidget {
             top: top,
             left: 0,
             right: 0,
-            child: const Center(
-              child: _LevelBadge(),
+            child: Center(
+              child: _LevelBadge(appState: appState),
             ),
           ),
         ],
@@ -207,50 +217,71 @@ class _CurrencyChip extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.label,
+    required this.onTap,
   });
   final IconData icon;
   final Color color;
   final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.55),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.5), width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 1.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.add_rounded, size: 12, color: color),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _LevelBadge extends StatelessWidget {
-  const _LevelBadge();
+  const _LevelBadge({required this.appState});
+  final AppState appState;
 
   @override
   Widget build(BuildContext context) {
+    final level = appState.level;
+    final xpIn = appState.xpInCurrentLevel;
+    final xpFor = appState.xpNeededForLevel;
+    final progress = xpFor > 0 ? (xpIn / xpFor).clamp(0.0, 1.0) : 0.0;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.65),
+        color: Colors.black.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFACC15).withOpacity(0.6), width: 1.5),
+        border: Border.all(color: const Color(0xFFFACC15).withValues(alpha: 0.6), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -260,9 +291,9 @@ class _LevelBadge extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'LEVEL 1',
-                style: TextStyle(
+              Text(
+                'LEVEL $level',
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
@@ -274,9 +305,9 @@ class _LevelBadge extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(99),
                   child: LinearProgressIndicator(
-                    value: 0.30,
+                    value: progress,
                     minHeight: 6,
-                    backgroundColor: Colors.white.withOpacity(0.15),
+                    backgroundColor: Colors.white.withValues(alpha: 0.15),
                     valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFACC15)),
                   ),
                 ),
@@ -285,10 +316,10 @@ class _LevelBadge extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            '30/100',
+            '$xpIn/$xpFor',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -337,22 +368,27 @@ class _LeftSidebar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Forge / daily reward slot
+          // FORGE → Stats screen
           _SideCard(
             label: 'FORGE',
-            icon: Icons.hardware_rounded,
+            icon: Icons.bar_chart_rounded,
             iconColor: const Color(0xFFF97316),
             badge: 'NEW',
             badgeColor: const Color(0xFF22C55E),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
+              MaterialPageRoute<void>(builder: (_) => const StatsScreen()),
             ),
           ),
           const SizedBox(height: 8),
-          // Chest slot counter
-          _ChestCounter(current: 1, total: 3),
+          // Daily streak chest counter
+          GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const DailyStreakScreen()),
+            ),
+            child: _ChestCounter(current: 1, total: 3),
+          ),
           const SizedBox(height: 8),
-          // Daily quests / offline game
+          // Offline game
           _SideCard(
             label: 'أوفلاين',
             icon: Icons.sports_esports_rounded,
@@ -574,7 +610,7 @@ class _RankingButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const StatsScreen()),
+        MaterialPageRoute<void>(builder: (_) => const LeaderboardScreen()),
       ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
@@ -739,10 +775,10 @@ class _RightSidebar extends StatelessWidget {
             ],
           ),
 
-          // Daily chests — center
+          // Daily chests — center (links to streak screen)
           GestureDetector(
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
+              MaterialPageRoute<void>(builder: (_) => const DailyStreakScreen()),
             ),
             child: _DailyChests(),
           ),
@@ -933,7 +969,7 @@ class _PlayerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+        MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
       ),
       child: Container(
         width: 160,
