@@ -14,6 +14,9 @@ import android.widget.Toast;
 
 import com.google.firebase.database.DatabaseError;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.util.Random;
 
 public class OpponentActivity extends AppCompatActivity {
@@ -273,11 +276,20 @@ public class OpponentActivity extends AppCompatActivity {
                 Intent intent = new Intent(OpponentActivity.this, GameActivity.class);
                 intent.putExtra("mode", "online");
                 intent.putExtra("meOwner", meOwner);
-                intent.putExtra("opponentID", opponent.id);
-                intent.putExtra("opponentName", opponent.name);
-                intent.putExtra("opponentPhoto", opponent.photo);
-                intent.putExtra("opponentLevel", opponent.level);
-                intent.putExtra("opponentScore", opponent.score);
+                try {
+                    JSONObject opponentJson = new JSONObject();
+                    opponentJson.put("id", opponent.id);
+                    opponentJson.put("name", opponent.name);
+                    opponentJson.put("photo", opponent.photo != null ? opponent.photo : "");
+                    opponentJson.put("level", opponent.level);
+                    opponentJson.put("score", opponent.score);
+                    opponentJson.put("bot", false);
+                    JSONArray opponentsArray = new JSONArray();
+                    opponentsArray.put(opponentJson);
+                    intent.putExtra("opponentsJson", opponentsArray.toString());
+                } catch (Exception e) {
+                    intent.putExtra("opponentsJson", "[]");
+                }
                 startActivity(intent);
                 finish();
             }

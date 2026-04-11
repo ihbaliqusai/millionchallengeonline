@@ -1522,6 +1522,8 @@ public class GameActivity extends AppCompatActivity {
                 }
                 if (questionsLoadFailed) {
                     startPending = false;
+                    Toast.makeText(GameActivity.this, "تعذر تحميل الأسئلة", Toast.LENGTH_SHORT).show();
+                    CAN_CLICK = true;
                     return;
                 }
                 if (questionsReady) {
