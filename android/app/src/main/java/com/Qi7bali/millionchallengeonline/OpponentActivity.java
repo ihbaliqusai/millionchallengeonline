@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,9 +36,12 @@ public class OpponentActivity extends AppCompatActivity {
 
     ImageView imgPhoto1, imgPhoto2, imgPhoto21, imgPhoto22;
     TextView txtOpponent1, txtOpponent2, txtLevel1, txtLevel2, txtStatus;
+    Button btnCancel;
 
     private final Handler matchmakingHandler = new Handler();
     private Runnable matchmakingRunnable;
+    private final Handler cancelButtonHandler = new Handler();
+    private Runnable cancelButtonRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +61,11 @@ public class OpponentActivity extends AppCompatActivity {
         txtLevel1 = findViewById(R.id.txtLevel1);
         txtLevel2 = findViewById(R.id.txtLevel2);
         txtStatus = findViewById(R.id.txtStatus);
+        btnCancel = findViewById(R.id.btnCancel);
+        btnCancel.setOnClickListener(v -> {
+            cleanupPendingRequest();
+            finish();
+        });
 
         SharedPreferences settings = getSharedPreferences("UserInfo", 0);
         userID = settings.getString("userID", "");
@@ -75,12 +84,22 @@ public class OpponentActivity extends AppCompatActivity {
         Data.syncUserProfile(userID, userName, userPhoto, userLevel, userScore);
         Data.setUserActive(userID);
 
+        scheduleCancelButton();
         startBrowsingOpponents();
         if ("friend".equals(matchMode) && !friendCode.isEmpty()) {
             startFriendInviteFlow();
         } else {
             startRandomMatchFlow();
         }
+    }
+
+    private void scheduleCancelButton() {
+        cancelButtonRunnable = () -> {
+            if (!launchingGame && btnCancel != null) {
+                btnCancel.setVisibility(View.VISIBLE);
+            }
+        };
+        cancelButtonHandler.postDelayed(cancelButtonRunnable, 10000);
     }
 
     private void startFriendInviteFlow() {
@@ -254,6 +273,8 @@ public class OpponentActivity extends AppCompatActivity {
         launchingGame = true;
         requestAccepted = true;
         browsingOpponents = false;
+        cancelButtonHandler.removeCallbacks(cancelButtonRunnable);
+        if (btnCancel != null) btnCancel.setVisibility(View.GONE);
         matchmakingHandler.removeCallbacksAndMessages(null);
         if (ownRequestInserted) {
             Data.cancelRequest(userID);
@@ -310,6 +331,7 @@ public class OpponentActivity extends AppCompatActivity {
     }
 
     private void cleanupPendingRequest() {
+        cancelButtonHandler.removeCallbacks(cancelButtonRunnable);
         matchmakingHandler.removeCallbacksAndMessages(null);
         if (ownRequestInserted && !launchingGame) {
             Data.cancelRequest(userID);

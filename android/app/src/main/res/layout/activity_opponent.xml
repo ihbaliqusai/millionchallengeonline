@@ -21,13 +21,27 @@
         android:textStyle="bold"
         />
 
+    <Button
+        android:id="@+id/btnCancel"
+        android:layout_width="120dp"
+        android:layout_height="36dp"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/txtVs"
+        android:layout_marginTop="6dp"
+        android:fontFamily="@font/baloo"
+        android:text="إلغاء"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:backgroundTint="#CC3333"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/txtStatus"
         android:layout_width="260dp"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
-        android:layout_below="@id/txtVs"
-        android:layout_marginTop="16dp"
+        android:layout_below="@id/btnCancel"
+        android:layout_marginTop="6dp"
         android:fontFamily="@font/baloo"
         android:gravity="center"
         android:text="جاري البحث عن منافس..."
