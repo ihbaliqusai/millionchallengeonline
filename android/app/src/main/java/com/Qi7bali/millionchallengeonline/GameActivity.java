@@ -213,6 +213,7 @@ public class GameActivity extends AppCompatActivity {
     private long myTotalAnswerTimeMs = 0L;
     private long mySetAnswerTimeMs = 0L;
     private long serverTimeOffsetMs = 0L;
+    private long questionStartTimeMs = 0L;
     private boolean localPlayerRemoved = false;
     private int pendingQuestionIndex = -1;
     private long scheduledQuestionStartAt = 0L;
@@ -2475,9 +2476,17 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private long getCurrentAnswerElapsedMs() {
+        if (questionStartTimeMs > 0L) {
+            long elapsedMs = System.currentTimeMillis() - questionStartTimeMs;
+            if (elapsedMs <= 0L) {
+                return 1L;
+            }
+            return Math.min(QUESTION_TIMEOUT_MS, elapsedMs);
+        }
+        // Fallback: use progress counter (100ms resolution)
         long elapsedMs = (300L - Math.max(0, PROGRESS_VALUE)) * 100L;
         if (elapsedMs <= 0L) {
-            return 100L;
+            return 1L;
         }
         return Math.min(QUESTION_TIMEOUT_MS, elapsedMs);
     }
@@ -2908,6 +2917,7 @@ public class GameActivity extends AppCompatActivity {
             mySubmittedAnswerKey = 0;
             myRoundPoints = 0;
             myAnswerElapsedMs = QUESTION_TIMEOUT_MS;
+            questionStartTimeMs = 0L;
             currentAnswerOrder.clear();
             cancelPendingFictitiousAnswer();
             detachOpponentRoundListener();
@@ -3007,6 +3017,7 @@ public class GameActivity extends AppCompatActivity {
                                     break;
                                 case 4:
                                     CAN_PLAY = true;
+                                    questionStartTimeMs = System.currentTimeMillis();
                                     startTimer(true);
                                     if(modeOnline) {
                                         Data.initQuestionPlayer(gameID, myID, currentQuestion);
