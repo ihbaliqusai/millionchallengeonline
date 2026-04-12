@@ -140,9 +140,97 @@ class MainActivity : FlutterActivity() {
                         startActivity(intent)
                         result.success(true)
                     }
+                    "deliverPurchase" -> {
+                        val productId = call.argument<String>("productId") ?: ""
+                        when (productId) {
+                            "gems_80"    -> PlayerProgress.addGems(this, 80)
+                            "gems_500"   -> PlayerProgress.addGems(this, 500)
+                            "gems_1200"  -> PlayerProgress.addGems(this, 1200)
+                            "gems_2500"  -> PlayerProgress.addGems(this, 2500)
+                            "gems_6500"  -> PlayerProgress.addGems(this, 6500)
+                            "gems_14000" -> PlayerProgress.addGems(this, 14000)
+                            "pack_starter" -> {
+                                PlayerProgress.addGems(this, 120)
+                                PlayerProgress.addCoins(this, 500)
+                                PlayerProgress.addInventory(this, "5050", 2)
+                            }
+                            "pack_value" -> {
+                                PlayerProgress.addGems(this, 600)
+                                PlayerProgress.addCoins(this, 2000)
+                                PlayerProgress.addInventory(this, "5050", 3)
+                                PlayerProgress.addInventory(this, "audience", 2)
+                            }
+                            "pack_champion" -> {
+                                PlayerProgress.addGems(this, 1800)
+                                PlayerProgress.addCoins(this, 10000)
+                                PlayerProgress.addInventory(this, "5050", 5)
+                                PlayerProgress.addInventory(this, "audience", 3)
+                                PlayerProgress.addInventory(this, "call", 2)
+                            }
+                        }
+                        result.success(true)
+                    }
+                    "buyCurrency" -> {
+                        val coinAmount = call.argument<Int>("coinAmount") ?: 0
+                        val gemCost    = call.argument<Int>("gemCost")    ?: 0
+                        val ok         = PlayerProgress.spendGems(this, gemCost)
+                        if (ok) PlayerProgress.addCoins(this, coinAmount)
+                        result.success(ok)
+                    }
                     "restorePurchases" -> {
-                        // Placeholder: wire up to billing client when ready
+                        // Consumable items on Google Play don't need restore.
                         result.success(false)
+                    }
+                    "getAchievements" -> {
+                        // Check count-based achievements before returning statuses
+                        val games = PlayerStats.getGamesPlayed(this)
+                        val wins  = PlayerStats.getWins(this)
+                        val correct = PlayerStats.getCorrectAnswers(this)
+                        if (games >= 10)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_10)
+                        if (games >= 25)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_25)
+                        if (games >= 50)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_50)
+                        if (games >= 100) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_100)
+                        if (wins >= 5)    PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_5)
+                        if (wins >= 10)   PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_10)
+                        if (wins >= 25)   PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_25)
+                        if (wins >= 50)   PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_50)
+                        if (wins >= 100)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_100)
+                        if (correct >= 50)   PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_50)
+                        if (correct >= 100)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_100)
+                        if (correct >= 500)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_500)
+                        if (correct >= 1000) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_1000)
+                        if (correct >= 5000) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_5000)
+
+                        // Check ACH_ALL_DONE after updating
+                        PlayerProgress.checkAllDone(this)
+
+                        val allKeys = listOf(
+                            "ACH_FIRST_GAME", "ACH_FIRST_WIN", "ACH_FIRST_ONLINE", "ACH_BUY_POWERUP",
+                            "ACH_LEVEL_5", "ACH_LEVEL_10", "ACH_LEVEL_20", "ACH_LEVEL_30", "ACH_LEVEL_50",
+                            "ACH_WIN_5", "ACH_WIN_10", "ACH_WIN_25", "ACH_WIN_50", "ACH_WIN_100",
+                            "ACH_CORRECT_50", "ACH_CORRECT_100", "ACH_CORRECT_500", "ACH_CORRECT_1000", "ACH_CORRECT_5000",
+                            "ACH_PRIZE_1000", "ACH_PRIZE_32000", "ACH_PRIZE_500000", "ACH_PRIZE_1000000",
+                            "ACH_STREAK_3", "ACH_STREAK_5", "ACH_STREAK_10", "ACH_STREAK_15",
+                            "ACH_GAMES_10", "ACH_GAMES_25", "ACH_GAMES_50", "ACH_GAMES_100",
+                            "ACH_COINS_1000", "ACH_COINS_5000", "ACH_COINS_10000", "ACH_GEMS_50", "ACH_GEMS_500",
+                            "ACH_USE_5050", "ACH_USE_AUDIENCE", "ACH_USE_CALL", "ACH_USE_ALL_HELPS",
+                            "ACH_PERFECT_GAME", "ACH_ONLINE_WIN_10", "ACH_ALL_DONE"
+                        )
+                        val map = mutableMapOf<String, Any>()
+                        for (k in allKeys) map[k] = PlayerProgress.isAchievementUnlocked(this, k)
+
+                        // Progress counters
+                        map["gamesPlayed"]    = games
+                        map["wins"]           = wins
+                        map["correctAnswers"] = correct
+                        map["bestStreak"]     = PlayerStats.getBestStreak(this)
+                        map["coins"]          = PlayerProgress.getCoins(this)
+                        map["gems"]           = PlayerProgress.getGems(this)
+                        map["level"]          = PlayerProgress.getLevel(this)
+                        map["totalEarnings"]  = PlayerStats.getTotalEarnings(this).toInt()
+                        map["onlineWins"]     = PlayerProgress.getOnlineWins(this)
+
+                        result.success(map)
                     }
                     "getInventory" -> {
                         result.success(mapOf(

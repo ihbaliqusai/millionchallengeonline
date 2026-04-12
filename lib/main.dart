@@ -8,6 +8,7 @@ import 'screens/auth/auth_gate.dart';
 import 'services/auth_service.dart';
 import 'services/native_bridge_service.dart';
 import 'services/profile_service.dart';
+import 'services/iap_service.dart';
 import 'services/room_service.dart';
 
 Future<void> main() async {
@@ -40,6 +41,13 @@ class MillionaireOnlineApp extends StatelessWidget {
         Provider<ProfileService>(create: (_) => ProfileService()),
         Provider<NativeBridgeService>(create: (_) => NativeBridgeService()),
         Provider<RoomService>(create: (_) => RoomService()),
+        ChangeNotifierProvider<IapService>(
+          create: (context) {
+            final svc = IapService(context.read<NativeBridgeService>());
+            svc.init();
+            return svc;
+          },
+        ),
         ChangeNotifierProxyProvider3<AuthService, ProfileService, NativeBridgeService, AppState>(
           create: (context) => AppState(
             authService: context.read<AuthService>(),

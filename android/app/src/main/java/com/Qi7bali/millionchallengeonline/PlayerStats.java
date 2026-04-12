@@ -26,15 +26,27 @@ public class PlayerStats {
         SharedPreferences p = prefs(c);
         int current = p.getInt("currentStreak", 0) + 1;
         int best = Math.max(current, p.getInt("bestStreak", 0));
+        int correct = p.getInt("correctAnswers", 0) + 1;
         p.edit()
-                .putInt("correctAnswers", p.getInt("correctAnswers", 0) + 1)
+                .putInt("correctAnswers", correct)
                 .putInt("currentStreak", current)
                 .putInt("bestStreak", best)
                 .apply();
         PlayerProgress.addXp(c, 10);
         PlayerProgress.addCoins(c, 20);
-        if (best >= 5) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_5);
+
+        // Streak achievements
+        if (best >= 3)  PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_3);
+        if (best >= 5)  PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_5);
         if (best >= 10) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_10);
+        if (best >= 15) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_15);
+
+        // Correct-answer milestones
+        if (correct >= 50)   PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_50);
+        if (correct >= 100)  PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_100);
+        if (correct >= 500)  PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_500);
+        if (correct >= 1000) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_1000);
+        if (correct >= 5000) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_5000);
     }
 
     public static void recordWrongAnswer(Context c) {

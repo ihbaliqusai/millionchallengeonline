@@ -80,6 +80,13 @@ class NativeBridgeService {
     return result.map((k, v) => MapEntry(k, (v as num).toInt()));
   }
 
+  /// يُعيد حالة جميع الإنجازات + عدادات التقدم الحالية.
+  /// المفاتيح البوليانية هي مفاتيح الإنجازات (ACH_*)، والمفاتيح الرقمية هي إحصاءات اللاعب.
+  Future<Map<String, dynamic>> getAchievements() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>('getAchievements');
+    return result ?? {};
+  }
+
   /// يُعيد {'coins': int, 'gems': int} من SharedPreferences الـ native
   Future<Map<String, int>> getUserCurrency() async {
     final result = await _channel.invokeMapMethod<String, int>('getUserCurrency');
@@ -122,6 +129,24 @@ class NativeBridgeService {
     final result = await _channel.invokeMapMethod<String, dynamic>('getInventory');
     if (result == null) return {};
     return result.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
+  /// يُسلّم منتج IAP للاعب (يُستدعى بعد نجاح عملية الدفع عبر Google Play).
+  Future<bool> deliverPurchase(String productId) async {
+    final result = await _channel.invokeMethod<bool>(
+      'deliverPurchase',
+      {'productId': productId},
+    );
+    return result ?? false;
+  }
+
+  /// يشتري عملات (كوينز) بخصم جواهر من الرصيد المحلي.
+  Future<bool> buyCurrency({required int coinAmount, required int gemCost}) async {
+    final result = await _channel.invokeMethod<bool>(
+      'buyCurrency',
+      {'coinAmount': coinAmount, 'gemCost': gemCost},
+    );
+    return result ?? false;
   }
 
   /// يشتري وسيلة مساعدة ويخصم الثمن من الكوينز أو الجواهر.
