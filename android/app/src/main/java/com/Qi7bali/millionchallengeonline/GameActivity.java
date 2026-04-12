@@ -3008,10 +3008,15 @@ public class GameActivity extends AppCompatActivity {
                 }
 
                 txtQ.setText(question.Q);
-                if (question.Q.length() <= 100)
+                int qLen = question.Q.length();
+                if (qLen <= 60)
                     txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+                else if (qLen <= 90)
+                    txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+                else if (qLen <= 130)
+                    txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
                 else
-                    txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+                    txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
 
                 final ArrayList<Integer> answerOrder = getQuestionShuffled(question);
                 currentAnswerOrder.clear();
