@@ -29,6 +29,80 @@ class AppState extends ChangeNotifier {
   String? error;
   int coins = 0;
   int gems = 0;
+  int trophies = 0;
+  int streakDay = 0;
+  bool claimedToday = false;
+  bool _claimingStreak = false;
+
+  static const List<Map<String, int>> _kStreakRewards = [
+    {'coins': 100,  'gems': 0},
+    {'coins': 150,  'gems': 0},
+    {'coins': 200,  'gems': 1},
+    {'coins': 250,  'gems': 0},
+    {'coins': 300,  'gems': 1},
+    {'coins': 400,  'gems': 2},
+    {'coins': 500,  'gems': 3},
+    {'coins': 300,  'gems': 1},
+    {'coins': 350,  'gems': 1},
+    {'coins': 400,  'gems': 2},
+    {'coins': 450,  'gems': 2},
+    {'coins': 500,  'gems': 3},
+    {'coins': 600,  'gems': 3},
+    {'coins': 800,  'gems': 5},
+    {'coins': 400,  'gems': 2},
+    {'coins': 450,  'gems': 2},
+    {'coins': 500,  'gems': 3},
+    {'coins': 550,  'gems': 3},
+    {'coins': 600,  'gems': 4},
+    {'coins': 700,  'gems': 4},
+    {'coins': 1000, 'gems': 7},
+    {'coins': 600,  'gems': 3},
+    {'coins': 650,  'gems': 4},
+    {'coins': 700,  'gems': 4},
+    {'coins': 750,  'gems': 5},
+    {'coins': 800,  'gems': 5},
+    {'coins': 900,  'gems': 6},
+    {'coins': 1000, 'gems': 7},
+    {'coins': 1200, 'gems': 8},
+    {'coins': 2000, 'gems': 15},
+  ];
+
+  /// Returns the reward {coins, gems} if claimed, or null if already claimed / error.
+  Future<Map<String, int>?> claimDailyStreak() async {
+    if (claimedToday || _claimingStreak) return null;
+    _claimingStreak = true;
+    notifyListeners();
+
+    final uid = user?.uid;
+    if (uid == null) {
+      _claimingStreak = false;
+      notifyListeners();
+      return null;
+    }
+
+    final day = streakDay > 0 ? streakDay : 1;
+    final reward = _kStreakRewards[(day - 1).clamp(0, _kStreakRewards.length - 1)];
+
+    try {
+      await _firestore.collection('users').doc(uid).set(
+        {
+          'streakDay': day,
+          'lastStreakClaimDate': Timestamp.fromDate(DateTime.now()),
+        },
+        SetOptions(merge: true),
+      );
+      claimedToday = true;
+      streakDay = day;
+    } catch (_) {
+      _claimingStreak = false;
+      notifyListeners();
+      return null;
+    }
+
+    _claimingStreak = false;
+    notifyListeners();
+    return reward;
+  }
 
   // ── Level / XP ──────────────────────────────────────────────────────────────
   int level = 1;
@@ -71,6 +145,32 @@ class AppState extends ChangeNotifier {
       level = _computeLevel(xp);
       xpInCurrentLevel = _computeXpInLevel(xp);
       xpNeededForLevel = level * 100;
+      trophies = (data['trophies'] as num?)?.toInt() ?? 0;
+
+      // Streak data
+      final lastClaimTs = data['lastStreakClaimDate'] as Timestamp?;
+      final savedStreakDay = (data['streakDay'] as num?)?.toInt() ?? 0;
+      if (lastClaimTs == null) {
+        streakDay = 0;
+        claimedToday = false;
+      } else {
+        final lastClaim = lastClaimTs.toDate();
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final lastDay = DateTime(lastClaim.year, lastClaim.month, lastClaim.day);
+        final diff = today.difference(lastDay).inDays;
+        if (diff == 0) {
+          streakDay = savedStreakDay;
+          claimedToday = true;
+        } else if (diff == 1) {
+          streakDay = savedStreakDay >= 30 ? 1 : savedStreakDay + 1;
+          claimedToday = false;
+        } else {
+          streakDay = 1;
+          claimedToday = false;
+        }
+      }
+
       notifyListeners();
       // After Firestore data is ready, check for new games immediately
       unawaited(checkAndAwardXpForGames());

@@ -372,9 +372,9 @@ class _LeftSidebar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // FORGE → Stats screen
+          // STATS → Stats screen
           _SideCard(
-            label: 'FORGE',
+            label: 'STATS',
             icon: Icons.bar_chart_rounded,
             iconColor: const Color(0xFFF97316),
             badge: 'NEW',
@@ -389,7 +389,15 @@ class _LeftSidebar extends StatelessWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const DailyStreakScreen()),
             ),
-            child: _ChestCounter(current: 1, total: 3),
+            child: _ChestCounter(
+              current: () {
+                final completed = appState.claimedToday
+                    ? appState.streakDay
+                    : (appState.streakDay > 1 ? appState.streakDay - 1 : 0);
+                return completed > 0 ? (completed - 1) % 7 + 1 : 0;
+              }(),
+              total: 7,
+            ),
           ),
           const SizedBox(height: 8),
           // Offline game
@@ -499,20 +507,14 @@ class _ChestCounter extends StatelessWidget {
         children: [
           Icon(Icons.inventory_2_rounded, color: const Color(0xFF38BDF8), size: 22),
           const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(total, (i) {
-              final filled = i < current;
-              return Container(
-                width: 12,
-                height: 12,
-                margin: const EdgeInsets.symmetric(horizontal: 1),
-                decoration: BoxDecoration(
-                  color: filled ? const Color(0xFF38BDF8) : Colors.white.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              );
-            }),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: total > 0 ? (current / total).clamp(0.0, 1.0) : 0,
+              minHeight: 6,
+              backgroundColor: Colors.white.withValues(alpha: 0.15),
+              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+            ),
           ),
           const SizedBox(height: 3),
           Text(
@@ -716,6 +718,57 @@ class _BattleButtonState extends State<_BattleButton> {
   }
 }
 
+void _showChestRewardDialog(BuildContext context, int coins, int gems) {
+  showDialog<void>(
+    context: context,
+    builder: (_) => AlertDialog(
+      backgroundColor: const Color(0xFF152055),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text(
+        '🎁 تم فتح الصندوق!',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (coins > 0)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.monetization_on_rounded, color: Color(0xFFFACC15), size: 28),
+                const SizedBox(width: 8),
+                Text('+$coins',
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+              ],
+            ),
+          if (gems > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.diamond_rounded, color: Color(0xFF38BDF8), size: 28),
+                const SizedBox(width: 8),
+                Text('+$gems',
+                    style: const TextStyle(
+                        color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+              ],
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('رائع!',
+              style: TextStyle(color: Color(0xFFFACC15), fontWeight: FontWeight.w900)),
+        ),
+      ],
+    ),
+  );
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 //  RIGHT SIDEBAR
 // ──────────────────────────────────────────────────────────────────────────────
@@ -779,12 +832,15 @@ class _RightSidebar extends StatelessWidget {
             ],
           ),
 
-          // Daily chests — center (links to streak screen)
+          // Daily chests — tap to claim directly
           GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const DailyStreakScreen()),
-            ),
-            child: _DailyChests(),
+            onTap: () async {
+              final reward = await context.read<AppState>().claimDailyStreak();
+              if (reward != null && context.mounted) {
+                _showChestRewardDialog(context, reward['coins']!, reward['gems']!);
+              }
+            },
+            child: _DailyChests(appState: appState),
           ),
 
           // Player profile card — bottom
@@ -843,8 +899,16 @@ class _NavButton extends StatelessWidget {
 }
 
 class _DailyChests extends StatelessWidget {
+  const _DailyChests({required this.appState});
+  final AppState appState;
+
   @override
   Widget build(BuildContext context) {
+    final completed = appState.claimedToday
+        ? appState.streakDay
+        : (appState.streakDay > 1 ? appState.streakDay - 1 : 0);
+    final opened = completed > 0 ? (completed - 1) % 4 + 1 : 0;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
@@ -868,22 +932,31 @@ class _DailyChests extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: List.generate(4, (i) {
+              final isOpened = i < opened;
               final colors = [
                 const Color(0xFF22C55E),
                 const Color(0xFFEC4899),
                 const Color(0xFF38BDF8),
                 const Color(0xFFEC4899),
               ];
+              final color = colors[i];
               return Container(
                 width: 26,
                 height: 30,
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
-                  color: colors[i].withOpacity(0.25),
+                  color: isOpened ? color.withValues(alpha: 0.5) : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colors[i].withOpacity(0.7), width: 1.5),
+                  border: Border.all(
+                    color: isOpened ? color : color.withValues(alpha: 0.3),
+                    width: 1.5,
+                  ),
                 ),
-                child: Icon(Icons.inventory_2_rounded, size: 14, color: colors[i]),
+                child: Icon(
+                  isOpened ? Icons.inventory_2_rounded : Icons.lock_rounded,
+                  size: 14,
+                  color: isOpened ? color : color.withValues(alpha: 0.3),
+                ),
               );
             }),
           ),
@@ -969,21 +1042,21 @@ class _PlayerCard extends StatelessWidget {
   final String username;
   final dynamic user;
 
-  static String _rankTitle(int level) {
-    if (level >= 50) return 'Legend';
-    if (level >= 30) return 'Diamond';
-    if (level >= 20) return 'Gold';
-    if (level >= 10) return 'Silver';
-    if (level >= 5)  return 'Bronze';
+  static String _rankTitle(int trophies) {
+    if (trophies >= 200) return 'Legend';
+    if (trophies >= 100) return 'Diamond';
+    if (trophies >= 50)  return 'Gold';
+    if (trophies >= 25)  return 'Silver';
+    if (trophies >= 10)  return 'Bronze';
     return 'Beginner';
   }
 
-  static Color _rankColor(int level) {
-    if (level >= 50) return const Color(0xFFA855F7);
-    if (level >= 30) return const Color(0xFF38BDF8);
-    if (level >= 20) return const Color(0xFFFACC15);
-    if (level >= 10) return const Color(0xFF94A3B8);
-    if (level >= 5)  return const Color(0xFFB45309);
+  static Color _rankColor(int trophies) {
+    if (trophies >= 200) return const Color(0xFFA855F7);
+    if (trophies >= 100) return const Color(0xFF38BDF8);
+    if (trophies >= 50)  return const Color(0xFFFACC15);
+    if (trophies >= 25)  return const Color(0xFF94A3B8);
+    if (trophies >= 10)  return const Color(0xFFB45309);
     return const Color(0xFF38BDF8);
   }
 
@@ -1035,13 +1108,13 @@ class _PlayerCard extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      Icon(Icons.circle, size: 8, color: _rankColor(appState.level)),
+                      Icon(Icons.circle, size: 8, color: _rankColor(appState.trophies)),
                       const SizedBox(width: 3),
                       Text(
-                        _rankTitle(appState.level),
+                        _rankTitle(appState.trophies),
                         style: TextStyle(
                           fontSize: 11,
-                          color: _rankColor(appState.level),
+                          color: _rankColor(appState.trophies),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
