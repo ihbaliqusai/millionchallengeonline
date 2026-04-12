@@ -86,16 +86,17 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "getPlayerStats" -> {
-                        val games   = PlayerStats.getGamesPlayed(this)
-                        val wins    = PlayerStats.getWins(this)
-                        val losses  = PlayerStats.getLosses(this)
-                        val correct = PlayerStats.getCorrectAnswers(this)
-                        val wrong   = PlayerStats.getWrongAnswers(this)
-                        val total   = correct + wrong
-                        val streak  = PlayerStats.getBestStreak(this)
-                        val highest = PlayerStats.getHighestMoney(this)
-                        val winPct  = if (games > 0) (wins * 100 / games) else 0
-                        val accPct  = if (total > 0) (correct * 100 / total) else 0
+                        val games         = PlayerStats.getGamesPlayed(this)
+                        val wins          = PlayerStats.getWins(this)
+                        val losses        = PlayerStats.getLosses(this)
+                        val correct       = PlayerStats.getCorrectAnswers(this)
+                        val wrong         = PlayerStats.getWrongAnswers(this)
+                        val total         = correct + wrong
+                        val streak        = PlayerStats.getBestStreak(this)
+                        val highest       = PlayerStats.getHighestMoney(this)
+                        val totalEarnings = PlayerStats.getTotalEarnings(this)
+                        val winPct        = if (games > 0) (wins * 100 / games) else 0
+                        val accPct        = if (total > 0) (correct * 100 / total) else 0
                         result.success(mapOf(
                             "gamesPlayed"    to games,
                             "wins"           to wins,
@@ -105,6 +106,7 @@ class MainActivity : FlutterActivity() {
                             "totalAnswered"  to total,
                             "bestStreak"     to streak,
                             "highestMoney"   to highest,
+                            "totalEarnings"  to totalEarnings,
                             "winPercent"     to winPct,
                             "accuracy"       to accPct
                         ))
@@ -141,6 +143,28 @@ class MainActivity : FlutterActivity() {
                     "restorePurchases" -> {
                         // Placeholder: wire up to billing client when ready
                         result.success(false)
+                    }
+                    "getInventory" -> {
+                        result.success(mapOf(
+                            "inv5050"      to PlayerProgress.getInventory5050(this),
+                            "invAudience"  to PlayerProgress.getInventoryAudience(this),
+                            "invCall"      to PlayerProgress.getInventoryCall(this)
+                        ))
+                    }
+                    "buyPowerUp" -> {
+                        val type     = call.argument<String>("type")     ?: ""
+                        val quantity = call.argument<Int>("quantity")    ?: 1
+                        val payWith  = call.argument<String>("payWith")  ?: "coins"
+                        val cost     = call.argument<Int>("cost")        ?: 0
+                        val success  = if (payWith == "coins") {
+                            PlayerProgress.spendCoins(this, cost)
+                        } else {
+                            PlayerProgress.spendGems(this, cost)
+                        }
+                        if (success) {
+                            PlayerProgress.addInventory(this, type, quantity)
+                        }
+                        result.success(success)
                     }
                     else -> result.notImplemented()
                 }

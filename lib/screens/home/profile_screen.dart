@@ -5,6 +5,47 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../services/native_bridge_service.dart';
 
+// ── Trophy League Definitions ─────────────────────────────────────────────────
+
+class _League {
+  final String name;
+  final String nameAr;
+  final Color color;
+  final IconData icon;
+  final int min;
+  final int? max; // null = no cap (top league)
+
+  const _League(this.name, this.nameAr, this.color, this.icon, this.min, this.max);
+
+  bool contains(int trophies) =>
+      trophies >= min && (max == null || trophies <= max!);
+
+  double progress(int trophies) {
+    if (max == null) return 1.0;
+    return ((trophies - min) / (max! - min + 1)).clamp(0.0, 1.0);
+  }
+
+  int trophiesLeft(int trophies) {
+    if (max == null) return 0;
+    return (max! + 1 - trophies).clamp(0, max! + 1);
+  }
+}
+
+const List<_League> _leagues = [
+  _League('Rookie',  'مبتدئ',   Color(0xFF94A3B8), Icons.star_outline_rounded,                  0,    99),
+  _League('Bronze',  'برونز',   Color(0xFFCD7F32), Icons.shield_rounded,                       100,   299),
+  _League('Silver',  'فضة',     Color(0xFFB0C4DE), Icons.shield_rounded,                       300,   599),
+  _League('Gold',    'ذهب',     Color(0xFFFACC15), Icons.military_tech_rounded,                600,   999),
+  _League('Diamond', 'ماسي',    Color(0xFF38BDF8), Icons.diamond_rounded,                     1000,  1999),
+  _League('Master',  'ماستر',   Color(0xFFA855F7), Icons.workspace_premium_rounded,            2000,  3499),
+  _League('Legend',  'أسطورة',  Color(0xFFEF4444), Icons.local_fire_department_rounded,        3500,  null),
+];
+
+_League _leagueFor(int trophies) =>
+    _leagues.lastWhere((l) => trophies >= l.min, orElse: () => _leagues.first);
+
+// ── Screen ────────────────────────────────────────────────────────────────────
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -53,18 +94,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final appState = context.watch<AppState>();
-    final user = appState.user;
-    final username = (user?.displayName ?? user?.email?.split('@').first ?? 'Player').trim();
-    final uid = user?.uid ?? '';
-    final level = appState.level;
-    final wins = _stats['wins'] ?? 0;
-    final losses = (_stats['gamesPlayed'] ?? 0) - wins;
+    final appState  = context.watch<AppState>();
+    final user      = appState.user;
+    final username  = (user?.displayName ?? user?.email?.split('@').first ?? 'Player').trim();
+    final uid       = user?.uid ?? '';
+    final level     = appState.level;
+
     final totalMatches = _stats['gamesPlayed'] ?? 0;
-    final winRate = totalMatches > 0 ? (wins / totalMatches * 100).round() : 0;
-    final winStreak = _stats['winStreak'] ?? 0;
-    final bestStreak = _stats['bestStreak'] ?? 0;
-    final trophies = wins * 30;
+    final wins         = _stats['wins']        ?? 0;
+    final rawLosses    = totalMatches - wins;
+    final losses       = rawLosses < 0 ? 0 : rawLosses;
+    final winRate      = totalMatches > 0 ? (wins / totalMatches * 100).round() : 0;
+    final winStreak    = _stats['winStreak']   ?? 0;
+    final bestStreak   = _stats['bestStreak']  ?? 0;
+
+    // ── Trophy formula: total earnings ÷ 1000 (كل 1000 ريال = كأس) ──────────
+    final totalEarnings = _stats['totalEarnings'] ?? 0;
+    final trophies = (totalEarnings ~/ 1000).clamp(0, 999999);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1B4B),
@@ -76,7 +122,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Left: Profile + Account ────────────────────────────
+                    // ── Left: Profile + Account ───────────────────────────────
                     Expanded(
                       flex: 2,
                       child: Column(
@@ -95,7 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // ── Center: Battle Record ──────────────────────────────
+                    // ── Center: Battle Record ─────────────────────────────────
                     Expanded(
                       flex: 3,
                       child: Column(
@@ -106,27 +152,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 8),
                           _buildBattleRecord(
                             totalMatches: totalMatches,
-                            wins: wins,
-                            losses: losses < 0 ? 0 : losses,
-                            winRate: winRate,
-                            winStreak: winStreak,
-                            bestStreak: bestStreak,
-                            trophies: trophies,
+                            wins:         wins,
+                            losses:       losses,
+                            winRate:      winRate,
+                            winStreak:    winStreak,
+                            bestStreak:   bestStreak,
+                            trophies:     trophies,
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // ── Right: Tournament ──────────────────────────────────
+                    // ── Right: Trophy League ──────────────────────────────────
                     Expanded(
                       flex: 2,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 48),
-                          _sectionLabel('TOURNAMENT'),
+                          _sectionLabel('TROPHY LEAGUE'),
                           const SizedBox(height: 8),
-                          _buildTournamentCard(),
+                          _buildTrophyLeagueCard(trophies),
                         ],
                       ),
                     ),
@@ -136,6 +182,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  // ── Back button ─────────────────────────────────────────────────────────────
 
   Widget _buildBackButton() {
     return GestureDetector(
@@ -165,9 +213,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ── Profile Card ─────────────────────────────────────────────────────────────
+
   Widget _buildProfileCard(String username, int level, int trophies, String? photoUrl) {
-    final rank = _rankTitle(level);
-    final rankClr = _rankColor(level);
+    final rank     = _rankTitle(level);
+    final rankClr  = _rankColor(level);
+    final league   = _leagueFor(trophies);
+    final nextIdx  = _leagues.indexOf(league) + 1;
+    final hasNext  = nextIdx < _leagues.length;
+    final progress = league.progress(trophies);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -181,7 +235,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              // Edit pencil icon (top-left of card)
               GestureDetector(
                 onTap: () {},
                 child: Icon(Icons.edit_rounded, size: 14, color: Colors.white.withValues(alpha: 0.5)),
@@ -229,16 +282,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 10),
+
+          // Trophy count + league badge
           Row(
             children: [
-              const Icon(Icons.emoji_events_rounded, color: Color(0xFFFACC15), size: 16),
-              const SizedBox(width: 4),
+              Icon(league.icon, color: league.color, size: 20),
+              const SizedBox(width: 6),
               Text(
                 '$trophies',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFFFACC15)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: league.color),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: league.color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: league.color.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  league.nameAr,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: league.color),
+                ),
               ),
             ],
           ),
+
+          // Progress bar to next league
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              valueColor: AlwaysStoppedAnimation<Color>(league.color),
+              minHeight: 5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hasNext
+                ? '${league.trophiesLeft(trophies)} كأس للدوري التالي'
+                : 'أعلى دوري!',
+            style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.45)),
+          ),
+
           // Avatar showcase row (decorative)
           const SizedBox(height: 8),
           Row(
@@ -268,6 +356,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ── Account Card ─────────────────────────────────────────────────────────────
+
   Widget _buildAccountCard(String uid) {
     final shortId = uid.length > 20 ? '${uid.substring(0, 20)}...' : uid;
     return Container(
@@ -294,11 +384,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Text('LINKED!', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF22C55E))),
-                  ],
-                ),
+                const Text('LINKED!', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF22C55E))),
                 Text('ID: $shortId', style: const TextStyle(fontSize: 9, color: Colors.white54)),
               ],
             ),
@@ -311,6 +397,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  // ── Battle Record ────────────────────────────────────────────────────────────
 
   Widget _buildBattleRecord({
     required int totalMatches,
@@ -334,20 +422,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(color: Colors.white12, height: 16),
           Row(
             children: [
-              Expanded(
-                child: _battleTile(Icons.emoji_events_rounded, const Color(0xFFFACC15), 'WINS', '$wins'),
-              ),
+              Expanded(child: _battleTile(Icons.emoji_events_rounded, const Color(0xFFFACC15), 'WINS',   '$wins')),
               const SizedBox(width: 8),
-              Expanded(
-                child: _battleTile(Icons.mood_bad_rounded, const Color(0xFFEF4444), 'LOSSES', '$losses'),
-              ),
+              Expanded(child: _battleTile(Icons.mood_bad_rounded,     const Color(0xFFEF4444), 'LOSSES', '$losses')),
             ],
           ),
           const SizedBox(height: 6),
-          _battleRow(Icons.shield_rounded, const Color(0xFF22C55E), 'WIN RATE', '$winRate%'),
-          _battleRow(Icons.local_fire_department_rounded, const Color(0xFFF97316), 'WIN STREAK', '$winStreak'),
-          _battleRow(Icons.military_tech_rounded, const Color(0xFFFACC15), 'BEST STREAK', '$bestStreak'),
-          _battleRow(Icons.emoji_events_rounded, const Color(0xFFFACC15), 'HIGHEST TROPHIES', '$trophies'),
+          _battleRow(Icons.shield_rounded,                    const Color(0xFF22C55E), 'WIN RATE',    '$winRate%'),
+          _battleRow(Icons.local_fire_department_rounded,     const Color(0xFFF97316), 'WIN STREAK',  '$winStreak'),
+          _battleRow(Icons.military_tech_rounded,             const Color(0xFFFACC15), 'BEST STREAK', '$bestStreak'),
+          const Divider(color: Colors.white12, height: 16),
+          // Trophy change per game
+          _trophyChangeRow(),
+          _battleRow(Icons.emoji_events_rounded, const Color(0xFFFACC15), 'TROPHIES', '$trophies'),
+        ],
+      ),
+    );
+  }
+
+  Widget _trophyChangeRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          const Icon(Icons.monetization_on_rounded, color: Color(0xFFFACC15), size: 16),
+          const SizedBox(width: 8),
+          const Text('أساس الكؤوس', style: TextStyle(fontSize: 11, color: Colors.white54, fontWeight: FontWeight.w700)),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFACC15).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: const Text('أرباح الألعاب', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFACC15))),
+          ),
         ],
       ),
     );
@@ -392,7 +501,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildTournamentCard() {
+  // ── Trophy League Card ────────────────────────────────────────────────────────
+
+  Widget _buildTrophyLeagueCard(int trophies) {
+    final league  = _leagueFor(trophies);
+    final lIdx    = _leagues.indexOf(league);
+    final hasNext = lIdx + 1 < _leagues.length;
+    final next    = hasNext ? _leagues[lIdx + 1] : null;
+    final progress = league.progress(trophies);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -401,76 +518,132 @@ class _ProfileScreenState extends State<ProfileScreen> {
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.calendar_today_rounded, color: Colors.white54, size: 14),
-              const SizedBox(width: 6),
-              const Text('HISTORY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white54)),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E3A8A).withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Row(
-                  children: [
-                    Text('Last 10', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white70)),
-                    SizedBox(width: 4),
-                    Icon(Icons.keyboard_arrow_up_rounded, color: Colors.white54, size: 14),
-                  ],
-                ),
+          // Current league badge
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  league.color.withValues(alpha: 0.2),
+                  league.color.withValues(alpha: 0.05),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-            ],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: league.color.withValues(alpha: 0.35)),
+            ),
+            child: Column(
+              children: [
+                Icon(league.icon, color: league.color, size: 36),
+                const SizedBox(height: 6),
+                Text(
+                  league.nameAr,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: league.color),
+                ),
+                Text(
+                  league.max == null
+                      ? '${league.min}+ كأس'
+                      : '${league.min} – ${league.max} كأس',
+                  style: TextStyle(fontSize: 10, color: league.color.withValues(alpha: 0.7)),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.white.withValues(alpha: 0.1),
+                      valueColor: AlwaysStoppedAnimation<Color>(league.color),
+                      minHeight: 7,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  next != null
+                      ? '${league.trophiesLeft(trophies)} كأس للـ ${next.nameAr}'
+                      : 'أعلى دوري! 🏆',
+                  style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 10),
-          if ((_stats['gamesPlayed'] ?? 0) == 0)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Text(
-                  'لم تلعب أي بطولة بعد',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+          const SizedBox(height: 12),
+
+          // All leagues ladder
+          ..._leagues.reversed.map((l) {
+            final achieved = trophies >= l.min;
+            final isCurrent = l == league;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: isCurrent
+                    ? l.color.withValues(alpha: 0.18)
+                    : Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                  color: isCurrent
+                      ? l.color.withValues(alpha: 0.5)
+                      : Colors.white.withValues(alpha: 0.07),
                 ),
               ),
-            )
-          else
-            ..._buildTournamentHistory(),
+              child: Row(
+                children: [
+                  Icon(l.icon,
+                      color: achieved ? l.color : Colors.white24,
+                      size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l.nameAr,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: achieved ? l.color : Colors.white30,
+                          ),
+                        ),
+                        Text(
+                          l.max == null ? '${l.min}+' : '${l.min}–${l.max}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: achieved
+                                ? l.color.withValues(alpha: 0.6)
+                                : Colors.white24,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isCurrent)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: l.color.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        'الآن',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: l.color),
+                      ),
+                    )
+                  else if (achieved)
+                    Icon(Icons.check_circle_rounded, color: l.color.withValues(alpha: 0.7), size: 16)
+                  else
+                    const Icon(Icons.lock_rounded, color: Colors.white24, size: 14),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
-  }
-
-  List<Widget> _buildTournamentHistory() {
-    // Show last few matches as placeholder tournament entries
-    final matches = _stats['gamesPlayed'] ?? 0;
-    final count = matches.clamp(0, 5);
-    return List.generate(count, (i) {
-      final rank = i * 7 + 12;
-      return Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A2B6B).withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        child: Row(
-          children: [
-            Text(
-              '#$rank',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFFFACC15)),
-            ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text('Battle Round', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
-            ),
-            const Icon(Icons.emoji_events_rounded, color: Color(0xFFFACC15), size: 16),
-          ],
-        ),
-      );
-    });
   }
 }

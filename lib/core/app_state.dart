@@ -88,8 +88,9 @@ class AppState extends ChangeNotifier {
     if (uid == null) { _checkingXp = false; return; }
     try {
       final stats = await _nativeBridgeService.getPlayerStats();
-      final gamesPlayed = stats['gamesPlayed'] ?? 0;
-      final wins       = stats['wins']        ?? 0;
+      final gamesPlayed   = stats['gamesPlayed']   ?? 0;
+      final wins          = stats['wins']           ?? 0;
+      final totalEarnings = stats['totalEarnings']  ?? 0;
 
       // First run: just snapshot, no XP awarded yet
       if (_lastKnownGamesPlayed < 0) {
@@ -119,7 +120,7 @@ class AppState extends ChangeNotifier {
           {
             'xp': xp,
             'level': level,
-            'trophies': wins * 30,
+            'trophies': totalEarnings ~/ 1000,
             'lastKnownGamesPlayed': gamesPlayed,
             'lastKnownWins': wins,
           },

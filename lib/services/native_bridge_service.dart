@@ -116,4 +116,28 @@ class NativeBridgeService {
     final result = await _channel.invokeMethod<bool>('restorePurchases');
     return result ?? false;
   }
+
+  /// يُعيد كميات وسائل المساعدة المخزّنة {'inv5050', 'invAudience', 'invCall'}
+  Future<Map<String, int>> getInventory() async {
+    final result = await _channel.invokeMapMethod<String, dynamic>('getInventory');
+    if (result == null) return {};
+    return result.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
+  /// يشتري وسيلة مساعدة ويخصم الثمن من الكوينز أو الجواهر.
+  /// يُعيد true عند النجاح.
+  Future<bool> buyPowerUp({
+    required String type,
+    required int quantity,
+    required String payWith, // 'coins' | 'gems'
+    required int cost,
+  }) async {
+    final result = await _channel.invokeMethod<bool>('buyPowerUp', {
+      'type': type,
+      'quantity': quantity,
+      'payWith': payWith,
+      'cost': cost,
+    });
+    return result ?? false;
+  }
 }

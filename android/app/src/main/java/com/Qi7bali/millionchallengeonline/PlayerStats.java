@@ -11,6 +11,7 @@ public class PlayerStats {
     public static int getLosses(Context c) { return prefs(c).getInt("losses", 0); }
     public static int getHighestMoney(Context c) { return prefs(c).getInt("highestMoney", 0); }
     public static int getLastPrize(Context c) { return prefs(c).getInt("lastPrize", 0); }
+    public static long getTotalEarnings(Context c) { return prefs(c).getLong("totalEarnings", 0); }
     public static int getCorrectAnswers(Context c) { return prefs(c).getInt("correctAnswers", 0); }
     public static int getWrongAnswers(Context c) { return prefs(c).getInt("wrongAnswers", 0); }
     public static int getTotalAnswered(Context c) { return getCorrectAnswers(c) + getWrongAnswers(c); }
@@ -48,10 +49,12 @@ public class PlayerStats {
     public static void recordGameEnd(Context c, boolean won, int prizeMoney) {
         SharedPreferences p = prefs(c);
         int highest = Math.max(prizeMoney, p.getInt("highestMoney", 0));
+        long totalEarnings = p.getLong("totalEarnings", 0) + prizeMoney;
         SharedPreferences.Editor e = p.edit()
                 .putInt("gamesPlayed", p.getInt("gamesPlayed", 0) + 1)
                 .putInt("lastPrize", prizeMoney)
                 .putInt("highestMoney", highest)
+                .putLong("totalEarnings", totalEarnings)
                 .putInt("currentStreak", 0);
         if (won) {
             e.putInt("wins", p.getInt("wins", 0) + 1);

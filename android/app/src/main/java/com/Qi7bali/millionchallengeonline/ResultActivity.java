@@ -85,7 +85,8 @@ public class ResultActivity extends AppCompatActivity {
 
         // Award XP for the online Speed Battle match
         PlayerProgress.onOnlineMatchFinished(this, didWin || opponentLeft, mySets);
-        PlayerStats.recordGameEnd(this, didWin || opponentLeft, 0);
+        // كل نقطة أون لاين = 1000 ريال حتى تتساوى مع مقياس الأوف لاين
+        PlayerStats.recordGameEnd(this, didWin || opponentLeft, myScore * 1000);
 
         if (opponentLeft) {
             txtResult.setText("Opponent left the match");

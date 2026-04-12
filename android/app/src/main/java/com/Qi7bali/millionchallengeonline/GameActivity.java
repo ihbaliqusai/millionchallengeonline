@@ -1966,19 +1966,37 @@ public class GameActivity extends AppCompatActivity {
         String leaderIdResolved = getMatchLeaderId();
         int setNumResolved = (currentQuestion == 4 ? 1 : (currentQuestion == 9 ? 2 : 3));
         int leaderSetsResolved = getSetsForPlayer(leaderIdResolved);
-        if ((currentQuestion != 14) && ((3 - setNumResolved) >= Math.max(0, leaderSetsResolved - setMe))) {
+
+        // إنهاء مبكر: بعد الجولة الثانية فقط إذا فاز أحد بجولتين (لا يمكن اللحاق به)
+        boolean earlyEnd = (setNumResolved == 2 && leaderSetsResolved >= 2);
+        if (currentQuestion != 14 && !earlyEnd) {
             return -2;
         }
+
+        // تعادل في الجولات بعد الجولة الثالثة (مثلاً 1-1-1) → الفاصل النقاط الكلية
+        boolean tiedOnSets = (currentQuestion == 14 && leaderSetsResolved == 1);
 
         int resolvedResult;
         if (myID.equals(leaderIdResolved)) {
             resolvedResult = 1;
             person.moveShow2Hands(2000);
             person.raiseEyeBrowsUp(1000, false, true);
-            showDialog("مبروك انتهت المباراة وأنت الفائز", "", 2000, 3000, R.drawable.mouth_01, false);
+            if (earlyEnd) {
+                showDialog("مبروك! فزت بجولتين وحسمت المباراة مبكراً", "", 2000, 3000, R.drawable.mouth_01, false);
+            } else if (tiedOnSets) {
+                showDialog("تعادلنا في الجولات.. لكن نقاطك الأعلى تجعلك الفائز! مبروك", "", 2000, 3000, R.drawable.mouth_01, false);
+            } else {
+                showDialog("مبروك انتهت المباراة وأنت الفائز", "", 2000, 3000, R.drawable.mouth_01, false);
+            }
         } else {
             resolvedResult = -1;
-            showDialog("انتهت المباراة. الفائز هو " + getPlayerDisplayName(leaderIdResolved), "", 2000, 3000, R.drawable.mouth_01, false);
+            if (earlyEnd) {
+                showDialog("انتهت المباراة مبكراً. " + getPlayerDisplayName(leaderIdResolved) + " فاز بجولتين متتاليتين", "", 2000, 3000, R.drawable.mouth_01, false);
+            } else if (tiedOnSets) {
+                showDialog("تعادلنا في الجولات! الفائز بأعلى نقاط: " + getPlayerDisplayName(leaderIdResolved), "", 2000, 3000, R.drawable.mouth_01, false);
+            } else {
+                showDialog("انتهت المباراة. الفائز هو " + getPlayerDisplayName(leaderIdResolved), "", 2000, 3000, R.drawable.mouth_01, false);
+            }
         }
         updateScoreAndLevel();
         return resolvedResult;
@@ -2803,6 +2821,16 @@ public class GameActivity extends AppCompatActivity {
                             handler.postDelayed(this, 4000);
                             break;
                         case 2:
+                            // سجّل نتيجة اللعبة مع المبلغ المثبت (إن لم يخرج اللاعب يدوياً)
+                            if (!EXITING) {
+                                try {
+                                    int safeHavenPrize = Integer.parseInt(
+                                        txtAmount.getText().toString().replace("$", "").trim());
+                                    PlayerStats.recordGameEnd(GameActivity.this, false, safeHavenPrize);
+                                    PlayerProgress.onGameFinished(GameActivity.this, false, safeHavenPrize,
+                                        PlayerStats.getBestStreak(GameActivity.this), usedAllHelps());
+                                } catch (Exception ignored) {}
+                            }
                             showInterstitialAd();
                             break;
                     }
