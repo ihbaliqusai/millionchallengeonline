@@ -324,47 +324,48 @@ class _CreateJoinPanel extends StatelessWidget {
                     fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
-              Row(
-                children: [2, 3, 4].map((n) {
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((n) {
                   final selected = maxPlayers == n;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => onMaxPlayersChanged(n),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        margin: EdgeInsets.only(right: n < 4 ? 8 : 0),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
+                  return GestureDetector(
+                    onTap: () => onMaxPlayersChanged(n),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: 52,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? const Color(0xFF3B82F6)
+                            : Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
                           color: selected
-                              ? const Color(0xFF3B82F6)
-                              : Colors.white.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: selected
-                                ? const Color(0xFF60A5FA)
-                                : Colors.white.withValues(alpha: 0.12),
-                          ),
+                              ? const Color(0xFF60A5FA)
+                              : Colors.white.withValues(alpha: 0.12),
                         ),
-                        child: Column(
-                          children: [
-                            Icon(Icons.person_rounded,
-                                size: 18,
-                                color: selected
-                                    ? Colors.white
-                                    : const Color(0xFF64748B)),
-                            const SizedBox(height: 2),
-                            Text(
-                              '$n',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                color: selected
-                                    ? Colors.white
-                                    : const Color(0xFF64748B),
-                              ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.person_rounded,
+                              size: 16,
+                              color: selected
+                                  ? Colors.white
+                                  : const Color(0xFF64748B)),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$n',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: selected
+                                  ? Colors.white
+                                  : const Color(0xFF64748B),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   );

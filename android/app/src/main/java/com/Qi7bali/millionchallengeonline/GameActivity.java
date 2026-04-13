@@ -92,14 +92,18 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private static final BotProfile[] BOT_PROFILES = new BotProfile[]{
-            new BotProfile("Nova AI", "drawable:avatar21", 96),
-            new BotProfile("Falcon AI", "drawable:avatar32", 89),
-            new BotProfile("Atlas AI", "drawable:avatar43", 84),
-            new BotProfile("Blaze AI", "drawable:avatar54", 77),
-            new BotProfile("Pixel AI", "drawable:avatar65", 71),
-            new BotProfile("Oracle AI", "drawable:avatar76", 66),
-            new BotProfile("Turbo AI", "drawable:avatar87", 59),
-            new BotProfile("Titan AI", "drawable:avatar98", 53)
+            new BotProfile("طارق",   "drawable:avatar1",  95),
+            new BotProfile("ليلى",   "drawable:avatar2",  70),
+            new BotProfile("هدى",    "drawable:avatar3",  65),
+            new BotProfile("عمر",    "drawable:avatar4",  85),
+            new BotProfile("منى",    "drawable:avatar5",  50),
+            new BotProfile("سارة",   "drawable:avatar6",  80),
+            new BotProfile("علي",    "drawable:avatar7",  60),
+            new BotProfile("فيصل",   "drawable:avatar8",  90),
+            new BotProfile("يوسف",   "drawable:avatar9",  40),
+            new BotProfile("رنا",    "drawable:avatar10", 75),
+            new BotProfile("خالد",   "drawable:avatar11", 92),
+            new BotProfile("سالم",   "drawable:avatar12", 78)
     };
 
     private static class MatchOpponent {
@@ -127,6 +131,7 @@ public class GameActivity extends AppCompatActivity {
         CircleImageView topImageView;
         TextView topNameView;
         CircleImageView scoreImageView;
+        TextView scoreNameView;
         TextView roundScoreView;
         TextView setsView;
         TextView gameScoreView;
@@ -222,6 +227,7 @@ public class GameActivity extends AppCompatActivity {
     private final HashMap<String, Runnable> pendingBotAnswerRunnables = new HashMap<>();
     private LinearLayout llyOpponents;
     private LinearLayout llyOpponentScores;
+    private TextView txtMeName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -273,9 +279,11 @@ public class GameActivity extends AppCompatActivity {
 
                 rlyScore = findViewById(R.id.rlyScore);
                 imgMe = findViewById(R.id.imgMe);
+                txtMeName = findViewById(R.id.txtMeName);
                 txtScoreMe = findViewById(R.id.txtScoreMe);
                 txtScoreGameMe = findViewById(R.id.txtScoreGameMe);
                 txtSetsMe = findViewById(R.id.txtSetsMe);
+                if (txtMeName != null) txtMeName.setText(myName);
 
                 imgAnswer1Player1 = findViewById(R.id.imgAnswer1Player1);
                 imgAnswer2Player1 = findViewById(R.id.imgAnswer2Player1);
@@ -867,26 +875,47 @@ public class GameActivity extends AppCompatActivity {
     private View createOpponentScoreRow(MatchOpponent opponent) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(6), 0, dp(6), 0);
+        row.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        // Avatar + name column (44dp, matching header ★)
+        LinearLayout avatarCol = new LinearLayout(this);
+        avatarCol.setOrientation(LinearLayout.VERTICAL);
+        avatarCol.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        avatarCol.setLayoutParams(new LinearLayout.LayoutParams(dp(44), dp(48)));
 
         CircleImageView imageView = new CircleImageView(this);
-        LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(dp(40), dp(40));
-        imageParams.setMargins(dp(5), dp(2), 0, dp(2));
+        LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(dp(28), dp(28));
+        imageParams.setMargins(0, dp(2), 0, dp(1));
         imageView.setLayoutParams(imageParams);
         imageView.setBorderWidth(dp(1));
         imageView.setBorderColor(getResources().getColor(R.color.player2));
         Data.setImageSource(this, imageView, opponent.photo);
+
+        TextView nameLabel = new TextView(this);
+        nameLabel.setLayoutParams(new LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.WRAP_CONTENT));
+        nameLabel.setGravity(android.view.Gravity.CENTER);
+        nameLabel.setTextColor(android.graphics.Color.WHITE);
+        nameLabel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 8);
+        nameLabel.setMaxLines(1);
+        nameLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        nameLabel.setText(opponent.name);
+
+        avatarCol.addView(imageView);
+        avatarCol.addView(nameLabel);
 
         TextView roundView = createScoreCell();
         TextView setsView = createSetsCell();
         TextView gameView = createGameScoreCell();
 
         opponent.scoreImageView = imageView;
+        opponent.scoreNameView = nameLabel;
         opponent.roundScoreView = roundView;
         opponent.setsView = setsView;
         opponent.gameScoreView = gameView;
 
-        row.addView(imageView);
+        row.addView(avatarCol);
         row.addView(roundView);
         row.addView(setsView);
         row.addView(gameView);
@@ -895,30 +924,36 @@ public class GameActivity extends AppCompatActivity {
 
     private TextView createScoreCell() {
         TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(80), dp(40));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
         textView.setLayoutParams(params);
         textView.setGravity(android.view.Gravity.CENTER);
         textView.setTextColor(getResources().getColor(android.R.color.white));
+        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
+        textView.setTypeface(null, android.graphics.Typeface.BOLD);
         textView.setText("0");
         return textView;
     }
 
     private TextView createSetsCell() {
         TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(60), dp(40));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
         textView.setLayoutParams(params);
         textView.setGravity(android.view.Gravity.CENTER);
         textView.setTextColor(getResources().getColor(R.color.stepSelected));
+        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
+        textView.setTypeface(null, android.graphics.Typeface.BOLD);
         textView.setText("0");
         return textView;
     }
 
     private TextView createGameScoreCell() {
         TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(80), dp(40));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
         textView.setLayoutParams(params);
         textView.setGravity(android.view.Gravity.CENTER);
         textView.setTextColor(getResources().getColor(R.color.lightBlueApp));
+        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
+        textView.setTypeface(null, android.graphics.Typeface.BOLD);
         textView.setText("0");
         return textView;
     }
@@ -946,17 +981,16 @@ public class GameActivity extends AppCompatActivity {
     private void refreshOpponentPanels() {
         for (MatchOpponent opponent : opponents) {
             if (opponent.topNameView != null) {
-                if (opponent.bot) {
-                    opponent.topNameView.setText(opponent.name + "\nAI " + opponent.intelligence + "%");
-                } else {
-                    opponent.topNameView.setText(opponent.name);
-                }
+                opponent.topNameView.setText(opponent.name);
             }
             if (opponent.topImageView != null) {
                 Data.setImageSource(this, opponent.topImageView, opponent.photo);
             }
             if (opponent.scoreImageView != null) {
                 Data.setImageSource(this, opponent.scoreImageView, opponent.photo);
+            }
+            if (opponent.scoreNameView != null) {
+                opponent.scoreNameView.setText(opponent.name);
             }
             if (opponent.roundScoreView != null) {
                 opponent.roundScoreView.setText(String.valueOf(opponent.roundScore));
@@ -1014,6 +1048,19 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private BotProfile resolveBotProfile(String playerId) {
+        // Bot IDs follow: "bot_room_ROOMID_SLOT" where SLOT starts at 1
+        // Use SLOT for sequential (non-repeating) profile assignment
+        if (playerId != null) {
+            String[] parts = playerId.split("_");
+            if (parts.length >= 1) {
+                try {
+                    int slot = Integer.parseInt(parts[parts.length - 1]) - 1;
+                    if (slot >= 0 && slot < BOT_PROFILES.length) {
+                        return BOT_PROFILES[slot];
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+        }
         int seed = Math.abs(stableHash(playerId));
         return BOT_PROFILES[seed % BOT_PROFILES.length];
     }
@@ -1082,34 +1129,65 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private int getBotDelayMillis(MatchOpponent opponent) {
-        int baseSeconds = getFictitiousRandomTime();
-        int speedBonus = Math.max(0, (opponent.intelligence - 50) / 12);
-        int adjustedSeconds = Math.max(2, baseSeconds - speedBonus);
-        return adjustedSeconds * 1000;
+        int intel = opponent.intelligence; // 0-100
+
+        // Phase 1 (Q1-5, idx 0-4):  smart=5.3s  dumb=10.4s  → base=4835 + (100-intel)*93
+        // Phase 2 (Q6-10, idx 5-9): smart=7.8s  dumb=15.4s  → base=7110 + (100-intel)*138
+        // Phase 3 (Q11-15, idx 10+): smart=9.3s dumb=25.4s  → base=7835 + (100-intel)*293
+        int baseMs;
+        if (currentQuestion < 5) {
+            baseMs = 4835 + (100 - intel) * 93;
+        } else if (currentQuestion < 10) {
+            baseMs = 7110 + (100 - intel) * 138;
+        } else {
+            baseMs = 7835 + (100 - intel) * 293;
+        }
+
+        // Difficulty of the current question adds extra thinking time
+        String level = "0";
+        if (currentQuestion >= 0 && currentQuestion < questions.size()) {
+            level = questions.get(currentQuestion).Level;
+        }
+        switch (level) {
+            case "1": baseMs += 400;  break;
+            case "2": baseMs += 1000; break;
+            case "3": baseMs += 2200; break;
+        }
+
+        // Deterministic personality seed (consistent per bot+question across games)
+        int seed = Math.abs(stableHash(opponent.id + "|q" + currentQuestion));
+        baseMs += (seed % 600) - 300; // ±300ms stable character offset
+
+        // Human-like random jitter ±350ms — different every game
+        baseMs += new Random().nextInt(700) - 350;
+
+        // Rare hesitation (8% chance): bot second-guesses itself +1-3 extra seconds
+        if (new Random().nextInt(100) < 8) {
+            baseMs += 1000 + new Random().nextInt(2000);
+        }
+
+        // Never answer in the first 900ms (too inhuman)
+        baseMs = Math.max(900, baseMs);
+
+        // Never run out of time (stop 3 seconds before timer ends)
+        int remainingMs = Math.max(1500, ((PROGRESS_VALUE / 10) - 3) * 1000);
+        return Math.min(remainingMs, baseMs);
     }
 
     private int getBotDisplayedAnswer(MatchOpponent opponent) {
         int levelPenalty = 0;
         switch (questions.get(currentQuestion).Level) {
-            case "1":
-                levelPenalty = 8;
-                break;
-            case "2":
-                levelPenalty = 18;
-                break;
-            case "3":
-                levelPenalty = 26;
-                break;
-            default:
-                levelPenalty = 0;
-                break;
+            case "1": levelPenalty = 8;  break;
+            case "2": levelPenalty = 18; break;
+            case "3": levelPenalty = 26; break;
+            default:  levelPenalty = 0;  break;
         }
         int successChance = Math.max(20, Math.min(97, opponent.intelligence - levelPenalty));
-        int roll = Math.abs(stableHash(opponent.id + "|" + currentQuestion + "|" + PROGRESS_VALUE)) % 100;
-        if (roll < successChance) {
-            return rightAnswer;
-        }
-        return getWrongAnswer(rightAnswer);
+        // Mix 80% stable hash (consistent character) + 20% random (human unpredictability)
+        int stablePart = Math.abs(stableHash(opponent.id + "|" + currentQuestion)) % 80;
+        int randomPart = new Random().nextInt(20);
+        int roll = (stablePart + randomPart) % 100;
+        return roll < successChance ? rightAnswer : getWrongAnswer(rightAnswer);
     }
 
     private int getWrongAnswer(int rightAnswer) {
@@ -2482,12 +2560,11 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private int getSpeedPoints(String playerId, ArrayList<RoundRankEntry> rankedCorrectAnswers) {
-        if (playerId == null || playerId.trim().isEmpty()) {
-            return 0;
-        }
-        for (int i = 0; i < rankedCorrectAnswers.size() && i < ONLINE_SPEED_POINTS.length; i++) {
+        if (playerId == null || playerId.trim().isEmpty()) return 0;
+        for (int i = 0; i < rankedCorrectAnswers.size(); i++) {
             if (playerId.equals(rankedCorrectAnswers.get(i).playerId)) {
-                return ONLINE_SPEED_POINTS[i];
+                // 1st=10, 2nd=7, 3rd=5, 4th-10th=3
+                return i < ONLINE_SPEED_POINTS.length ? ONLINE_SPEED_POINTS[i] : 3;
             }
         }
         return 0;

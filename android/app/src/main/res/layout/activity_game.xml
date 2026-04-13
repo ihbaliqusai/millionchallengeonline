@@ -700,21 +700,40 @@
             <!-- Me row -->
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="44dp"
+                android:layout_height="48dp"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingLeft="6dp"
                 android:paddingRight="6dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
                 >
-                <de.hdodenhof.circleimageview.CircleImageView
-                    android:id="@+id/imgMe"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    app:civ_border_color="@color/player1"
-                    app:civ_border_width="2dp"
-                    />
+                <LinearLayout
+                    android:layout_width="44dp"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal"
+                    >
+                    <de.hdodenhof.circleimageview.CircleImageView
+                        android:id="@+id/imgMe"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:layout_marginTop="2dp"
+                        app:civ_border_color="@color/player1"
+                        app:civ_border_width="2dp"
+                        />
+                    <TextView
+                        android:id="@+id/txtMeName"
+                        android:layout_width="44dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:textColor="#FFFFFF"
+                        android:textSize="8sp"
+                        android:maxLines="1"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/baloo"
+                        />
+                </LinearLayout>
                 <TextView
                     android:id="@+id/txtScoreMe"
                     android:layout_width="0dp"
@@ -763,13 +782,20 @@
                 />
 
             <!-- Opponent rows (added dynamically) -->
-            <LinearLayout
-                android:id="@+id/llyOpponentScores"
+            <androidx.core.widget.NestedScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingBottom="4dp"
-                />
+                android:maxHeight="352dp"
+                android:overScrollMode="never"
+                >
+                <LinearLayout
+                    android:id="@+id/llyOpponentScores"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingBottom="4dp"
+                    />
+            </androidx.core.widget.NestedScrollView>
 
         </LinearLayout>
 

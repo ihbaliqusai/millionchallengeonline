@@ -67,53 +67,89 @@ class RoomPlayer {
 class Room {
   static const String botIdPrefix = 'bot_room_';
   static const List<RoomBotProfile> _botProfiles = <RoomBotProfile>[
+    // 1 — ذكر — العبقري الهادئ
     RoomBotProfile(
-      displayName: 'Nova AI',
-      intelligence: 96,
+      displayName: 'طارق',
+      intelligence: 95,
       avatarSeed: 0,
-      nativePhoto: 'drawable:avatar21',
+      nativePhoto: 'drawable:avatar1',
     ),
+    // 2 — أنثى — المغامرة
     RoomBotProfile(
-      displayName: 'Falcon AI',
-      intelligence: 89,
+      displayName: 'ليلى',
+      intelligence: 70,
       avatarSeed: 1,
-      nativePhoto: 'drawable:avatar32',
+      nativePhoto: 'drawable:avatar2',
     ),
+    // 3 — أنثى — المترددة
     RoomBotProfile(
-      displayName: 'Atlas AI',
-      intelligence: 84,
+      displayName: 'هدى',
+      intelligence: 65,
       avatarSeed: 2,
-      nativePhoto: 'drawable:avatar43',
+      nativePhoto: 'drawable:avatar3',
     ),
+    // 4 — ذكر — الخبير
     RoomBotProfile(
-      displayName: 'Blaze AI',
-      intelligence: 77,
+      displayName: 'عمر',
+      intelligence: 85,
       avatarSeed: 3,
-      nativePhoto: 'drawable:avatar54',
+      nativePhoto: 'drawable:avatar4',
     ),
+    // 5 — أنثى — المحظوظة
     RoomBotProfile(
-      displayName: 'Pixel AI',
-      intelligence: 71,
+      displayName: 'منى',
+      intelligence: 50,
       avatarSeed: 4,
-      nativePhoto: 'drawable:avatar65',
+      nativePhoto: 'drawable:avatar5',
     ),
+    // 6 — أنثى — المفكرة البطيئة
     RoomBotProfile(
-      displayName: 'Oracle AI',
-      intelligence: 66,
+      displayName: 'سارة',
+      intelligence: 80,
       avatarSeed: 5,
-      nativePhoto: 'drawable:avatar76',
+      nativePhoto: 'drawable:avatar6',
     ),
+    // 7 — ذكر — المتسرع
     RoomBotProfile(
-      displayName: 'Turbo AI',
-      intelligence: 59,
+      displayName: 'علي',
+      intelligence: 60,
       avatarSeed: 6,
-      nativePhoto: 'drawable:avatar87',
+      nativePhoto: 'drawable:avatar7',
     ),
+    // 8 — ذكر — العبقري الاجتماعي
     RoomBotProfile(
-      displayName: 'Titan AI',
-      intelligence: 53,
+      displayName: 'فيصل',
+      intelligence: 90,
       avatarSeed: 7,
-      nativePhoto: 'drawable:avatar98',
+      nativePhoto: 'drawable:avatar8',
+    ),
+    // 9 — ذكر — المبتدئ
+    RoomBotProfile(
+      displayName: 'يوسف',
+      intelligence: 40,
+      avatarSeed: 8,
+      nativePhoto: 'drawable:avatar9',
+    ),
+    // 10 — أنثى — المخادعة
+    RoomBotProfile(
+      displayName: 'رنا',
+      intelligence: 75,
+      avatarSeed: 9,
+      nativePhoto: 'drawable:avatar10',
+    ),
+    // 11 — ذكر — الموسوعي
+    RoomBotProfile(
+      displayName: 'خالد',
+      intelligence: 92,
+      avatarSeed: 10,
+      nativePhoto: 'drawable:avatar11',
+    ),
+    // 12 — ذكر — الكلاسيكي
+    RoomBotProfile(
+      displayName: 'سالم',
+      intelligence: 78,
+      avatarSeed: 11,
+      nativePhoto: 'drawable:avatar12',
     ),
   ];
 
