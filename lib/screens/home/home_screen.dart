@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,6 +6,7 @@ import 'package:millionaire_flutter_exact/screens/online/rooms_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../core/player_rank.dart';
 import 'store_screen.dart';
 import 'leaderboard_screen.dart';
 import 'daily_streak_screen.dart';
@@ -1042,26 +1042,11 @@ class _PlayerCard extends StatelessWidget {
   final String username;
   final dynamic user;
 
-  static String _rankTitle(int trophies) {
-    if (trophies >= 200) return 'Legend';
-    if (trophies >= 100) return 'Diamond';
-    if (trophies >= 50)  return 'Gold';
-    if (trophies >= 25)  return 'Silver';
-    if (trophies >= 10)  return 'Bronze';
-    return 'Beginner';
-  }
-
-  static Color _rankColor(int trophies) {
-    if (trophies >= 200) return const Color(0xFFA855F7);
-    if (trophies >= 100) return const Color(0xFF38BDF8);
-    if (trophies >= 50)  return const Color(0xFFFACC15);
-    if (trophies >= 25)  return const Color(0xFF94A3B8);
-    if (trophies >= 10)  return const Color(0xFFB45309);
-    return const Color(0xFF38BDF8);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final rankTitle = PlayerRank.titleForLevel(appState.level);
+    final rankColor = PlayerRank.colorForLevel(appState.level);
+
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
@@ -1108,13 +1093,13 @@ class _PlayerCard extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      Icon(Icons.circle, size: 8, color: _rankColor(appState.trophies)),
+                      Icon(Icons.circle, size: 8, color: rankColor),
                       const SizedBox(width: 3),
                       Text(
-                        _rankTitle(appState.trophies),
+                        rankTitle,
                         style: TextStyle(
                           fontSize: 11,
-                          color: _rankColor(appState.trophies),
+                          color: rankColor,
                           fontWeight: FontWeight.w700,
                         ),
                       ),

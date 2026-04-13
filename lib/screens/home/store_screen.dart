@@ -150,8 +150,8 @@ const _kPowerups = [
     icon: Icons.filter_2_rounded,
     color: Color(0xFF3B82F6),
     bgColor: Color(0xFF1E3A8A),
-    coinTiers: [_Tier(1, 200), _Tier(3, 500), _Tier(5, 750)],
-    gemTiers:  [_Tier(1, 3),   _Tier(3, 7),   _Tier(5, 10)],
+    coinTiers: [_Tier(1, 2000), _Tier(3, 5000), _Tier(5, 7500)],
+    gemTiers:  [_Tier(1, 20),   _Tier(3, 50),   _Tier(5, 75)],
   ),
   _PowerupDef(
     type: 'audience',
@@ -160,8 +160,8 @@ const _kPowerups = [
     icon: Icons.groups_rounded,
     color: Color(0xFFA855F7),
     bgColor: Color(0xFF4C1D95),
-    coinTiers: [_Tier(1, 300), _Tier(3, 750),  _Tier(5, 1100)],
-    gemTiers:  [_Tier(1, 5),   _Tier(3, 12),   _Tier(5, 18)],
+    coinTiers: [_Tier(1, 3000), _Tier(3, 7500),  _Tier(5, 11000)],
+    gemTiers:  [_Tier(1, 30),   _Tier(3, 75),    _Tier(5, 110)],
   ),
   _PowerupDef(
     type: 'call',
@@ -170,8 +170,8 @@ const _kPowerups = [
     icon: Icons.phone_rounded,
     color: Color(0xFF10B981),
     bgColor: Color(0xFF064E3B),
-    coinTiers: [_Tier(1, 400), _Tier(3, 1000), _Tier(5, 1500)],
-    gemTiers:  [_Tier(1, 7),   _Tier(3, 18),   _Tier(5, 25)],
+    coinTiers: [_Tier(1, 3000), _Tier(3, 7500), _Tier(5, 11000)],
+    gemTiers:  [_Tier(1, 30),   _Tier(3, 75),   _Tier(5, 110)],
   ),
 ];
 

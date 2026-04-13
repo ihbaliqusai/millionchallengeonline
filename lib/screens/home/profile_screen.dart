@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../core/player_rank.dart';
 import '../../services/native_bridge_service.dart';
 
 // ── Trophy League Definitions ─────────────────────────────────────────────────
@@ -72,24 +73,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  String _rankTitle(int level) {
-    if (level >= 50) return 'Legend';
-    if (level >= 30) return 'Diamond';
-    if (level >= 20) return 'Gold';
-    if (level >= 10) return 'Silver';
-    if (level >= 5)  return 'Bronze';
-    return 'Beginner';
-  }
-
-  Color _rankColor(int level) {
-    if (level >= 50) return const Color(0xFFA855F7);
-    if (level >= 30) return const Color(0xFF38BDF8);
-    if (level >= 20) return const Color(0xFFFACC15);
-    if (level >= 10) return const Color(0xFF94A3B8);
-    if (level >= 5)  return const Color(0xFFB45309);
-    return const Color(0xFF38BDF8);
   }
 
   @override
@@ -216,8 +199,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Profile Card ─────────────────────────────────────────────────────────────
 
   Widget _buildProfileCard(String username, int level, int trophies, String? photoUrl) {
-    final rank     = _rankTitle(level);
-    final rankClr  = _rankColor(level);
+    final rank     = PlayerRank.titleForLevel(level);
+    final rankClr  = PlayerRank.colorForLevel(level);
     final league   = _leagueFor(trophies);
     final nextIdx  = _leagues.indexOf(league) + 1;
     final hasNext  = nextIdx < _leagues.length;

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../core/player_rank.dart';
 import '../../services/native_bridge_service.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -189,6 +190,8 @@ class _PlayerInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final username = appState.user?.displayName ?? appState.user?.email ?? 'Player';
+    final rankTitle = PlayerRank.titleForLevel(appState.level);
+    final rankColor = PlayerRank.colorForLevel(appState.level);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -225,14 +228,14 @@ class _PlayerInfoCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFF38BDF8), size: 16),
+                    Icon(Icons.star_rounded, color: rankColor, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      'Beginner',
+                      rankTitle,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: rankColor,
                       ),
                     ),
                   ],
