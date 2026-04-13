@@ -12,6 +12,7 @@ class NativeBridgeService {
   Future<void> launchLegacyRoomMatch({
     required List<Map<String, dynamic>> opponents,
     required bool meOwner,
+    String matchMode = 'battle',
   }) async {
     final safeOpponents = opponents
         .map(
@@ -30,6 +31,7 @@ class NativeBridgeService {
     await _channel.invokeMethod('launchRoomMatch', <String, dynamic>{
       'opponentsJson': jsonEncode(safeOpponents),
       'meOwner': meOwner,
+      'matchMode': matchMode,
     });
   }
 

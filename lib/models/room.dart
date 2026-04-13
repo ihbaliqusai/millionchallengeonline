@@ -20,18 +20,24 @@ class RoomPlayer {
     required this.ready,
     this.answeredCount = 0,
     this.completedAt,
+    this.eliminated = false,
+    this.currentAnswer,
   });
 
   final int score;
   final bool ready;
   final int answeredCount;
   final DateTime? completedAt;
+  final bool eliminated;
+  final String? currentAnswer;
 
   factory RoomPlayer.fromMap(Map<String, dynamic> map) => RoomPlayer(
         score: (map['score'] as num?)?.toInt() ?? 0,
         ready: map['ready'] == true,
         answeredCount: (map['answeredCount'] as num?)?.toInt() ?? 0,
         completedAt: _readDate(map['completedAt']),
+        eliminated: map['eliminated'] == true,
+        currentAnswer: map['currentAnswer'] as String?,
       );
 
   Map<String, dynamic> toMap() => <String, dynamic>{
@@ -40,6 +46,8 @@ class RoomPlayer {
         'answeredCount': answeredCount,
         if (completedAt != null)
           'completedAt': Timestamp.fromDate(completedAt!),
+        if (eliminated) 'eliminated': eliminated,
+        if (currentAnswer != null) 'currentAnswer': currentAnswer,
       };
 
   RoomPlayer copyWith({
@@ -47,12 +55,16 @@ class RoomPlayer {
     bool? ready,
     int? answeredCount,
     DateTime? completedAt,
+    bool? eliminated,
+    String? currentAnswer,
   }) {
     return RoomPlayer(
       score: score ?? this.score,
       ready: ready ?? this.ready,
       answeredCount: answeredCount ?? this.answeredCount,
       completedAt: completedAt ?? this.completedAt,
+      eliminated: eliminated ?? this.eliminated,
+      currentAnswer: currentAnswer ?? this.currentAnswer,
     );
   }
 
@@ -161,6 +173,12 @@ class Room {
     required this.players,
     this.createdAt,
     this.startedAt,
+    this.mode = 'battle',
+    this.phase = 'lobby',
+    this.currentQuestionIndex = 0,
+    this.questionStartedAt,
+    this.questionIds = const [],
+    this.winnerId,
   });
 
   final String id;
@@ -170,6 +188,21 @@ class Room {
   final Map<String, RoomPlayer> players;
   final DateTime? createdAt;
   final DateTime? startedAt;
+
+  /// 'battle' = existing native multiplayer | 'elimination' = new elimination mode
+  final String mode;
+
+  /// 'lobby' | 'playing' | 'finished'
+  final String phase;
+
+  final int currentQuestionIndex;
+  final DateTime? questionStartedAt;
+
+  /// Shuffled list of indices into questions.json, set when game starts.
+  final List<int> questionIds;
+
+  /// UID of the winning player when phase == 'finished'. Null = draw / no winner.
+  final String? winnerId;
 
   factory Room.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
     final data = snapshot.data() ?? const <String, dynamic>{};
@@ -199,6 +232,13 @@ class Room {
       players: parsedPlayers,
       createdAt: _readDate(data['createdAt']),
       startedAt: _readDate(data['startedAt']),
+      mode: (data['mode'] ?? 'battle').toString(),
+      phase: (data['phase'] ?? 'lobby').toString(),
+      currentQuestionIndex:
+          (data['currentQuestionIndex'] as num?)?.toInt() ?? 0,
+      questionStartedAt: _readDate(data['questionStartedAt']),
+      questionIds: _readIntList(data['questionIds']),
+      winnerId: data['winnerId'] as String?,
     );
   }
 
@@ -209,6 +249,9 @@ class Room {
   bool containsPlayer(String userId) => players.containsKey(userId);
 
   List<String> get playerIds => players.keys.toList(growable: false);
+
+  int get aliveCount =>
+      players.values.where((p) => !p.eliminated).length;
 
   static bool isBotUserId(String userId) => userId.startsWith(botIdPrefix);
 
@@ -227,6 +270,14 @@ class Room {
     if (value is DateTime) return value;
     if (value is Timestamp) return value.toDate();
     return null;
+  }
+
+  static List<int> _readIntList(dynamic value) {
+    if (value == null) return const [];
+    if (value is List) {
+      return value.map((e) => (e as num).toInt()).toList();
+    }
+    return const [];
   }
 
   static int _stableHash(String value) {

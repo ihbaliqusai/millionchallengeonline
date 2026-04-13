@@ -4,12 +4,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
+import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -125,6 +125,7 @@ public class GameActivity extends AppCompatActivity {
         int displayedAnswer = 0;
         int roundPoints = 0;
         boolean submitted = false;
+        boolean eliminated = false;
         long answerElapsedMs = QUESTION_TIMEOUT_MS;
         long totalAnswerTimeMs = 0L;
         long setAnswerTimeMs = 0L;
@@ -168,6 +169,7 @@ public class GameActivity extends AppCompatActivity {
             EXITING = false,
             SOUND_ON = true,
             modeOnline = false,
+            eliminationMode = false,
             meOwner;
     Person person;
     Data dataAnswer;
@@ -220,6 +222,8 @@ public class GameActivity extends AppCompatActivity {
     private long serverTimeOffsetMs = 0L;
     private long questionStartTimeMs = 0L;
     private boolean localPlayerRemoved = false;
+    private boolean localPlayerEliminated = false;
+    private boolean spectatorEliminationRound = false;
     private int pendingQuestionIndex = -1;
     private long scheduledQuestionStartAt = 0L;
     private final ArrayList<MatchOpponent> opponents = new ArrayList<>();
@@ -227,7 +231,22 @@ public class GameActivity extends AppCompatActivity {
     private final HashMap<String, Runnable> pendingBotAnswerRunnables = new HashMap<>();
     private LinearLayout llyOpponents;
     private LinearLayout llyOpponentScores;
+    private LinearLayout scoreHeaderRow;
+    private LinearLayout scoreMeRow;
     private TextView txtMeName;
+    private TextView labScore;
+    private TextView labSets;
+    private TextView labScoreGame;
+    private int scoreboardPanelWidthDp = 270;
+    private int scoreboardHeaderHeightDp = 28;
+    private int scoreboardRowHeightDp = 48;
+    private int scoreboardAvatarColumnWidthDp = 44;
+    private int scoreboardAvatarSizeDp = 28;
+    private int scoreboardAvatarBorderDp = 2;
+    private int scoreboardHorizontalPaddingDp = 6;
+    private float scoreboardHeaderTextSp = 11f;
+    private float scoreboardNameTextSp = 8f;
+    private float scoreboardValueTextSp = 14f;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -249,7 +268,9 @@ public class GameActivity extends AppCompatActivity {
         SOUND_ON = AppPrefs.isSoundEnabled(this);
 
         String modeExtra = getIntent().getStringExtra("mode");
+        String matchModeExtra = getIntent().getStringExtra("matchMode");
         modeOnline = "online".equals(modeExtra);
+        eliminationMode = "elimination".equals(matchModeExtra);
         meOwner = getIntent().getBooleanExtra("meOwner", true);
 
 
@@ -276,13 +297,24 @@ public class GameActivity extends AppCompatActivity {
                 txtPlayer1 = findViewById(R.id.txtPlayer1);
                 llyOpponents = findViewById(R.id.llyOpponents);
                 llyOpponentScores = findViewById(R.id.llyOpponentScores);
+                scoreHeaderRow = findViewById(R.id.llyScoreHeader);
+                scoreMeRow = findViewById(R.id.llyScoreMe);
 
                 rlyScore = findViewById(R.id.rlyScore);
+                labScore = findViewById(R.id.labScore);
+                labSets = findViewById(R.id.labSets);
+                labScoreGame = findViewById(R.id.labScoreGame);
                 imgMe = findViewById(R.id.imgMe);
                 txtMeName = findViewById(R.id.txtMeName);
                 txtScoreMe = findViewById(R.id.txtScoreMe);
                 txtScoreGameMe = findViewById(R.id.txtScoreGameMe);
                 txtSetsMe = findViewById(R.id.txtSetsMe);
+                if (eliminationMode) {
+                    labScore.setText("الصحيح");
+                    labSets.setText("الحالة");
+                    labScoreGame.setText("النقاط");
+                    txtSetsMe.setText("نشط");
+                }
                 if (txtMeName != null) txtMeName.setText(myName);
 
                 imgAnswer1Player1 = findViewById(R.id.imgAnswer1Player1);
@@ -299,6 +331,7 @@ public class GameActivity extends AppCompatActivity {
                 Data.setImageSource(this, imgAnswer2Player1, myPhoto);
                 Data.setImageSource(this, imgAnswer3Player1, myPhoto);
                 Data.setImageSource(this, imgAnswer4Player1, myPhoto);
+                configureScoreboardLayout();
                 buildOpponentPanels();
                 syncPrimaryOpponentFields();
 
@@ -536,6 +569,9 @@ public class GameActivity extends AppCompatActivity {
                         case "OpponentLeftContinue":
                             continueMatchWithComputer();
                             break;
+                        case "EliminationSpectatorChoice":
+                            continueEliminationMatchAsSpectator();
+                            break;
                         case "ConfirmRules":
                             person.moveShowHand(1000);
                             if (modeOnline)
@@ -610,6 +646,9 @@ public class GameActivity extends AppCompatActivity {
                             markMyGameState("finished");
                             EXITING = true;
                             openOnlineResultScreen(true);
+                            break;
+                        case "EliminationSpectatorChoice":
+                            exitEliminationMatchAfterDecliningSpectator();
                             break;
                         case "ConfirmRules":
                         case "Rules1":
@@ -808,6 +847,7 @@ public class GameActivity extends AppCompatActivity {
         if (!modeOnline) {
             return;
         }
+        configureScoreboardLayout();
         txtPlayer1.setText(myName);
         Data.setImageSource(this, imgPlayer1, myPhoto);
         llyPlayer1.setVisibility(View.GONE);
@@ -831,7 +871,7 @@ public class GameActivity extends AppCompatActivity {
                 llyOpponentScores.addView(createOpponentScoreRow(opponent));
             }
             for (LinearLayout container : opponentAnswerContainers) {
-                CircleImageView thumbView = createAnswerThumbView();
+                CircleImageView thumbView = createAnswerThumbView(container.getChildCount() > 0);
                 container.addView(thumbView);
                 opponent.answerThumbViews.add(thumbView);
             }
@@ -839,6 +879,170 @@ public class GameActivity extends AppCompatActivity {
 
         rlyScore.setVisibility(View.VISIBLE);
         refreshOpponentPanels();
+    }
+
+    private void configureScoreboardLayout() {
+        if (!modeOnline || rlyScore == null) {
+            return;
+        }
+
+        final int totalPlayers = 1 + opponents.size();
+        final DisplayMetrics metrics = getResources().getDisplayMetrics();
+        final float screenHeightDp = metrics.heightPixels / metrics.density;
+        final int scoreboardBudgetDp = Math.max(260, Math.round(screenHeightDp * 0.58f));
+        final boolean compact = totalPlayers >= 6;
+        final boolean ultraCompact = totalPlayers >= 9;
+
+        scoreboardPanelWidthDp = ultraCompact ? 228 : (compact ? 242 : 270);
+        scoreboardHeaderHeightDp = ultraCompact ? 22 : (compact ? 24 : 28);
+        final int calculatedRowHeight = (scoreboardBudgetDp - scoreboardHeaderHeightDp - 10) / Math.max(1, totalPlayers);
+        scoreboardRowHeightDp = Math.max(22, Math.min(48, calculatedRowHeight));
+        scoreboardAvatarColumnWidthDp = scoreboardRowHeightDp <= 26 ? 30 : (scoreboardRowHeightDp <= 32 ? 34 : (ultraCompact ? 36 : (compact ? 40 : 44)));
+        scoreboardAvatarSizeDp = Math.max(18, Math.min(28, scoreboardRowHeightDp - 12));
+        scoreboardAvatarBorderDp = ultraCompact ? 1 : 2;
+        scoreboardHorizontalPaddingDp = scoreboardRowHeightDp <= 26 ? 3 : (ultraCompact ? 4 : 6);
+        scoreboardHeaderTextSp = scoreboardRowHeightDp <= 26 ? 8.5f : (ultraCompact ? 9f : (compact ? 10f : 11f));
+        scoreboardNameTextSp = scoreboardRowHeightDp <= 26 ? 6.2f : (scoreboardRowHeightDp <= 30 ? 6.8f : (ultraCompact ? 7f : (compact ? 7.5f : 8f)));
+        scoreboardValueTextSp = scoreboardRowHeightDp <= 26 ? 10f : (scoreboardRowHeightDp <= 30 ? 11f : (ultraCompact ? 11.5f : (compact ? 12.5f : 14f)));
+
+        ViewGroup.LayoutParams panelParams = rlyScore.getLayoutParams();
+        panelParams.width = dp(scoreboardPanelWidthDp);
+        rlyScore.setLayoutParams(panelParams);
+
+        if (scoreHeaderRow != null) {
+            LinearLayout.LayoutParams headerParams =
+                    (LinearLayout.LayoutParams) scoreHeaderRow.getLayoutParams();
+            headerParams.height = dp(scoreboardHeaderHeightDp);
+            scoreHeaderRow.setLayoutParams(headerParams);
+            scoreHeaderRow.setPadding(
+                    dp(scoreboardHorizontalPaddingDp),
+                    0,
+                    dp(scoreboardHorizontalPaddingDp),
+                    0
+            );
+
+            for (int i = 0; i < scoreHeaderRow.getChildCount(); i++) {
+                View child = scoreHeaderRow.getChildAt(i);
+                if (child instanceof TextView) {
+                    ((TextView) child).setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardHeaderTextSp);
+                }
+            }
+            View starCell = scoreHeaderRow.getChildAt(0);
+            LinearLayout.LayoutParams starParams = (LinearLayout.LayoutParams) starCell.getLayoutParams();
+            starParams.width = dp(scoreboardAvatarColumnWidthDp);
+            starCell.setLayoutParams(starParams);
+        }
+
+        if (scoreMeRow != null) {
+            LinearLayout.LayoutParams myRowParams =
+                    (LinearLayout.LayoutParams) scoreMeRow.getLayoutParams();
+            myRowParams.height = dp(scoreboardRowHeightDp);
+            scoreMeRow.setLayoutParams(myRowParams);
+            scoreMeRow.setPadding(
+                    dp(scoreboardHorizontalPaddingDp),
+                    dp(2),
+                    dp(scoreboardHorizontalPaddingDp),
+                    dp(2)
+            );
+
+            View identityCol = scoreMeRow.getChildAt(0);
+            if (identityCol instanceof LinearLayout) {
+                LinearLayout identityLayout = (LinearLayout) identityCol;
+                LinearLayout.LayoutParams identityParams =
+                        (LinearLayout.LayoutParams) identityLayout.getLayoutParams();
+                identityParams.width = dp(scoreboardAvatarColumnWidthDp);
+                identityLayout.setLayoutParams(identityParams);
+
+                View avatarView = identityLayout.getChildAt(0);
+                if (avatarView instanceof CircleImageView) {
+                    CircleImageView avatar = (CircleImageView) avatarView;
+                    LinearLayout.LayoutParams avatarParams =
+                            (LinearLayout.LayoutParams) avatar.getLayoutParams();
+                    avatarParams.width = dp(scoreboardAvatarSizeDp);
+                    avatarParams.height = dp(scoreboardAvatarSizeDp);
+                    avatar.setLayoutParams(avatarParams);
+                    avatar.setBorderWidth(dp(scoreboardAvatarBorderDp));
+                }
+
+                View nameView = identityLayout.getChildAt(1);
+                if (nameView instanceof TextView) {
+                    TextView nameText = (TextView) nameView;
+                    LinearLayout.LayoutParams nameParams =
+                            (LinearLayout.LayoutParams) nameText.getLayoutParams();
+                    nameParams.width = dp(scoreboardAvatarColumnWidthDp);
+                    nameText.setLayoutParams(nameParams);
+                    nameText.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardNameTextSp);
+                }
+            }
+
+            styleScoreValueCell(txtScoreMe, getResources().getColor(android.R.color.white));
+            styleScoreValueCell(txtScoreGameMe, getResources().getColor(R.color.lightBlueApp));
+            if (txtSetsMe != null) {
+                styleStateCell(txtSetsMe, localPlayerEliminated);
+            }
+        }
+
+        if (labScore != null) {
+            labScore.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardHeaderTextSp);
+        }
+        if (labSets != null) {
+            labSets.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardHeaderTextSp);
+        }
+        if (labScoreGame != null) {
+            labScoreGame.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardHeaderTextSp);
+        }
+
+        if (llyOpponentScores != null) {
+            ViewGroup.LayoutParams rowsParams = llyOpponentScores.getLayoutParams();
+            rowsParams.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+            llyOpponentScores.setLayoutParams(rowsParams);
+        }
+    }
+
+    private void styleScoreValueCell(TextView textView, int color) {
+        if (textView == null) {
+            return;
+        }
+        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) textView.getLayoutParams();
+        params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+        textView.setLayoutParams(params);
+        textView.setTextColor(color);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardValueTextSp);
+    }
+
+    private void styleStateCell(TextView textView, boolean eliminated) {
+        if (textView == null) {
+            return;
+        }
+
+        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) textView.getLayoutParams();
+        final int verticalInsetDp = Math.max(1, Math.min(5, (scoreboardRowHeightDp - 16) / 3));
+        params.height = eliminationMode ? dp(Math.max(16, scoreboardRowHeightDp - (verticalInsetDp * 2))) : ViewGroup.LayoutParams.MATCH_PARENT;
+        params.topMargin = eliminationMode ? dp(verticalInsetDp) : 0;
+        params.bottomMargin = eliminationMode ? dp(verticalInsetDp) : 0;
+        params.leftMargin = eliminationMode ? dp(2) : 0;
+        params.rightMargin = eliminationMode ? dp(2) : 0;
+        textView.setLayoutParams(params);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, eliminationMode ? (scoreboardValueTextSp - 1f) : scoreboardValueTextSp);
+
+        if (!eliminationMode) {
+            textView.setTextColor(getResources().getColor(R.color.stepSelected));
+            textView.setBackground(null);
+            return;
+        }
+
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setCornerRadius(dp(12));
+        if (eliminated) {
+            drawable.setColor(android.graphics.Color.parseColor("#33B91C1C"));
+            drawable.setStroke(dp(1), android.graphics.Color.parseColor("#F87171"));
+            textView.setTextColor(android.graphics.Color.parseColor("#FECACA"));
+        } else {
+            drawable.setColor(android.graphics.Color.parseColor("#1A0EA5E9"));
+            drawable.setStroke(dp(1), android.graphics.Color.parseColor("#7DD3FC"));
+            textView.setTextColor(android.graphics.Color.parseColor("#E0F2FE"));
+        }
+        textView.setBackground(drawable);
     }
 
     private View createOpponentTopCard(MatchOpponent opponent) {
@@ -876,28 +1080,40 @@ public class GameActivity extends AppCompatActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(6), 0, dp(6), 0);
-        row.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        row.setPadding(dp(scoreboardHorizontalPaddingDp), dp(2), dp(scoreboardHorizontalPaddingDp), dp(2));
+        row.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(scoreboardRowHeightDp)
+        ));
 
-        // Avatar + name column (44dp, matching header ★)
+        // Avatar + name column
         LinearLayout avatarCol = new LinearLayout(this);
         avatarCol.setOrientation(LinearLayout.VERTICAL);
         avatarCol.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
-        avatarCol.setLayoutParams(new LinearLayout.LayoutParams(dp(44), dp(48)));
+        avatarCol.setLayoutParams(new LinearLayout.LayoutParams(
+                dp(scoreboardAvatarColumnWidthDp),
+                ViewGroup.LayoutParams.MATCH_PARENT
+        ));
 
         CircleImageView imageView = new CircleImageView(this);
-        LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(dp(28), dp(28));
-        imageParams.setMargins(0, dp(2), 0, dp(1));
+        LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(
+                dp(scoreboardAvatarSizeDp),
+                dp(scoreboardAvatarSizeDp)
+        );
+        imageParams.setMargins(0, dp(1), 0, dp(1));
         imageView.setLayoutParams(imageParams);
-        imageView.setBorderWidth(dp(1));
+        imageView.setBorderWidth(dp(scoreboardAvatarBorderDp));
         imageView.setBorderColor(getResources().getColor(R.color.player2));
         Data.setImageSource(this, imageView, opponent.photo);
 
         TextView nameLabel = new TextView(this);
-        nameLabel.setLayoutParams(new LinearLayout.LayoutParams(dp(44), ViewGroup.LayoutParams.WRAP_CONTENT));
+        nameLabel.setLayoutParams(new LinearLayout.LayoutParams(
+                dp(scoreboardAvatarColumnWidthDp),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
         nameLabel.setGravity(android.view.Gravity.CENTER);
         nameLabel.setTextColor(android.graphics.Color.WHITE);
-        nameLabel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 8);
+        nameLabel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, scoreboardNameTextSp);
         nameLabel.setMaxLines(1);
         nameLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);
         nameLabel.setText(opponent.name);
@@ -924,11 +1140,15 @@ public class GameActivity extends AppCompatActivity {
 
     private TextView createScoreCell() {
         TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                1f
+        );
         textView.setLayoutParams(params);
         textView.setGravity(android.view.Gravity.CENTER);
         textView.setTextColor(getResources().getColor(android.R.color.white));
-        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
+        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, scoreboardValueTextSp);
         textView.setTypeface(null, android.graphics.Typeface.BOLD);
         textView.setText("0");
         return textView;
@@ -936,11 +1156,19 @@ public class GameActivity extends AppCompatActivity {
 
     private TextView createSetsCell() {
         TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0,
+                eliminationMode ? dp(Math.max(26, scoreboardRowHeightDp - 12)) : ViewGroup.LayoutParams.MATCH_PARENT,
+                1f
+        );
+        if (eliminationMode) {
+            params.setMargins(dp(2), dp(5), dp(2), dp(5));
+        }
         textView.setLayoutParams(params);
         textView.setGravity(android.view.Gravity.CENTER);
         textView.setTextColor(getResources().getColor(R.color.stepSelected));
-        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
+        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP,
+                eliminationMode ? (scoreboardValueTextSp - 1f) : scoreboardValueTextSp);
         textView.setTypeface(null, android.graphics.Typeface.BOLD);
         textView.setText("0");
         return textView;
@@ -948,20 +1176,24 @@ public class GameActivity extends AppCompatActivity {
 
     private TextView createGameScoreCell() {
         TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                1f
+        );
         textView.setLayoutParams(params);
         textView.setGravity(android.view.Gravity.CENTER);
         textView.setTextColor(getResources().getColor(R.color.lightBlueApp));
-        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14);
+        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, scoreboardValueTextSp);
         textView.setTypeface(null, android.graphics.Typeface.BOLD);
         textView.setText("0");
         return textView;
     }
 
-    private CircleImageView createAnswerThumbView() {
+    private CircleImageView createAnswerThumbView(boolean overlapPrevious) {
         CircleImageView imageView = new CircleImageView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(22), dp(22));
-        params.setMargins(dp(2), dp(2), dp(2), dp(2));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(14), dp(14));
+        params.setMargins(overlapPrevious ? dp(-9) : 0, dp(1), 0, dp(1));
         imageView.setLayoutParams(params);
         imageView.setBorderWidth(dp(1));
         imageView.setBorderColor(getResources().getColor(R.color.player2));
@@ -982,48 +1214,104 @@ public class GameActivity extends AppCompatActivity {
         for (MatchOpponent opponent : opponents) {
             if (opponent.topNameView != null) {
                 opponent.topNameView.setText(opponent.name);
+                opponent.topNameView.setAlpha(opponent.eliminated ? 0.45f : 1f);
             }
             if (opponent.topImageView != null) {
                 Data.setImageSource(this, opponent.topImageView, opponent.photo);
+                updatePlayerVisualState(opponent.topImageView, opponent.eliminated);
             }
             if (opponent.scoreImageView != null) {
                 Data.setImageSource(this, opponent.scoreImageView, opponent.photo);
+                updatePlayerVisualState(opponent.scoreImageView, opponent.eliminated);
             }
             if (opponent.scoreNameView != null) {
                 opponent.scoreNameView.setText(opponent.name);
+                opponent.scoreNameView.setAlpha(opponent.eliminated ? 0.45f : 1f);
             }
             if (opponent.roundScoreView != null) {
                 opponent.roundScoreView.setText(String.valueOf(opponent.roundScore));
+                opponent.roundScoreView.setAlpha(opponent.eliminated ? 0.45f : 1f);
             }
             if (opponent.setsView != null) {
-                opponent.setsView.setText(String.valueOf(opponent.sets));
+                opponent.setsView.setText(eliminationMode
+                        ? (opponent.eliminated ? "خارج" : "نشط")
+                        : String.valueOf(opponent.sets));
+                opponent.setsView.setAlpha(opponent.eliminated ? 0.45f : 1f);
+                styleStateCell(opponent.setsView, opponent.eliminated);
             }
             if (opponent.gameScoreView != null) {
                 opponent.gameScoreView.setText(String.valueOf(opponent.gameScore));
+                opponent.gameScoreView.setAlpha(opponent.eliminated ? 0.45f : 1f);
             }
             for (CircleImageView thumbView : opponent.answerThumbViews) {
                 Data.setImageSource(this, thumbView, opponent.photo);
                 thumbView.setVisibility(View.INVISIBLE);
             }
         }
+        refreshMePanelState();
     }
 
     private boolean allOpponentsSubmitted() {
         for (MatchOpponent opponent : opponents) {
-            if (!opponent.submitted) {
+            if (!opponent.eliminated && !opponent.submitted) {
                 return false;
             }
         }
         return true;
     }
 
+    private void autoSubmitSpectatorEliminationRound() {
+        if (!modeOnline || !eliminationMode || !spectatorEliminationRound || myAnswerSubmitted) {
+            return;
+        }
+        CAN_PLAY = false;
+        final int questionIndex = currentQuestion;
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING || currentQuestion != questionIndex || myAnswerSubmitted) {
+                    return;
+                }
+                submitOnlineAnswer(0);
+                resolveOnlineRoundIfReady();
+            }
+        }, 150);
+    }
+
     private boolean hasBotOpponents() {
         for (MatchOpponent opponent : opponents) {
-            if (opponent.bot) {
+            if (opponent.bot && !opponent.eliminated) {
                 return true;
             }
         }
         return false;
+    }
+
+    private void refreshMePanelState() {
+        updatePlayerVisualState(imgMe, localPlayerEliminated);
+        if (txtMeName != null) txtMeName.setAlpha(localPlayerEliminated ? 0.45f : 1f);
+        if (txtScoreMe != null) txtScoreMe.setAlpha(localPlayerEliminated ? 0.45f : 1f);
+        if (txtScoreGameMe != null) txtScoreGameMe.setAlpha(localPlayerEliminated ? 0.45f : 1f);
+        if (txtSetsMe != null) {
+            txtSetsMe.setAlpha(localPlayerEliminated ? 0.45f : 1f);
+            if (eliminationMode) {
+                txtSetsMe.setText(localPlayerEliminated ? "خارج" : "نشط");
+            }
+            styleStateCell(txtSetsMe, localPlayerEliminated);
+        }
+    }
+
+    private void updatePlayerVisualState(ImageView view, boolean eliminated) {
+        if (view == null) {
+            return;
+        }
+        if (eliminated) {
+            setGreyscale(view);
+            view.setImageAlpha(140);
+        } else {
+            setColored(view);
+            view.setImageAlpha(255);
+        }
     }
 
     private MatchOpponent findOpponentById(String playerId) {
@@ -1222,6 +1510,11 @@ public class GameActivity extends AppCompatActivity {
                             if (handleLocalTimeoutRemovalIfNeeded()) {
                                 return;
                             }
+                            if (eliminationMode && spectatorEliminationRound) {
+                                t = 2;
+                                handler.postDelayed(this, 400);
+                                break;
+                            }
                         }
                         if (!timeout) {
                             if (myAnswer == rightAnswer) {
@@ -1258,7 +1551,24 @@ public class GameActivity extends AppCompatActivity {
                         } else {
                             txtAmount.setText(currentStepDialog);
                         }
-                        if (currentQuestion == 14) {
+                        if (eliminationMode) {
+                            if (spectatorEliminationRound) {
+                                handler.postDelayed(this, 500);
+                                break;
+                            }
+                            if (mySubmittedAnswerKey == ANSWER_KEY_RIGHT) {
+                                person.moveShowScreen(2000);
+                                person.lookAside(1000);
+                                showDialog("إجابة صحيحة، ونقاطك الآن " + gameScoreMe, "", 1000, 2000, R.drawable.mouth_01, false);
+                            } else {
+                                handler.postDelayed(this, 500);
+                                CAN_HOME = true;
+                                break;
+                            }
+                            CAN_HOME = true;
+                            handler.postDelayed(this, 3000);
+                            break;
+                        } else if (currentQuestion == 14) {
                             person.moveShow2Hands(2000);
                             person.raiseEyeBrowsUp(2000, true, true);
                             showDialog("ألف مبروك\n لقد فزت بالمليون", "", 2000, 2000, R.drawable.mouth_01, false);
@@ -1273,7 +1583,14 @@ public class GameActivity extends AppCompatActivity {
                         break;
                     case 3:
                         if (modeOnline) {
-                            if (checkScoresMulti()) {
+                            if (eliminationMode) {
+                                myResult = handleEliminationRoundProgress();
+                                if (myResult == -3) {
+                                    return;
+                                }
+                                if (myResult != -2) t = 6;
+                                handler.postDelayed(this, 3000);
+                            } else if (checkScoresMulti()) {
                                 myResult = checkEndOfGameMulti();
                                 if (myResult != -2) t = 6;
                                 handler.postDelayed(this, 3000);
@@ -1339,6 +1656,42 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void applyOnlineRoundMetrics() {
+        if (eliminationMode) {
+            if (!spectatorEliminationRound && mySubmittedAnswerKey == ANSWER_KEY_RIGHT) {
+                setScoreMe += 1;
+                mySetCorrectAnswers++;
+                myTotalCorrectAnswers++;
+            }
+            if (!spectatorEliminationRound) {
+                if (myRoundPoints > 0) {
+                    gameScoreMe += myRoundPoints;
+                }
+                mySetAnswerTimeMs += myAnswerElapsedMs;
+                myTotalAnswerTimeMs += myAnswerElapsedMs;
+            }
+
+            for (MatchOpponent opponent : opponents) {
+                if (opponent.eliminated) {
+                    continue;
+                }
+                if (opponent.submittedAnswerKey == ANSWER_KEY_RIGHT) {
+                    opponent.roundScore += 1;
+                    opponent.setCorrectAnswers++;
+                    opponent.totalCorrectAnswers++;
+                }
+                if (opponent.roundPoints > 0) {
+                    opponent.gameScore += opponent.roundPoints;
+                }
+                opponent.setAnswerTimeMs += opponent.answerElapsedMs;
+                opponent.totalAnswerTimeMs += opponent.answerElapsedMs;
+            }
+
+            txtScoreMe.setText(setScoreMe + "");
+            txtScoreGameMe.setText(gameScoreMe + "");
+            refreshOpponentPanels();
+            return;
+        }
+
         if (myRoundPoints > 0) {
             setScoreMe += myRoundPoints;
             gameScoreMe += myRoundPoints;
@@ -1371,7 +1724,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private boolean handleLocalTimeoutRemovalIfNeeded() {
-        if (!modeOnline || localPlayerRemoved || myTimeoutStreak < MAX_TIMEOUT_STREAK) {
+        if (!modeOnline || eliminationMode || localPlayerRemoved || myTimeoutStreak < MAX_TIMEOUT_STREAK) {
             return false;
         }
 
@@ -1397,6 +1750,152 @@ public class GameActivity extends AppCompatActivity {
                 })
                 .show();
         return true;
+    }
+
+    private int handleEliminationRoundProgress() {
+        final ArrayList<String> eliminatedNames = new ArrayList<>();
+        boolean localEliminatedThisRound = false;
+
+        if (!localPlayerEliminated && mySubmittedAnswerKey != ANSWER_KEY_RIGHT) {
+            localPlayerEliminated = true;
+            markMyGameState("eliminated");
+            localEliminatedThisRound = true;
+            eliminatedNames.add("أنت");
+        }
+
+        for (MatchOpponent opponent : opponents) {
+            if (opponent.eliminated) {
+                continue;
+            }
+            if (opponent.submittedAnswerKey != ANSWER_KEY_RIGHT) {
+                opponent.eliminated = true;
+                eliminatedNames.add(opponent.name);
+            }
+        }
+
+        refreshOpponentPanels();
+
+        if (currentQuestion == 14) {
+            String leaderId = getMatchLeaderId();
+            if (myID.equals(leaderId)) {
+                person.moveShow2Hands(2000);
+                person.raiseEyeBrowsUp(1000, false, true);
+                showDialog("مبروك، فزت في مباراة الإقصاء بأعلى نقاط", "", 2000, 3000, R.drawable.mouth_01, false);
+                updateScoreAndLevel();
+                return 1;
+            }
+
+            showDialog("انتهت مباراة الإقصاء. الفائز هو " + getPlayerDisplayName(leaderId), "", 2000, 3000, R.drawable.mouth_01, false);
+            updateScoreAndLevel();
+            return -1;
+        }
+
+        if (localEliminatedThisRound) {
+            showDialog("إجابة خاطئة، خرجت من المنافسة.\nهل تريد متابعة المباراة كمشاهد؟", "EliminationSpectatorChoice", 1000, 0, R.drawable.mouth_05, false);
+            return -3;
+        }
+
+        if (getAlivePlayersCount() == 0) {
+            return -2;
+        }
+
+        if (eliminatedNames.isEmpty()) {
+            showDialog("جميع اللاعبين أجابوا بشكل صحيح", "", 1000, 2000, R.drawable.mouth_01, false);
+        } else if (eliminatedNames.size() == 1) {
+            showDialog("تم إقصاء " + eliminatedNames.get(0), "", 1000, 2000, R.drawable.mouth_05, false);
+        } else {
+            showDialog("تم إقصاء " + joinNames(eliminatedNames), "", 1000, 2000, R.drawable.mouth_05, false);
+        }
+        return -2;
+    }
+
+    private void continueEliminationMatchAsSpectator() {
+        if (!modeOnline || !eliminationMode || EXITING) {
+            return;
+        }
+
+        initQuestion();
+        nextStep();
+        playSound(R.raw.lets_play, true, false);
+        String currentStepAmount = getCurrentStepAmount();
+        person.moveHead(1000);
+        person.lookAside(600);
+        showDialog("السؤال التالي قيمته\n" + currentStepAmount, "", 1000, 3000, R.drawable.mouth_02, false);
+        CAN_HOME = true;
+
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING) {
+                    return;
+                }
+                Animations.move(llyQA, 1000, -140, 0, 0, 0);
+                Animations.move(llySteps, 1000, -360, 0, 0, 0);
+                handler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (EXITING) {
+                            return;
+                        }
+                        requestSynchronizedQuestion(currentQuestion + 1);
+                    }
+                }, 1000);
+            }
+        }, 4000);
+    }
+
+    private void exitEliminationMatchAfterDecliningSpectator() {
+        if (EXITING) {
+            return;
+        }
+
+        updateScoreAndLevel();
+        PlayerProgress.onOnlineMatchFinished(GameActivity.this, false, setMe);
+        PlayerStats.recordGameEnd(GameActivity.this, false, gameScoreMe * 1000);
+        detachOpponentStatusListener();
+        detachOpponentRoundListener();
+        detachQuestionSyncListener();
+        EXITING = true;
+
+        Intent intent = new Intent(GameActivity.this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
+    private int getAlivePlayersCount() {
+        int aliveCount = localPlayerEliminated ? 0 : 1;
+        for (MatchOpponent opponent : opponents) {
+            if (!opponent.eliminated) {
+                aliveCount++;
+            }
+        }
+        return aliveCount;
+    }
+
+    private String getAliveLeaderId() {
+        String leaderId = localPlayerEliminated ? "" : myID;
+        for (MatchOpponent opponent : opponents) {
+            if (opponent.eliminated) {
+                continue;
+            }
+            if (leaderId.isEmpty() || compareMatchStanding(opponent.id, leaderId) < 0) {
+                leaderId = opponent.id;
+            }
+        }
+        return leaderId;
+    }
+
+    private String joinNames(ArrayList<String> names) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < names.size(); i++) {
+            if (i > 0) {
+                builder.append(i == names.size() - 1 ? " و " : "، ");
+            }
+            builder.append(names.get(i));
+        }
+        return builder.toString();
     }
 
 
@@ -1650,12 +2149,15 @@ public class GameActivity extends AppCompatActivity {
             opponent.statusListener = new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot snapshot) {
-                    if (EXITING || opponent.left) {
+                    if (EXITING || opponent.left || opponent.eliminated) {
                         return;
                     }
                     String status = snapshot.getValue(String.class);
                     if ("left".equals(status) || "left_timeout".equals(status)) {
                         convertOpponentToComputer(opponent);
+                    } else if ("eliminated".equals(status)) {
+                        opponent.eliminated = true;
+                        refreshOpponentPanels();
                     }
                 }
 
@@ -1700,7 +2202,10 @@ public class GameActivity extends AppCompatActivity {
             } catch (Exception ignored) {
             }
         }
-        if ("left".equals(status) || "left_timeout".equals(status) || "finished".equals(status)) {
+        if ("left".equals(status)
+                || "left_timeout".equals(status)
+                || "finished".equals(status)
+                || "eliminated".equals(status)) {
             matchStateCommitted = true;
         }
     }
@@ -1887,14 +2392,14 @@ public class GameActivity extends AppCompatActivity {
             return;
         }
         for (MatchOpponent opponent : opponents) {
-            if (opponent.bot) {
+            if (opponent.bot && !opponent.eliminated) {
                 scheduleBotAnswer(opponent);
             }
         }
     }
 
     private void scheduleBotAnswer(final MatchOpponent opponent) {
-        if (opponent == null || !opponent.bot || opponent.submitted) {
+        if (opponent == null || !opponent.bot || opponent.submitted || opponent.eliminated) {
             return;
         }
         final int questionIndex = currentQuestion;
@@ -1917,7 +2422,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void submitBotRoundAnswer(final MatchOpponent opponent, final int displayedAnswer) {
-        if (!modeOnline || opponent == null || !opponent.bot) {
+        if (!modeOnline || opponent == null || !opponent.bot || opponent.eliminated) {
             return;
         }
         // Always get a fresh ref for the current question — don't rely on the
@@ -3065,6 +3570,7 @@ public class GameActivity extends AppCompatActivity {
     private void showQuestionNow(final int questionIndex) {
         if(!EXITING) {
             currentQuestion = questionIndex;
+            spectatorEliminationRound = eliminationMode && localPlayerEliminated;
             scheduledQuestionStartAt = 0L;
             pendingQuestionIndex = -1;
             if (currentQuestion < questions.size()) {
@@ -3126,7 +3632,7 @@ public class GameActivity extends AppCompatActivity {
                                     handler.postDelayed(this, 1000);
                                     break;
                                 case 4:
-                                    CAN_PLAY = true;
+                                    CAN_PLAY = !spectatorEliminationRound;
                                     questionStartTimeMs = System.currentTimeMillis();
                                     startTimer(true);
                                     if(modeOnline) {
@@ -3137,6 +3643,7 @@ public class GameActivity extends AppCompatActivity {
                                         opponentAnswer = 0;
                                         prepareOnlineQuestionSync(currentQuestion);
                                         attachOpponentRoundListener(currentQuestion);
+                                        autoSubmitSpectatorEliminationRound();
                                     }
                                     break;
                             }
@@ -3319,6 +3826,9 @@ public class GameActivity extends AppCompatActivity {
                             if ("OpponentLeftContinue".equals(tag)) {
                                 btnDialogYes.setText("أكمل");
                                 btnDialogNo.setText("إنهاء");
+                            } else if ("EliminationSpectatorChoice".equals(tag)) {
+                                btnDialogYes.setText("متابعة");
+                                btnDialogNo.setText("خروج");
                             } else if (timeDialog == 0) {
                                 btnDialogYes.setText("نعم");
                                 btnDialogNo.setText("لا");

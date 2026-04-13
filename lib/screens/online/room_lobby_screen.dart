@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -92,18 +94,27 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     }
   }
 
-  Future<void> _startRoom() async {
+  Future<void> _startRoom(Room room) async {
     final userId = context.read<AppState>().user?.uid;
     if (userId == null) return;
+    // Capture service references before any async gaps.
+    final roomService = context.read<RoomService>();
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _starting = true);
+
+    List<int>? questionIds;
+    if (room.mode == 'elimination') {
+      questionIds = await _generateShuffledQuestionIds();
+    }
+
     try {
-      await context.read<RoomService>().startRoom(
-            roomId: widget.roomId,
-            userId: userId,
-          );
+      await roomService.startRoom(
+        roomId: widget.roomId,
+        userId: userId,
+        eliminationQuestionIds: questionIds,
+      );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text(e.toString()), behavior: SnackBarBehavior.floating),
       );
     } finally {
@@ -111,10 +122,24 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     }
   }
 
+  /// Loads questions.json, shuffles the indices, and returns the first 80.
+  Future<List<int>> _generateShuffledQuestionIds() async {
+    try {
+      final jsonStr = await rootBundle.loadString('assets/questions.json');
+      final list = jsonDecode(jsonStr) as List;
+      final indices = List.generate(list.length, (i) => i);
+      indices.shuffle(math.Random());
+      return indices.take(80).toList();
+    } catch (_) {
+      return List.generate(80, (i) => i);
+    }
+  }
+
   Future<void> _launchNativeMatchIfPossible({
     required Room room,
     required Map<String, PlayerProfile> profiles,
     required String currentUserId,
+    required String matchMode,
   }) async {
     final profileService = context.read<ProfileService>();
     final nativeBridgeService = context.read<NativeBridgeService>();
@@ -172,6 +197,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     await nativeBridgeService.launchLegacyRoomMatch(
       opponents: opponents,
       meOwner: currentUserId == room.hostId,
+      matchMode: matchMode,
     );
   }
 
@@ -368,6 +394,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                             room: room,
                             profiles: profiles,
                             currentUserId: currentUserId,
+                            matchMode: room.mode,
                           );
                         });
                       }
@@ -402,7 +429,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                   starting: _starting,
                                   leaving: _leaving,
                                   onToggleReady: (v) => _toggleReady(room, v),
-                                  onStartRoom: _startRoom,
+                                  onStartRoom: () => _startRoom(room),
                                   onShareRoom: () => _shareRoom(room),
                                   onLeaveRoom: _confirmLeave,
                                 );
@@ -1117,7 +1144,9 @@ class _ControlsPanel extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'المضيف يمكنه البدء مبكراً، وستُملأ المقاعد الفارغة بلاعبين آليين.',
+                  room.mode == 'elimination'
+                      ? 'وضع الإقصاء: خطأ واحد = خروج. سيُستكمل العدد المختار بلاعبين آليين عند الحاجة.'
+                      : 'المضيف يمكنه البدء مبكراً، وستُملأ المقاعد الفارغة بلاعبين آليين.',
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.white.withValues(alpha: 0.35),

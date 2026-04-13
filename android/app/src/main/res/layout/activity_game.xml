@@ -361,9 +361,9 @@
                         android:id="@+id/llyAnswer1Opponents"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginEnd="8dp"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginRight="10dp"
                         android:gravity="end"
                         android:orientation="horizontal" />
                 </RelativeLayout>
@@ -387,9 +387,9 @@
                         android:id="@+id/llyAnswer2Opponents"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginEnd="8dp"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginRight="10dp"
                         android:gravity="end"
                         android:orientation="horizontal" />
                 </RelativeLayout>
@@ -422,9 +422,9 @@
                         android:id="@+id/llyAnswer3Opponents"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginEnd="8dp"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginRight="10dp"
                         android:gravity="end"
                         android:orientation="horizontal" />
                 </RelativeLayout>
@@ -447,9 +447,9 @@
                         android:id="@+id/llyAnswer4Opponents"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_marginTop="6dp"
-                        android:layout_marginEnd="8dp"
+                        android:layout_alignParentRight="true"
+                        android:layout_centerVertical="true"
+                        android:layout_marginRight="10dp"
                         android:gravity="end"
                         android:orientation="horizontal" />
                 </RelativeLayout>
@@ -646,6 +646,7 @@
 
             <!-- Header row -->
             <LinearLayout
+                android:id="@+id/llyScoreHeader"
                 android:layout_width="match_parent"
                 android:layout_height="28dp"
                 android:background="@drawable/score_header"
@@ -699,6 +700,7 @@
 
             <!-- Me row -->
             <LinearLayout
+                android:id="@+id/llyScoreMe"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:orientation="horizontal"
@@ -782,20 +784,13 @@
                 />
 
             <!-- Opponent rows (added dynamically) -->
-            <androidx.core.widget.NestedScrollView
+            <LinearLayout
+                android:id="@+id/llyOpponentScores"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:maxHeight="352dp"
-                android:overScrollMode="never"
-                >
-                <LinearLayout
-                    android:id="@+id/llyOpponentScores"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingBottom="4dp"
-                    />
-            </androidx.core.widget.NestedScrollView>
+                android:orientation="vertical"
+                android:paddingBottom="4dp"
+                />
 
         </LinearLayout>
 

@@ -78,6 +78,7 @@ class RoomService {
   Future<String> createRoom({
     required String hostId,
     int maxPlayers = 4,
+    String mode = 'battle',
   }) =>
       _guard(() async {
         await purgeStaleRooms(force: true);
@@ -85,6 +86,8 @@ class RoomService {
         await doc.set(<String, dynamic>{
           'hostId': hostId,
           'maxPlayers': maxPlayers,
+          'mode': mode,
+          'phase': 'lobby',
           'started': false,
           'players': <String, dynamic>{
             hostId: const RoomPlayer(score: 0, ready: true).toMap(),
@@ -129,7 +132,10 @@ class RoomService {
           };
 
           final nextPlayerCount = room.playerCount + 1;
-          if (nextPlayerCount >= room.maxPlayers) {
+          // Elimination rooms never auto-start — the host must initiate so
+          // that question IDs can be generated client-side before starting.
+          if (nextPlayerCount >= room.maxPlayers &&
+              room.mode != 'elimination') {
             updates['started'] = true;
             updates['startedAt'] = FieldValue.serverTimestamp();
 
@@ -159,6 +165,7 @@ class RoomService {
   Future<void> startRoom({
     required String roomId,
     required String userId,
+    List<int>? eliminationQuestionIds,
   }) =>
       _guard(() async {
         await purgeStaleRooms(force: true);
@@ -189,18 +196,44 @@ class RoomService {
           };
 
           final existingPlayerIds = <String>[...room.playerIds];
-          final missingPlayers = room.maxPlayers - room.playerCount;
-          for (var slot = 0; slot < missingPlayers; slot++) {
-            final botId = _buildBotId(room.id, slot + 1);
-            updates['players.$botId'] =
-                const RoomPlayer(score: 0, ready: false).toMap();
-          }
 
-          for (final playerId in existingPlayerIds) {
-            updates['players.$playerId.ready'] = false;
-            updates['players.$playerId.answeredCount'] = 0;
-            updates['players.$playerId.completedAt'] = FieldValue.delete();
-            updates['players.$playerId.score'] = 0;
+          if (room.mode == 'elimination') {
+            // Elimination mode uses the original native gameplay too, so fill
+            // missing seats with bots just like battle mode.
+            updates['phase'] = 'playing_round';
+
+            final missingPlayers = room.maxPlayers - room.playerCount;
+            for (var slot = 0; slot < missingPlayers; slot++) {
+              final botId = _buildBotId(room.id, slot + 1);
+              updates['players.$botId'] = const RoomPlayer(
+                score: 0,
+                ready: false,
+                eliminated: false,
+              ).toMap();
+            }
+
+            for (final playerId in existingPlayerIds) {
+              updates['players.$playerId.ready'] = false;
+              updates['players.$playerId.eliminated'] = false;
+              updates['players.$playerId.score'] = 0;
+              updates['players.$playerId.answeredCount'] = 0;
+              updates['players.$playerId.completedAt'] = FieldValue.delete();
+            }
+          } else {
+            // Battle mode: fill missing slots with bots
+            final missingPlayers = room.maxPlayers - room.playerCount;
+            for (var slot = 0; slot < missingPlayers; slot++) {
+              final botId = _buildBotId(room.id, slot + 1);
+              updates['players.$botId'] =
+                  const RoomPlayer(score: 0, ready: false).toMap();
+            }
+
+            for (final playerId in existingPlayerIds) {
+              updates['players.$playerId.ready'] = false;
+              updates['players.$playerId.answeredCount'] = 0;
+              updates['players.$playerId.completedAt'] = FieldValue.delete();
+              updates['players.$playerId.score'] = 0;
+            }
           }
 
           transaction.update(ref, updates);
@@ -276,6 +309,197 @@ class RoomService {
             'players.$userId.answeredCount': answeredCount,
             'players.$userId.completedAt': FieldValue.serverTimestamp(),
           });
+        });
+      });
+
+  /// Called when all alive players finish a native-game round in elimination mode.
+  /// Eliminates the player(s) with the lowest score and transitions the phase.
+  Future<void> processEliminationRound({required String roomId}) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.phase != 'playing_round') return; // Guard: already processed
+
+          final activePlayers = room.players.entries
+              .where((e) => !e.value.eliminated)
+              .toList();
+
+          if (activePlayers.isEmpty) {
+            transaction.update(ref, {'phase': 'finished'});
+            return;
+          }
+
+          // Require all alive players to have submitted before processing
+          final allSubmitted =
+              activePlayers.every((e) => e.value.completedAt != null);
+          if (!allSubmitted) return;
+
+          final updates = <String, dynamic>{};
+          final minScore =
+              activePlayers.map((e) => e.value.score).reduce(math.min);
+
+          // Eliminate players tied for the lowest score
+          for (final entry in activePlayers) {
+            if (entry.value.score == minScore) {
+              updates['players.${entry.key}.eliminated'] = true;
+            }
+          }
+
+          // Survivors are those who scored above the minimum
+          final survivors = activePlayers
+              .where((e) => e.value.score > minScore)
+              .map((e) => e.key)
+              .toList();
+
+          if (survivors.length <= 1) {
+            updates['phase'] = 'finished';
+            if (survivors.length == 1) {
+              updates['winnerId'] = survivors.first;
+            }
+          } else {
+            updates['phase'] = 'round_over';
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  /// Host starts the next elimination round.
+  /// Resets per-round scores for alive players and transitions phase back
+  /// to 'playing_round' so all clients re-launch the native game.
+  Future<void> startNextEliminationRound({
+    required String roomId,
+    required String userId,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.hostId != userId) {
+            throw StateError('Only the host can start the next round.');
+          }
+          if (room.phase != 'round_over') return;
+
+          final updates = <String, dynamic>{
+            'phase': 'playing_round',
+            'startedAt': FieldValue.serverTimestamp(),
+          };
+
+          // Reset per-round tracking for alive players
+          for (final entry in room.players.entries) {
+            if (!entry.value.eliminated) {
+              updates['players.${entry.key}.score'] = 0;
+              updates['players.${entry.key}.answeredCount'] = 0;
+              updates['players.${entry.key}.completedAt'] = FieldValue.delete();
+            }
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  /// Submit an answer in elimination mode.
+  /// Correct answer → increments score.
+  /// Wrong answer → marks player as eliminated.
+  Future<void> submitEliminationAnswer({
+    required String roomId,
+    required String userId,
+    required String answer,
+    required bool isCorrect,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (!room.containsPlayer(userId)) return;
+
+          final player = room.players[userId]!;
+          if (player.eliminated) return; // Already out
+          if (player.currentAnswer != null) return; // Already answered this round
+
+          final updates = <String, dynamic>{
+            'players.$userId.currentAnswer': answer,
+            'players.$userId.answeredCount': FieldValue.increment(1),
+          };
+
+          if (isCorrect) {
+            updates['players.$userId.score'] = FieldValue.increment(1);
+          } else {
+            updates['players.$userId.eliminated'] = true;
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  /// Advance to the next question in elimination mode.
+  /// Uses [fromIndex] as a guard to prevent double-advance.
+  Future<void> advanceEliminationQuestion({
+    required String roomId,
+    required int fromIndex,
+    required int totalQuestions,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          // Guard: only advance if we're still on the same question
+          if (room.currentQuestionIndex != fromIndex) return;
+          if (room.phase != 'playing') return;
+
+          final updates = <String, dynamic>{};
+
+          // Eliminate players who didn't answer in time
+          for (final entry in room.players.entries) {
+            if (!entry.value.eliminated && entry.value.currentAnswer == null) {
+              updates['players.${entry.key}.eliminated'] = true;
+            }
+          }
+
+          // Determine which players survive into the next round
+          final aliveIds = room.players.entries
+              .where((e) {
+                if (e.value.eliminated) return false;
+                if (updates.containsKey('players.${e.key}.eliminated')) {
+                  return false;
+                }
+                return true;
+              })
+              .map((e) => e.key)
+              .toList();
+
+          // Clear current answers for survivors
+          for (final id in aliveIds) {
+            updates['players.$id.currentAnswer'] = FieldValue.delete();
+          }
+
+          final nextIndex = fromIndex + 1;
+
+          if (aliveIds.length <= 1 || nextIndex >= totalQuestions) {
+            // Game over
+            updates['phase'] = 'finished';
+            if (aliveIds.length == 1) {
+              updates['winnerId'] = aliveIds.first;
+            }
+          } else {
+            updates['currentQuestionIndex'] = nextIndex;
+            updates['questionStartedAt'] = FieldValue.serverTimestamp();
+          }
+
+          transaction.update(ref, updates);
         });
       });
 

@@ -20,6 +20,7 @@ class _RoomsScreenState extends State<RoomsScreen>
     with SingleTickerProviderStateMixin {
   final TextEditingController _roomCodeController = TextEditingController();
   int _maxPlayers = 4;
+  String _mode = 'battle';
   bool _creatingRoom = false;
   bool _joiningRoom = false;
   late final AnimationController _pulseCtrl;
@@ -53,6 +54,7 @@ class _RoomsScreenState extends State<RoomsScreen>
       final roomId = await context.read<RoomService>().createRoom(
             hostId: userId,
             maxPlayers: _maxPlayers,
+            mode: _mode,
           );
       if (!mounted) return;
       await Navigator.of(context).push(
@@ -133,11 +135,13 @@ class _RoomsScreenState extends State<RoomsScreen>
                       final narrow = constraints.maxWidth < 700;
                       final leftPanel = _CreateJoinPanel(
                         maxPlayers: _maxPlayers,
+                        mode: _mode,
                         creatingRoom: _creatingRoom,
                         joiningRoom: _joiningRoom,
                         roomCodeController: _roomCodeController,
                         onMaxPlayersChanged: (v) =>
                             setState(() => _maxPlayers = v),
+                        onModeChanged: (v) => setState(() => _mode = v),
                         onCreateRoom: _createRoom,
                         onJoinRoom: () =>
                             _joinRoom(_roomCodeController.text),
@@ -264,19 +268,23 @@ class _BattleHeader extends StatelessWidget {
 class _CreateJoinPanel extends StatelessWidget {
   const _CreateJoinPanel({
     required this.maxPlayers,
+    required this.mode,
     required this.creatingRoom,
     required this.joiningRoom,
     required this.roomCodeController,
     required this.onMaxPlayersChanged,
+    required this.onModeChanged,
     required this.onCreateRoom,
     required this.onJoinRoom,
   });
 
   final int maxPlayers;
+  final String mode;
   final bool creatingRoom;
   final bool joiningRoom;
   final TextEditingController roomCodeController;
   final ValueChanged<int> onMaxPlayersChanged;
+  final ValueChanged<String> onModeChanged;
   final VoidCallback onCreateRoom;
   final VoidCallback onJoinRoom;
 
@@ -311,6 +319,37 @@ class _CreateJoinPanel extends StatelessWidget {
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                         color: Colors.white),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // ── Game mode selector ──────────────────────────────
+              const Text(
+                'وضع اللعب',
+                style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _ModeChip(
+                    label: 'Battle',
+                    icon: Icons.sports_kabaddi_rounded,
+                    description: 'تنافس على النقاط',
+                    selected: mode == 'battle',
+                    selectedColor: const Color(0xFF3B82F6),
+                    onTap: () => onModeChanged('battle'),
+                  ),
+                  const SizedBox(width: 10),
+                  _ModeChip(
+                    label: 'إقصاء',
+                    icon: Icons.whatshot_rounded,
+                    description: 'خطأ واحد = خروج',
+                    selected: mode == 'elimination',
+                    selectedColor: const Color(0xFFDC2626),
+                    onTap: () => onModeChanged('elimination'),
                   ),
                 ],
               ),
@@ -876,6 +915,91 @@ class _GradientButtonState extends State<_GradientButton> {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Mode Chip ────────────────────────────────────────────────────────────────
+
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.label,
+    required this.icon,
+    required this.description,
+    required this.selected,
+    required this.selectedColor,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final String description;
+  final bool selected;
+  final Color selectedColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? selectedColor.withValues(alpha: 0.18)
+                : Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? selectedColor.withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.12),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: selected
+                    ? selectedColor
+                    : Colors.white.withValues(alpha: 0.35),
+                size: 18,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: selected
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: selected
+                            ? selectedColor.withValues(alpha: 0.9)
+                            : Colors.white.withValues(alpha: 0.28),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

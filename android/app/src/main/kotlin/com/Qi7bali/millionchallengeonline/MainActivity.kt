@@ -56,6 +56,7 @@ class MainActivity : FlutterActivity() {
                             putExtra("mode", "online")
                             putExtra("opponentsJson", call.argument<String>("opponentsJson") ?: "[]")
                             putExtra("meOwner", call.argument<Boolean>("meOwner") ?: false)
+                            putExtra("matchMode", call.argument<String>("matchMode") ?: "battle")
                         }
                         startActivity(intent)
                         result.success(true)
