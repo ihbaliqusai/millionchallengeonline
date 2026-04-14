@@ -51,6 +51,22 @@ class MainActivity : FlutterActivity() {
                         val gems  = AppPrefs.getGems(this)
                         result.success(mapOf("coins" to coins, "gems" to gems))
                     }
+                    "grantCurrency" -> {
+                        val coins = call.argument<Int>("coins") ?: 0
+                        val gems = call.argument<Int>("gems") ?: 0
+                        if (coins != 0) {
+                            PlayerProgress.addCoins(this, coins)
+                        }
+                        if (gems != 0) {
+                            PlayerProgress.addGems(this, gems)
+                        }
+                        result.success(
+                            mapOf(
+                                "coins" to PlayerProgress.getCoins(this),
+                                "gems" to PlayerProgress.getGems(this)
+                            )
+                        )
+                    }
                     "launchRoomMatch" -> {
                         val intent = Intent(this, GameActivity::class.java).apply {
                             putExtra("mode", "online")

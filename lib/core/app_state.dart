@@ -82,6 +82,8 @@ class AppState extends ChangeNotifier {
 
     final day = streakDay > 0 ? streakDay : 1;
     final reward = _kStreakRewards[(day - 1).clamp(0, _kStreakRewards.length - 1)];
+    final rewardCoins = reward['coins'] ?? 0;
+    final rewardGems = reward['gems'] ?? 0;
 
     try {
       await _firestore.collection('users').doc(uid).set(
@@ -91,6 +93,14 @@ class AppState extends ChangeNotifier {
         },
         SetOptions(merge: true),
       );
+
+      final balances = await _nativeBridgeService.grantCurrency(
+        coins: rewardCoins,
+        gems: rewardGems,
+      );
+
+      coins = balances['coins'] ?? (coins + rewardCoins);
+      gems = balances['gems'] ?? (gems + rewardGems);
       claimedToday = true;
       streakDay = day;
     } catch (_) {

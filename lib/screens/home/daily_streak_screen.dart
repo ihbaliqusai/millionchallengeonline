@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../widgets/currency_reward_overlay.dart';
 
 // Reward for each of the 30 days: {coins, gems}
 const _kDayRewards = [
@@ -106,32 +107,33 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
     if (_claimedToday || _claiming) return;
     setState(() => _claiming = true);
 
-    final uid = context.read<AppState>().user?.uid;
-    if (uid == null) { setState(() => _claiming = false); return; }
+    final appState = context.read<AppState>();
+    final reward = await appState.claimDailyStreak();
 
-    final reward = _kDayRewards[_streakDay - 1];
-    final now = DateTime.now();
+    if (!mounted) {
+      return;
+    }
 
-    try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).set(
-        {
-          'streakDay': _streakDay,
-          'lastStreakClaimDate': Timestamp.fromDate(now),
-        },
-        SetOptions(merge: true),
-      );
+    setState(() {
+      _claiming = false;
+      _claimedToday = appState.claimedToday;
+      _streakDay = appState.streakDay > 0 ? appState.streakDay : _streakDay;
+    });
 
+    if (reward != null) {
+      await _showRewardDialog(reward['coins']!, reward['gems']!);
       if (mounted) {
-        setState(() { _claimedToday = true; _claiming = false; });
-        _showRewardDialog(reward['coins']!, reward['gems']!);
+        showCurrencyRewardOverlay(
+          context,
+          coins: reward['coins']!,
+          gems: reward['gems']!,
+        );
       }
-    } catch (_) {
-      if (mounted) setState(() => _claiming = false);
     }
   }
 
-  void _showRewardDialog(int coins, int gems) {
-    showDialog<void>(
+  Future<void> _showRewardDialog(int coins, int gems) {
+    return showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF152055),

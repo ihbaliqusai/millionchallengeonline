@@ -14,6 +14,7 @@ import 'profile_screen.dart';
 import '../online/settings_screen.dart';
 import '../online/stats_screen.dart';
 import '../online/achievements_screen.dart';
+import '../../widgets/currency_reward_overlay.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -718,8 +719,8 @@ class _BattleButtonState extends State<_BattleButton> {
   }
 }
 
-void _showChestRewardDialog(BuildContext context, int coins, int gems) {
-  showDialog<void>(
+Future<void> _showChestRewardDialog(BuildContext context, int coins, int gems) {
+  return showDialog<void>(
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: const Color(0xFF152055),
@@ -837,7 +838,18 @@ class _RightSidebar extends StatelessWidget {
             onTap: () async {
               final reward = await context.read<AppState>().claimDailyStreak();
               if (reward != null && context.mounted) {
-                _showChestRewardDialog(context, reward['coins']!, reward['gems']!);
+                await _showChestRewardDialog(
+                  context,
+                  reward['coins']!,
+                  reward['gems']!,
+                );
+                if (context.mounted) {
+                  showCurrencyRewardOverlay(
+                    context,
+                    coins: reward['coins']!,
+                    gems: reward['gems']!,
+                  );
+                }
               }
             },
             child: _DailyChests(appState: appState),

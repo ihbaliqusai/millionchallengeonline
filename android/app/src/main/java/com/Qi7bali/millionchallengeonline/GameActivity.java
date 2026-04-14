@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.widget.TextViewCompat;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -407,6 +408,7 @@ public class GameActivity extends AppCompatActivity {
         txtA2 = findViewById(R.id.txtA2);
         txtA3 = findViewById(R.id.txtA3);
         txtA4 = findViewById(R.id.txtA4);
+        configureAnswerTextSizing();
         imgA1 = findViewById(R.id.imgA1);
         imgA2 = findViewById(R.id.imgA2);
         imgA3 = findViewById(R.id.imgA3);
@@ -1008,6 +1010,22 @@ public class GameActivity extends AppCompatActivity {
         textView.setLayoutParams(params);
         textView.setTextColor(color);
         textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardValueTextSp);
+    }
+
+    private void configureAnswerTextSizing() {
+        for (TextView answerView : new TextView[]{txtA1, txtA2, txtA3, txtA4}) {
+            if (answerView == null) {
+                continue;
+            }
+            answerView.setHorizontallyScrolling(false);
+            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                    answerView,
+                    11,
+                    14,
+                    1,
+                    TypedValue.COMPLEX_UNIT_SP
+            );
+        }
     }
 
     private void styleStateCell(TextView textView, boolean eliminated) {

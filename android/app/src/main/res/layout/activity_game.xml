@@ -349,7 +349,7 @@
                         android:id="@+id/imgA1"
                         style="@style/FrameAnswer"
                         android:contentDescription="@string/todo31" />
-                    <TextView
+                    <androidx.appcompat.widget.AppCompatTextView
                         android:id="@+id/txtA1"
                         style="@style/TextAnswer"
                         android:contentDescription="@string/todo11" />
@@ -375,7 +375,7 @@
                         android:id="@+id/imgA2"
                         style="@style/FrameAnswer"
                         android:contentDescription="@string/todo11" />
-                    <TextView
+                    <androidx.appcompat.widget.AppCompatTextView
                         android:id="@+id/txtA2"
                         style="@style/TextAnswer"
                         android:contentDescription="@string/todo11" />
@@ -411,7 +411,7 @@
                         android:id="@+id/imgA3"
                         style="@style/FrameAnswer"
                         android:contentDescription="@string/todo11" />
-                    <TextView
+                    <androidx.appcompat.widget.AppCompatTextView
                         android:id="@+id/txtA3"
                         style="@style/TextAnswer" />
                     <de.hdodenhof.circleimageview.CircleImageView
@@ -436,7 +436,7 @@
                         android:id="@+id/imgA4"
                         style="@style/FrameAnswer"
                         android:contentDescription="@string/todo11" />
-                    <TextView
+                    <androidx.appcompat.widget.AppCompatTextView
                         android:id="@+id/txtA4"
                         style="@style/TextAnswer" />
                     <de.hdodenhof.circleimageview.CircleImageView
