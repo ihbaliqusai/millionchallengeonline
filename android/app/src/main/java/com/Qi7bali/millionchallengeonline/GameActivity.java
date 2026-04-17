@@ -1809,12 +1809,19 @@ public class GameActivity extends AppCompatActivity {
         }
 
         if (localEliminatedThisRound) {
+            if (getAlivePlayersCount() == 0) {
+                showDialog("انتهت المباراة، جميع اللاعبين خارج", "", 2000, 3000, R.drawable.mouth_05, false);
+                updateScoreAndLevel();
+                return -1;
+            }
             showDialog("إجابة خاطئة، خرجت من المنافسة.\nهل تريد متابعة المباراة كمشاهد؟", "EliminationSpectatorChoice", 1000, 0, R.drawable.mouth_05, false);
             return -3;
         }
 
         if (getAlivePlayersCount() == 0) {
-            return -2;
+            showDialog("انتهت المباراة، جميع اللاعبين خارج", "", 2000, 3000, R.drawable.mouth_05, false);
+            updateScoreAndLevel();
+            return -1;
         }
 
         if (eliminatedNames.isEmpty()) {
@@ -1829,6 +1836,12 @@ public class GameActivity extends AppCompatActivity {
 
     private void continueEliminationMatchAsSpectator() {
         if (!modeOnline || !eliminationMode || EXITING) {
+            return;
+        }
+
+        if (getAlivePlayersCount() == 0) {
+            updateScoreAndLevel();
+            openOnlineResultScreen(false);
             return;
         }
 
@@ -3835,6 +3848,15 @@ public class GameActivity extends AppCompatActivity {
                         CAN_PLAY = false;
                         CAN_HOME = false;
                         currentDialog = tag;
+                        int msgLen = message.replace("\n", "").length();
+                        if (msgLen <= 25)
+                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+                        else if (msgLen <= 40)
+                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+                        else if (msgLen <= 55)
+                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                        else
+                            txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
                         txtDialog.setCharacterDelay(18);
                         txtDialog.animateText(message);
                         rlyDialog.setVisibility(View.VISIBLE);

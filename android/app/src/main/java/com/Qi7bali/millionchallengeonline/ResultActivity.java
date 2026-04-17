@@ -83,14 +83,19 @@ public class ResultActivity extends AppCompatActivity {
         txtOpponentScore.setText(String.valueOf(opponentScore));
         txtOpponentSets.setText(String.valueOf(opponentSets));
 
+        if (mySets == 0 && opponentSets == 0) {
+            txtMySets.setVisibility(android.view.View.GONE);
+            txtOpponentSets.setVisibility(android.view.View.GONE);
+        }
+
         // Award XP for the online Speed Battle match
         PlayerProgress.onOnlineMatchFinished(this, didWin || opponentLeft, mySets);
         // كل نقطة أون لاين = 1000 ريال حتى تتساوى مع مقياس الأوف لاين
         PlayerStats.recordGameEnd(this, didWin || opponentLeft, myScore * 1000);
 
         if (opponentLeft) {
-            txtResult.setText("Opponent left the match");
-            txtScore.setText("Your new score: " + myNewScore);
+            txtResult.setText("الخصم غادر المباراة");
+            txtScore.setText("رصيدك الجديد: " + myNewScore);
         } else if (didWin) {
             txtResult.setText("مبروك، لقد فزت بالمباراة");
             txtScore.setText("رصيدك الجديد: " + myNewScore);
@@ -103,6 +108,16 @@ public class ResultActivity extends AppCompatActivity {
         }
 
         if (opponents.length() > 1) {
+            boolean anySetsNonZero = false;
+            for (int i = 0; i < opponents.length(); i++) {
+                JSONObject opp = opponents.optJSONObject(i);
+                if (opp != null && opp.optInt("sets", 0) > 0) {
+                    anySetsNonZero = true;
+                    break;
+                }
+            }
+            if (mySets > 0) anySetsNonZero = true;
+
             for (int i = 0; i < opponents.length(); i++) {
                 JSONObject opponent = opponents.optJSONObject(i);
                 if (opponent == null) {
@@ -118,11 +133,13 @@ public class ResultActivity extends AppCompatActivity {
                 summary.setPadding(16, 8, 16, 8);
 
                 StringBuilder builder = new StringBuilder();
-                builder.append(opponent.optString("name", "Opponent"));
-                builder.append("  |  sets: ").append(opponent.optInt("sets", 0));
-                builder.append("  |  score: ").append(opponent.optInt("score", 0));
+                builder.append(opponent.optString("name", "لاعب"));
+                if (anySetsNonZero) {
+                    builder.append("  |  الجولات: ").append(opponent.optInt("sets", 0));
+                }
+                builder.append("  |  النقاط: ").append(opponent.optInt("score", 0));
                 if (opponent.optBoolean("bot", false)) {
-                    builder.append("  |  AI: ").append(opponent.optInt("intelligence", 0)).append('%');
+                    builder.append("  |  ذكاء: ").append(opponent.optInt("intelligence", 0)).append('%');
                 }
                 summary.setText(builder.toString());
                 llyOpponentsSummary.addView(summary);
