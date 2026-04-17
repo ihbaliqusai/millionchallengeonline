@@ -3638,6 +3638,15 @@ public class GameActivity extends AppCompatActivity {
                                 case 3:
                                     int answerKey = answerOrder.get(i);
                                     listAnswerViews.get(i).setText(getLetter(i + 1) + " - " + getAnswerText(question, answerKey));
+                                    int aLen = getAnswerText(question, answerKey).length();
+                                    if (aLen <= 20)
+                                        listAnswerViews.get(i).setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+                                    else if (aLen <= 30)
+                                        listAnswerViews.get(i).setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                                    else if (aLen <= 45)
+                                        listAnswerViews.get(i).setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+                                    else
+                                        listAnswerViews.get(i).setTextSize(TypedValue.COMPLEX_UNIT_SP, 8);
                                     if (answerKey == ANSWER_KEY_RIGHT) {
                                         rightAnswer = i+1;
                                         listAnswerViews.get(i).setTag("1");

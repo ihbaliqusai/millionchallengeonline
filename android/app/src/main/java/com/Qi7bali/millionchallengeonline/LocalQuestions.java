@@ -12,6 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Random;
 
+import io.flutter.FlutterInjector;
+
 public class LocalQuestions {
     public static ArrayList<Question> load(Context context) {
         final ArrayList<Question> questions = new ArrayList<>();
@@ -21,7 +23,7 @@ public class LocalQuestions {
         final ArrayList<Question> allQuestions3 = new ArrayList<>();
         try {
             AssetManager assets = context.getAssets();
-            InputStream inputStream = assets.open("questions.json");
+            InputStream inputStream = openQuestionsStream(assets);
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             byte[] buffer = new byte[4096];
             int n;
@@ -75,6 +77,17 @@ public class LocalQuestions {
             } while (used.contains(idx));
             used.add(idx);
             questions.add(subList.get(idx));
+        }
+    }
+
+    private static InputStream openQuestionsStream(AssetManager assets) throws Exception {
+        try {
+            String flutterAssetPath = FlutterInjector.instance()
+                    .flutterLoader()
+                    .getLookupKeyForAsset("assets/questions.json");
+            return assets.open(flutterAssetPath);
+        } catch (Exception ignored) {
+            return assets.open("questions.json");
         }
     }
 }
