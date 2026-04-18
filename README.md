@@ -31,7 +31,7 @@ This project keeps the original Android millionaire quiz gameplay and adds a new
 
 1. Create a Firebase project.
 2. Add an Android app with package name:
-   - `com.Qi7bali.millionchallengeonline`
+   - `net.androidgaming.millionaire2024`
 3. Replace `android/app/google-services.json` with your own Firebase config file.
 4. Enable these Firebase products:
    - Authentication

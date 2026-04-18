@@ -1,4 +1,4 @@
-package com.Qi7bali.millionchallengeonline;
+package net.androidgaming.millionaire2024;
 
 import android.os.CountDownTimer;
 import android.os.Handler;

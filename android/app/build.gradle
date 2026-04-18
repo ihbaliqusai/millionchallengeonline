@@ -5,8 +5,15 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
-    namespace 'com.Qi7bali.millionchallengeonline'
+    namespace 'net.androidgaming.millionaire2024'
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -20,7 +27,7 @@ android {
     }
 
     defaultConfig {
-        applicationId 'com.Qi7bali.millionchallengeonline'
+        applicationId 'net.androidgaming.millionaire2024'
         minSdkVersion 23
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutter.versionCode
@@ -28,9 +35,22 @@ android {
         multiDexEnabled true
     }
 
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }

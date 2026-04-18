@@ -10,7 +10,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:969520184942:android:484685571395be941cf07f",
         "android_client_info": {
-          "package_name": "com.Qi7bali.millionchallengeonline"
+          "package_name": "net.androidgaming.millionaire2024"
         }
       },
       "oauth_client": [
@@ -18,7 +18,7 @@
           "client_id": "969520184942-9oi0vfqd88btbing0dpfjr9g2qms8r9l.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.Qi7bali.millionchallengeonline",
+            "package_name": "net.androidgaming.millionaire2024",
             "certificate_hash": "65ea7b5c737df854493e9f9cbd4ee5ea6e942917"
           }
         },
@@ -26,7 +26,7 @@
           "client_id": "969520184942-ucqmovig4fnmdjibp8poen73v5vsgdnq.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.Qi7bali.millionchallengeonline",
+            "package_name": "net.androidgaming.millionaire2024",
             "certificate_hash": "0ba7a3b5d9a21fabfdf0be43bf4005f167527c68"
           }
         },

@@ -550,7 +550,7 @@
                 android:layout_height="120dp"
                 android:src="@drawable/dialog"
                 android:contentDescription="@string/todo13" />
-            <com.Qi7bali.millionchallengeonline.Typewriter
+            <net.androidgaming.millionaire2024.Typewriter
                 android:id="@+id/txtDialog"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -922,7 +922,7 @@
                 android:contentDescription="@string/todo28" />
 
         </RelativeLayout>
-        <com.Qi7bali.millionchallengeonline.Typewriter
+        <net.androidgaming.millionaire2024.Typewriter
             android:id="@+id/txtCallAnswer"
             android:layout_width="156dp"
             android:layout_height="60dp"
