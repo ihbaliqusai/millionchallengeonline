@@ -15,6 +15,8 @@ import '../online/settings_screen.dart';
 import '../online/stats_screen.dart';
 import '../online/achievements_screen.dart';
 import '../../widgets/currency_reward_overlay.dart';
+import '../../services/ad_service.dart';
+import '../../services/native_bridge_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -385,6 +387,8 @@ class _LeftSidebar extends StatelessWidget {
             iconColor: const Color(0xFF60A5FA),
             onTap: () => context.read<AppState>().openOfflineGame(),
           ),
+          const SizedBox(height: 8),
+          _WatchAdCard(),
         ],
       ),
     );
@@ -500,6 +504,83 @@ class _ChestCounter extends StatelessWidget {
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  WATCH AD CARD
+// ──────────────────────────────────────────────────────────────────────────────
+class _WatchAdCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final adService = context.watch<AdService>();
+    final canWatch = adService.canWatchAd;
+    final watchesLeft = adService.watchesLeft;
+
+    return GestureDetector(
+      onTap: canWatch
+          ? () async {
+              final reward = await adService.showRewardedAd();
+              if (reward != null && context.mounted) {
+                final native = context.read<NativeBridgeService>();
+                await native.grantCurrency(
+                  coins: reward['coins']!,
+                  gems: reward['gems']!,
+                );
+                if (context.mounted) {
+                  context.read<AppState>().loadCurrency();
+                  showCurrencyRewardOverlay(
+                    context,
+                    coins: reward['coins']!,
+                    gems: reward['gems']!,
+                  );
+                }
+              }
+            }
+          : null,
+      child: Opacity(
+        opacity: canWatch ? 1.0 : 0.5,
+        child: Container(
+          width: 72,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: canWatch
+                  ? const Color(0xFF22C55E).withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.18),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.smart_display_rounded,
+                  color: Color(0xFF22C55E), size: 22),
+              const SizedBox(height: 3),
+              const Text(
+                'مكافأة',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                '$watchesLeft/${AdService.maxDailyWatches}',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

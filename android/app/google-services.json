@@ -8,14 +8,22 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:969520184942:android:484685571395be941cf07f",
+        "mobilesdk_app_id": "1:969520184942:android:2463b332425c97791cf07f",
         "android_client_info": {
           "package_name": "net.androidgaming.millionaire2024"
         }
       },
       "oauth_client": [
         {
-          "client_id": "969520184942-9oi0vfqd88btbing0dpfjr9g2qms8r9l.apps.googleusercontent.com",
+          "client_id": "969520184942-dl913kl5ndafcln4o6n5eu3v1v4r60sq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "net.androidgaming.millionaire2024",
+            "certificate_hash": "5e9ae2420edfe842487f4fc3da164ac11f672e83"
+          }
+        },
+        {
+          "client_id": "969520184942-fjhg2ppkmfmokrikjj1u69t1ivu21ck7.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "net.androidgaming.millionaire2024",
@@ -23,7 +31,7 @@
           }
         },
         {
-          "client_id": "969520184942-ucqmovig4fnmdjibp8poen73v5vsgdnq.apps.googleusercontent.com",
+          "client_id": "969520184942-nrr4ok4dfds4f31elgrcgek679rg16rs.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "net.androidgaming.millionaire2024",

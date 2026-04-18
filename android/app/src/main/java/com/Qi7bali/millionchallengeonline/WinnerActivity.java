@@ -18,9 +18,11 @@ import android.view.animation.TranslateAnimation;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
-import com.google.android.gms.ads.AdListener;
 import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.ads.InterstitialAd;
+import com.google.android.gms.ads.LoadAdError;
+import com.google.android.gms.ads.FullScreenContentCallback;
+import com.google.android.gms.ads.interstitial.InterstitialAd;
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
 
 import java.util.Random;
 
@@ -47,21 +49,7 @@ public class WinnerActivity extends AppCompatActivity {
         setContentView(R.layout.activity_winner);
         if (getSupportActionBar() != null) getSupportActionBar().hide();
 
-        mInterstitialAd = new InterstitialAd(this);
-        //mInterstitialAd.setAdUnitId("ca-app-pub-3940256099942544/1033173712"); //Test AD
-        mInterstitialAd.setAdUnitId(getResources().getString(R.string.interstitial_ad_id));
-        mInterstitialAd.loadAd(new AdRequest.Builder().build());
-
-        mInterstitialAd.setAdListener(new AdListener()
-        {
-            @Override
-            public void onAdClosed() {
-                Intent intent = new Intent(WinnerActivity.this, MainActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-                mInterstitialAd.loadAd(new AdRequest.Builder().build());
-            }
-        });
+        loadInterstitialAd();
 
 
         DisplayMetrics metrics = new DisplayMetrics();
@@ -95,9 +83,37 @@ public class WinnerActivity extends AppCompatActivity {
 
     }
 
+    private void loadInterstitialAd() {
+        String adUnitId = getResources().getString(R.string.interstitial_ad_id);
+        InterstitialAd.load(this, adUnitId, new AdRequest.Builder().build(),
+            new InterstitialAdLoadCallback() {
+                @Override
+                public void onAdLoaded(InterstitialAd ad) {
+                    mInterstitialAd = ad;
+                    mInterstitialAd.setFullScreenContentCallback(new FullScreenContentCallback() {
+                        @Override
+                        public void onAdDismissedFullScreenContent() {
+                            mInterstitialAd = null;
+                            Intent intent = new Intent(WinnerActivity.this, MainActivity.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                        }
+                    });
+                }
+                @Override
+                public void onAdFailedToLoad(LoadAdError error) {
+                    mInterstitialAd = null;
+                }
+            });
+    }
+
     private void showInterstitialAd() {
-        if (mInterstitialAd.isLoaded()) {
-            mInterstitialAd.show();
+        if (mInterstitialAd != null) {
+            mInterstitialAd.show(this);
+        } else {
+            Intent intent = new Intent(WinnerActivity.this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
         }
     }
 

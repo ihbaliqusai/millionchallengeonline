@@ -10,6 +10,7 @@ import 'services/native_bridge_service.dart';
 import 'services/profile_service.dart'; // still needed by other screens
 import 'services/iap_service.dart';
 import 'services/room_service.dart';
+import 'services/ad_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,16 +28,22 @@ Future<void> main() async {
     // يسمح بفتح الواجهة حتى قبل تهيئة Firebase الكاملة.
   }
 
-  runApp(const MillionaireOnlineApp());
+  final adService = AdService();
+  await adService.initialize();
+
+  runApp(MillionaireOnlineApp(adService: adService));
 }
 
 class MillionaireOnlineApp extends StatelessWidget {
-  const MillionaireOnlineApp({super.key});
+  const MillionaireOnlineApp({super.key, required this.adService});
+
+  final AdService adService;
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<AdService>.value(value: adService),
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<ProfileService>(create: (_) => ProfileService()),
         Provider<NativeBridgeService>(create: (_) => NativeBridgeService()),
