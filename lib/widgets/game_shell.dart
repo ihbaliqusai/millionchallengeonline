@@ -42,8 +42,8 @@ class GameShell extends StatelessWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: <Color>[
-                        const Color(0xFF0A1B4A).withOpacity(0.72),
-                        const Color(0xFF060C24).withOpacity(0.88),
+                        const Color(0xFF0A1B4A).withValues(alpha: 0.72),
+                        const Color(0xFF060C24).withValues(alpha: 0.88),
                       ],
                     ),
                   ),
@@ -164,11 +164,11 @@ class GlassPanel extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: <Color>[
-                (tint ?? const Color(0xFF0B173F)).withOpacity(0.86),
-                const Color(0xFF5B21B6).withOpacity(0.68),
+                (tint ?? const Color(0xFF0B173F)).withValues(alpha: 0.86),
+                const Color(0xFF5B21B6).withValues(alpha: 0.68),
               ],
             ),
-            border: Border.all(color: const Color(0xFF7DD3FC).withOpacity(0.92), width: 1.8),
+            border: Border.all(color: const Color(0xFF7DD3FC).withValues(alpha: 0.92), width: 1.8),
             boxShadow: const <BoxShadow>[
               BoxShadow(color: Colors.black45, blurRadius: 20, offset: Offset(0, 10)),
             ],
@@ -261,7 +261,7 @@ class _AnimatedNeonButtonState extends State<_AnimatedNeonButton> {
                 border: Border.all(color: border, width: 2),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: (widget.gold ? const Color(0xFFF59E0B) : const Color(0xFF2563EB)).withOpacity(0.28),
+                    color: (widget.gold ? const Color(0xFFF59E0B) : const Color(0xFF2563EB)).withValues(alpha: 0.28),
                     blurRadius: _pressed ? 10 : 20,
                     offset: Offset(0, _pressed ? 4 : 10),
                   ),
@@ -280,7 +280,7 @@ class _AnimatedNeonButtonState extends State<_AnimatedNeonButton> {
                         width: widget.compact ? 34 : 40,
                         height: widget.compact ? 34 : 40,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(widget.gold ? 0.34 : 0.18),
+                          color: Colors.white.withValues(alpha: widget.gold ? 0.34 : 0.18),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(widget.icon, color: foreground, size: widget.compact ? 18 : 22),
@@ -331,9 +331,9 @@ class HudChip extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: compact ? 8 : 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF08112F).withOpacity(0.88),
+        color: const Color(0xFF08112F).withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.14)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -380,8 +380,8 @@ class SideMenuButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
-            color: highlight ? const Color(0xFFFACC15).withOpacity(0.24) : const Color(0xFF091332).withOpacity(0.90),
-            border: Border.all(color: highlight ? const Color(0xFFFCD34D) : Colors.white.withOpacity(0.12), width: 1.6),
+            color: highlight ? const Color(0xFFFACC15).withValues(alpha: 0.24) : const Color(0xFF091332).withValues(alpha: 0.90),
+            border: Border.all(color: highlight ? const Color(0xFFFCD34D) : Colors.white.withValues(alpha: 0.12), width: 1.6),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -424,7 +424,7 @@ class ProgressStrip extends StatelessWidget {
           child: LinearProgressIndicator(
             minHeight: 12,
             value: safeValue,
-            backgroundColor: Colors.white.withOpacity(0.08),
+            backgroundColor: Colors.white.withValues(alpha: 0.08),
             valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFACC15)),
           ),
         ),

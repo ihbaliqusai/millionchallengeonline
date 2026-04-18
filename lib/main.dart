@@ -7,7 +7,7 @@ import 'core/app_state.dart';
 import 'screens/auth/auth_gate.dart';
 import 'services/auth_service.dart';
 import 'services/native_bridge_service.dart';
-import 'services/profile_service.dart';
+import 'services/profile_service.dart'; // still needed by other screens
 import 'services/iap_service.dart';
 import 'services/room_service.dart';
 
@@ -48,17 +48,15 @@ class MillionaireOnlineApp extends StatelessWidget {
             return svc;
           },
         ),
-        ChangeNotifierProxyProvider3<AuthService, ProfileService, NativeBridgeService, AppState>(
+        ChangeNotifierProxyProvider2<AuthService, NativeBridgeService, AppState>(
           create: (context) => AppState(
             authService: context.read<AuthService>(),
-            profileService: context.read<ProfileService>(),
             nativeBridgeService: context.read<NativeBridgeService>(),
           ),
-          update: (context, auth, profile, nativeBridge, previous) =>
+          update: (context, auth, nativeBridge, previous) =>
               previous ??
               AppState(
                 authService: auth,
-                profileService: profile,
                 nativeBridgeService: nativeBridge,
               ),
         ),
@@ -88,17 +86,17 @@ class MillionaireOnlineApp extends StatelessWidget {
           ),
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
-            fillColor: Colors.white.withOpacity(0.08),
+            fillColor: Colors.white.withValues(alpha:0.08),
             contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             labelStyle: const TextStyle(color: Colors.white70),
             prefixIconColor: const Color(0xFF7DD3FC),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.18)),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha:0.18)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.18)),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha:0.18)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(18),
@@ -116,7 +114,7 @@ class MillionaireOnlineApp extends StatelessWidget {
           outlinedButtonTheme: OutlinedButtonThemeData(
             style: OutlinedButton.styleFrom(
               foregroundColor: Colors.white,
-              side: BorderSide(color: Colors.white.withOpacity(0.22)),
+              side: BorderSide(color: Colors.white.withValues(alpha:0.22)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             ),
           ),

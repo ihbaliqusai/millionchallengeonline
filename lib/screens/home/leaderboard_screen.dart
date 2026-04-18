@@ -269,7 +269,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ),
           );
         }),
-        if (myRank != null && myRank > 6) ...[
+        if (myRank != null && myRank > 6 && myRank - 1 < _players.length) ...[
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
             child: Divider(color: Colors.white24, height: 1),

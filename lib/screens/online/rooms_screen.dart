@@ -240,7 +240,7 @@ class _BattleHeader extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Battle',
+                'اللعب الجماعي',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -248,7 +248,7 @@ class _BattleHeader extends StatelessWidget {
                 ),
               ),
               Text(
-                'Multiplayer Rooms',
+                'غرف متعددة اللاعبين',
                 style: TextStyle(
                   fontSize: 12,
                   color: Color(0xFF94A3B8),
@@ -335,7 +335,7 @@ class _CreateJoinPanel extends StatelessWidget {
               Row(
                 children: [
                   _ModeChip(
-                    label: 'Battle',
+                    label: 'تنافس',
                     icon: Icons.sports_kabaddi_rounded,
                     description: 'تنافس على النقاط',
                     selected: mode == 'battle',

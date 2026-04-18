@@ -6,12 +6,10 @@ import 'package:flutter/foundation.dart';
 
 import '../services/auth_service.dart';
 import '../services/native_bridge_service.dart';
-import '../services/profile_service.dart';
 
 class AppState extends ChangeNotifier {
   AppState({
     required AuthService authService,
-    required ProfileService profileService,
     required NativeBridgeService nativeBridgeService,
   })  : _authService = authService,
         _nativeBridgeService = nativeBridgeService {
@@ -161,7 +159,7 @@ class AppState extends ChangeNotifier {
       final lastClaimTs = data['lastStreakClaimDate'] as Timestamp?;
       final savedStreakDay = (data['streakDay'] as num?)?.toInt() ?? 0;
       if (lastClaimTs == null) {
-        streakDay = 0;
+        streakDay = 1;
         claimedToday = false;
       } else {
         final lastClaim = lastClaimTs.toDate();
@@ -170,12 +168,13 @@ class AppState extends ChangeNotifier {
         final lastDay = DateTime(lastClaim.year, lastClaim.month, lastClaim.day);
         final diff = today.difference(lastDay).inDays;
         if (diff == 0) {
-          streakDay = savedStreakDay;
+          streakDay = savedStreakDay.clamp(1, 30);
           claimedToday = true;
         } else if (diff == 1) {
-          streakDay = savedStreakDay >= 30 ? 1 : savedStreakDay + 1;
+          streakDay = savedStreakDay >= 30 ? 1 : (savedStreakDay + 1).clamp(1, 30);
           claimedToday = false;
         } else {
+          // Streak broken — reset to day 1
           streakDay = 1;
           claimedToday = false;
         }
@@ -184,7 +183,12 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       // After Firestore data is ready, check for new games immediately
       unawaited(checkAndAwardXpForGames());
-    } catch (_) {}
+    } catch (e) {
+      // Firestore read failed (offline/network). Retain defaults and notify
+      // so UI shows day 1 rather than an endless spinner.
+      streakDay = streakDay > 0 ? streakDay : 1;
+      notifyListeners();
+    }
   }
 
   // XP constants — keep in sync with PlayerProgress.java
@@ -242,8 +246,6 @@ class AppState extends ChangeNotifier {
       _checkingXp = false;
     }
   }
-
-  Future<void> initialize() async {}
 
   Future<void> _onAuthChanged(User? nextUser) async {
     user = nextUser;

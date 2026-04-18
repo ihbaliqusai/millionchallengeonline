@@ -100,8 +100,8 @@ class _HomeScreenState extends State<HomeScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF0A1B4A).withOpacity(0.80),
-                      const Color(0xFF060C24).withOpacity(0.90),
+                      const Color(0xFF0A1B4A).withValues(alpha:0.80),
+                      const Color(0xFF060C24).withValues(alpha:0.90),
                     ],
                   ),
                 ),
@@ -334,29 +334,6 @@ class _LevelBadge extends StatelessWidget {
   }
 }
 
-class _HudIconButton extends StatelessWidget {
-  const _HudIconButton({required this.icon, required this.onTap});
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.55),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
-        ),
-        child: Icon(icon, color: Colors.white, size: 20),
-      ),
-    );
-  }
-}
-
 // ──────────────────────────────────────────────────────────────────────────────
 //  LEFT SIDEBAR
 // ──────────────────────────────────────────────────────────────────────────────
@@ -441,9 +418,9 @@ class _SideCard extends StatelessWidget {
             width: 72,
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.65),
+              color: Colors.black.withValues(alpha:0.65),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.18), width: 1.5),
+              border: Border.all(color: Colors.white.withValues(alpha:0.18), width: 1.5),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -499,14 +476,14 @@ class _ChestCounter extends StatelessWidget {
       width: 72,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.65),
+        color: Colors.black.withValues(alpha:0.65),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.18), width: 1.5),
+        border: Border.all(color: Colors.white.withValues(alpha:0.18), width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.inventory_2_rounded, color: const Color(0xFF38BDF8), size: 22),
+          const Icon(Icons.inventory_2_rounded, color: Color(0xFF38BDF8), size: 22),
           const SizedBox(height: 4),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -622,13 +599,13 @@ class _RankingButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.6),
+          color: Colors.black.withValues(alpha:0.6),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
+          border: Border.all(color: Colors.white.withValues(alpha:0.2)),
         ),
-        child: Row(
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
+          children: [
             Icon(Icons.leaderboard_rounded, size: 18, color: Color(0xFFFACC15)),
             SizedBox(width: 6),
             Text(
@@ -694,7 +671,7 @@ class _BattleButtonState extends State<_BattleButton> {
                 border: Border.all(color: borderColor, width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: glowColor.withOpacity(glow),
+                    color: glowColor.withValues(alpha:glow),
                     blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
@@ -885,9 +862,9 @@ class _NavButton extends StatelessWidget {
         width: 72,
         padding: const EdgeInsets.symmetric(vertical: 7),
         decoration: BoxDecoration(
-          color: const Color(0xFF091332).withOpacity(0.88),
+          color: const Color(0xFF091332).withValues(alpha:0.88),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.18), width: 1.5),
+          border: Border.all(color: Colors.white.withValues(alpha:0.18), width: 1.5),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -919,37 +896,40 @@ class _DailyChests extends StatelessWidget {
     final completed = appState.claimedToday
         ? appState.streakDay
         : (appState.streakDay > 1 ? appState.streakDay - 1 : 0);
-    final opened = completed > 0 ? (completed - 1) % 4 + 1 : 0;
+    final opened = completed > 0 ? (completed - 1) % 7 + 1 : 0;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.55),
+        color: Colors.black.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFACC15).withOpacity(0.4)),
+        border: Border.all(color: const Color(0xFFFACC15).withValues(alpha: 0.4)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'DAILY CHESTS',
+          const Text(
+            'صناديق يومية',
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w900,
-              color: const Color(0xFFFACC15),
+              color: Color(0xFFFACC15),
               letterSpacing: 0.8,
             ),
           ),
           const SizedBox(height: 6),
           Row(
             mainAxisSize: MainAxisSize.min,
-            children: List.generate(4, (i) {
+            children: List.generate(7, (i) {
               final isOpened = i < opened;
               final colors = [
                 const Color(0xFF22C55E),
+                const Color(0xFF60A5FA),
                 const Color(0xFFEC4899),
                 const Color(0xFF38BDF8),
+                const Color(0xFF60A5FA),
                 const Color(0xFFEC4899),
+                const Color(0xFFA855F7),
               ];
               final color = colors[i];
               return Container(
@@ -1067,9 +1047,9 @@ class _PlayerCard extends StatelessWidget {
         width: 160,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.65),
+          color: Colors.black.withValues(alpha:0.65),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
+          border: Border.all(color: Colors.white.withValues(alpha:0.2)),
         ),
         child: Row(
           children: [
@@ -1121,7 +1101,7 @@ class _PlayerCard extends StatelessWidget {
               ),
             ),
             // Edit icon
-            Icon(Icons.edit_rounded, size: 14, color: Colors.white.withOpacity(0.5)),
+            Icon(Icons.edit_rounded, size: 14, color: Colors.white.withValues(alpha:0.5)),
           ],
         ),
       ),

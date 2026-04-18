@@ -192,7 +192,8 @@ class Room {
   /// 'battle' = existing native multiplayer | 'elimination' = new elimination mode
   final String mode;
 
-  /// 'lobby' | 'playing' | 'finished'
+  /// battle:     'lobby' | 'playing' | 'finished'
+  /// elimination:'lobby' | 'playing_round' | 'round_over' | 'finished'
   final String phase;
 
   final int currentQuestionIndex;

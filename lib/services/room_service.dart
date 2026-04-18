@@ -458,7 +458,7 @@ class RoomService {
           final room = Room.fromSnapshot(snapshot);
           // Guard: only advance if we're still on the same question
           if (room.currentQuestionIndex != fromIndex) return;
-          if (room.phase != 'playing') return;
+          if (room.phase != 'playing_round') return;
 
           final updates = <String, dynamic>{};
 
@@ -524,8 +524,19 @@ class RoomService {
             return;
           }
 
-          final nextHostId =
-              room.hostId == userId ? remainingPlayers.keys.first : room.hostId;
+          // Use a deterministic host selection: prefer existing host, otherwise
+          // pick the lexicographically smallest non-bot player ID for consistency
+          // across all clients (Map key order is not guaranteed).
+          String nextHostId = room.hostId;
+          if (room.hostId == userId) {
+            final candidates = remainingPlayers.keys
+                .where((id) => !Room.isBotUserId(id))
+                .toList()
+              ..sort();
+            nextHostId = candidates.isNotEmpty
+                ? candidates.first
+                : (remainingPlayers.keys.toList()..sort()).first;
+          }
 
           transaction.update(ref, <String, dynamic>{
             'hostId': nextHostId,

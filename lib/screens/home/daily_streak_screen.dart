@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -48,77 +47,23 @@ class DailyStreakScreen extends StatefulWidget {
 }
 
 class _DailyStreakScreenState extends State<DailyStreakScreen> {
-  bool _loading = true;
-  int _streakDay = 1;       // 1–30
-  bool _claimedToday = false;
   bool _claiming = false;
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _loadStreak();
-  }
-
-  Future<void> _loadStreak() async {
-    final uid = context.read<AppState>().user?.uid;
-    if (uid == null) { setState(() => _loading = false); return; }
-
-    try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      final data = doc.data() ?? {};
-
-      final lastClaimTs = data['lastStreakClaimDate'] as Timestamp?;
-      final savedDay = (data['streakDay'] as num?)?.toInt() ?? 1;
-
-      if (lastClaimTs == null) {
-        // First time ever
-        setState(() { _streakDay = 1; _claimedToday = false; _loading = false; });
-        return;
-      }
-
-      final lastClaim = lastClaimTs.toDate();
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final lastDay = DateTime(lastClaim.year, lastClaim.month, lastClaim.day);
-      final diff = today.difference(lastDay).inDays;
-
-      if (diff == 0) {
-        // Already claimed today
-        setState(() { _streakDay = savedDay; _claimedToday = true; _loading = false; });
-      } else if (diff == 1) {
-        // Consecutive day — advance to next (unclaimed)
-        final nextDay = savedDay >= 30 ? 1 : savedDay + 1;
-        setState(() { _streakDay = nextDay; _claimedToday = false; _loading = false; });
-      } else {
-        // Missed — reset
-        setState(() { _streakDay = 1; _claimedToday = false; _loading = false; });
-        await FirebaseFirestore.instance.collection('users').doc(uid).set(
-          {'streakDay': 1},
-          SetOptions(merge: true),
-        );
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
   }
 
   Future<void> _claimReward() async {
-    if (_claimedToday || _claiming) return;
+    final appState = context.read<AppState>();
+    if (appState.claimedToday || _claiming) return;
     setState(() => _claiming = true);
 
-    final appState = context.read<AppState>();
     final reward = await appState.claimDailyStreak();
 
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _claiming = false;
-      _claimedToday = appState.claimedToday;
-      _streakDay = appState.streakDay > 0 ? appState.streakDay : _streakDay;
-    });
+    if (!mounted) return;
+    setState(() => _claiming = false);
 
     if (reward != null) {
       await _showRewardDialog(reward['coins']!, reward['gems']!);
@@ -180,21 +125,23 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    final streakDay = appState.streakDay.clamp(1, 30);
+    final claimedToday = appState.claimedToday;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0B1640),
       body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFACC15)))
-            : Column(
-                children: [
-                  _buildHeader(),
-                  _buildStreakInfo(),
-                  const SizedBox(height: 8),
-                  Expanded(child: _buildDaysGrid()),
-                  _buildClaimButton(),
-                  const SizedBox(height: 12),
-                ],
-              ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildStreakInfo(streakDay, claimedToday),
+            const SizedBox(height: 8),
+            Expanded(child: _buildDaysGrid(streakDay, claimedToday)),
+            _buildClaimButton(streakDay, claimedToday),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }
@@ -227,7 +174,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
     );
   }
 
-  Widget _buildStreakInfo() {
+  Widget _buildStreakInfo(int streakDay, bool claimedToday) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -250,7 +197,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
             ),
             child: Center(
               child: Text(
-                '$_streakDay',
+                '$streakDay',
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Color(0xFFFACC15)),
               ),
             ),
@@ -261,12 +208,12 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _claimedToday ? 'تم الاستلام اليوم ✓' : 'اليوم $_streakDay من 30',
+                  claimedToday ? 'تم الاستلام اليوم ✓' : 'اليوم $streakDay من 30',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _claimedToday
+                  claimedToday
                       ? 'عد غداً للمكافأة التالية'
                       : 'افتح الصندوق لاستلام مكافأتك!',
                   style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7)),
@@ -278,7 +225,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
             children: [
               const Icon(Icons.local_fire_department_rounded, color: Color(0xFFF97316), size: 28),
               Text(
-                '$_streakDay يوم',
+                '$streakDay يوم',
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFF97316)),
               ),
             ],
@@ -288,7 +235,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
     );
   }
 
-  Widget _buildDaysGrid() {
+  Widget _buildDaysGrid(int streakDay, bool claimedToday) {
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -301,14 +248,14 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
       itemBuilder: (_, i) {
         final day = i + 1;
         final reward = _kDayRewards[i];
-        final isPast = day < _streakDay;
-        final isCurrent = day == _streakDay;
-        final isFuture = day > _streakDay;
+        final isPast = day < streakDay;
+        final isCurrent = day == streakDay;
+        final isFuture = day > streakDay;
         final isWeekBonus = day == 7 || day == 14 || day == 21 || day == 30;
 
         Color borderColor;
         Color bgColor;
-        if (isCurrent && _claimedToday) {
+        if (isCurrent && claimedToday) {
           borderColor = const Color(0xFF22C55E);
           bgColor = const Color(0xFF22C55E).withValues(alpha: 0.2);
         } else if (isCurrent) {
@@ -355,7 +302,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
               const SizedBox(height: 2),
               if (isPast)
                 const Icon(Icons.check_circle_rounded, color: Color(0xFF22C55E), size: 14)
-              else if (isFuture && isCurrent == false)
+              else if (isFuture)
                 Icon(Icons.lock_rounded, color: Colors.white.withValues(alpha: 0.3), size: 12)
               else ...[
                 if ((reward['gems'] ?? 0) > 0)
@@ -388,8 +335,8 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
     );
   }
 
-  Widget _buildClaimButton() {
-    if (_claimedToday) {
+  Widget _buildClaimButton(int streakDay, bool claimedToday) {
+    if (claimedToday) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -410,7 +357,7 @@ class _DailyStreakScreenState extends State<DailyStreakScreen> {
       );
     }
 
-    final reward = _kDayRewards[_streakDay - 1];
+    final reward = _kDayRewards[streakDay - 1];
     return GestureDetector(
       onTap: _claiming ? null : _claimReward,
       child: Container(

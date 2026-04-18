@@ -152,17 +152,23 @@ class IapService extends ChangeNotifier {
     }
   }
 
-  void _handlePurchases(List<PurchaseDetails> purchases) async {
+  Future<void> _handlePurchases(List<PurchaseDetails> purchases) async {
     for (final p in purchases) {
       if (p.status == PurchaseStatus.purchased ||
           p.status == PurchaseStatus.restored) {
-        // Credit items to the player via the native bridge.
-        await _nativeBridge.deliverPurchase(p.productID);
-        lastDeliveredId = p.productID;
-        if (p.pendingCompletePurchase) await _store.completePurchase(p);
-        onItemsDelivered?.call();
+        try {
+          await _nativeBridge.deliverPurchase(p.productID);
+          lastDeliveredId = p.productID;
+          error = null;
+          if (p.pendingCompletePurchase) await _store.completePurchase(p);
+          onItemsDelivered?.call();
+        } catch (e) {
+          error = 'فشل تسليم المنتج: ${e.toString()}';
+        }
       } else if (p.status == PurchaseStatus.error) {
         error = p.error?.message ?? 'فشلت عملية الشراء';
+      } else if (p.status == PurchaseStatus.canceled) {
+        error = null;
       }
     }
     isPurchasing = false;

@@ -33,6 +33,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   bool _starting = false;
   bool _leaving = false;
   bool _navigatedToGame = false;
+  // Tracks the startedAt timestamp of the last launched round so elimination
+  // mode can re-launch the native game for each new round.
+  DateTime? _lastLaunchedRoundAt;
   late final AnimationController _pulseCtrl;
 
   @override
@@ -204,14 +207,14 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   Future<void> _shareRoom(Room room) async {
     try {
       await Share.share(
-        'Join my Million Challenge Online room.\nRoom ID: ${room.id}\nOpen Room Multiplayer and paste this code to join.',
-        subject: 'Room Multiplayer Invite',
+        'انضم إلى غرفتي في تحدي المليون أونلاين.\nكود الغرفة: ${room.id}\nافتح قسم اللعب الجماعي والصق الكود للانضمام.',
+        subject: 'دعوة للعب الجماعي',
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Unable to open the share sheet on this device.'),
+          content: Text('تعذّر فتح نافذة المشاركة على هذا الجهاز.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -385,8 +388,19 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                       final isHost = widget.createdByCurrentUser ||
                           currentUserId == room.hostId;
 
-                      if (room.started && !_navigatedToGame) {
+                      // Battle mode: launch once when started.
+                      // Elimination mode: launch each time phase becomes
+                      // 'playing_round', identified by the round's startedAt.
+                      final shouldLaunch = room.started && (
+                        (room.mode != 'elimination' && !_navigatedToGame) ||
+                        (room.mode == 'elimination' &&
+                          room.phase == 'playing_round' &&
+                          room.startedAt != null &&
+                          room.startedAt != _lastLaunchedRoundAt)
+                      );
+                      if (shouldLaunch) {
                         _navigatedToGame = true;
+                        _lastLaunchedRoundAt = room.startedAt;
                         WidgetsBinding.instance
                             .addPostFrameCallback((_) async {
                           if (!mounted) return;
@@ -560,7 +574,7 @@ class _LobbyHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Room Lobby',
+                  'غرفة الانتظار',
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
@@ -784,7 +798,7 @@ class _PlayerTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
-                          'HOST',
+                          'مضيف',
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w900,

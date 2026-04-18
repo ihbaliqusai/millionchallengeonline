@@ -68,21 +68,61 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     super.dispose();
   }
 
+  String? _validate() {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final username = _usernameController.text.trim();
+
+    if (email.isEmpty) return 'يرجى إدخال البريد الإلكتروني';
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
+      return 'صيغة البريد الإلكتروني غير صحيحة';
+    }
+    if (password.isEmpty) return 'يرجى إدخال كلمة المرور';
+    if (password.length < 6) return 'كلمة المرور يجب أن تكون 6 أحرف على الأقل';
+    if (_register && username.isEmpty) return 'يرجى إدخال اسم اللاعب';
+    return null;
+  }
+
+  static String _arabicFirebaseError(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('wrong-password') || lower.contains('invalid-credential')) {
+      return 'كلمة المرور أو البريد الإلكتروني غير صحيح';
+    }
+    if (lower.contains('user-not-found')) return 'لا يوجد حساب بهذا البريد الإلكتروني';
+    if (lower.contains('email-already-in-use')) return 'هذا البريد الإلكتروني مستخدم بالفعل';
+    if (lower.contains('invalid-email')) return 'صيغة البريد الإلكتروني غير صحيحة';
+    if (lower.contains('weak-password')) return 'كلمة المرور ضعيفة جداً';
+    if (lower.contains('too-many-requests')) return 'تم تجاوز عدد المحاولات، حاول لاحقاً';
+    if (lower.contains('network-request-failed')) return 'تحقق من اتصالك بالإنترنت';
+    if (lower.contains('operation-not-allowed')) return 'طريقة تسجيل الدخول هذه غير مفعّلة';
+    return 'حدث خطأ، حاول مرة أخرى';
+  }
+
   Future<void> _submit(AppState state) async {
+    final validationError = _validate();
+    if (validationError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(validationError)),
+      );
+      return;
+    }
     try {
       if (_register) {
         await state.register(
-          _emailController.text,
+          _emailController.text.trim(),
           _passwordController.text,
-          _usernameController.text,
+          _usernameController.text.trim(),
         );
       } else {
-        await state.signIn(_emailController.text, _passwordController.text);
+        await state.signIn(
+          _emailController.text.trim(),
+          _passwordController.text,
+        );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(_arabicFirebaseError(e.toString()))),
       );
     }
   }
@@ -119,8 +159,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: <Color>[
-                        const Color(0xFF08112F).withOpacity(0.75),
-                        const Color(0xFF060C24).withOpacity(0.92),
+                        const Color(0xFF08112F).withValues(alpha: 0.75),
+                        const Color(0xFF060C24).withValues(alpha: 0.92),
                       ],
                     ),
                   ),
@@ -213,7 +253,7 @@ class _ParticlesPainter extends CustomPainter {
       canvas.drawCircle(
         Offset(p.x * size.width, size.height * (1 - progress)),
         p.size / 2,
-        Paint()..color = const Color(0xFFFACC15).withOpacity(opacity * 0.35),
+        Paint()..color = const Color(0xFFFACC15).withValues(alpha: opacity * 0.35),
       );
     }
   }
@@ -264,16 +304,16 @@ class _LoginForm extends StatelessWidget {
                   height: 64,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFFFACC15).withOpacity(0.12),
+                    color: const Color(0xFFFACC15).withValues(alpha: 0.12),
                     border: Border.all(
-                      color: const Color(0xFFFACC15).withOpacity(
-                        0.3 + iconPulseCtrl.value * 0.4,
+                      color: const Color(0xFFFACC15).withValues(
+                        alpha: 0.3 + iconPulseCtrl.value * 0.4,
                       ),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFACC15).withOpacity(iconPulseCtrl.value * 0.3),
+                        color: const Color(0xFFFACC15).withValues(alpha: iconPulseCtrl.value * 0.3),
                         blurRadius: 16,
                         spreadRadius: 2,
                       ),
@@ -314,7 +354,7 @@ class _LoginForm extends StatelessWidget {
                 key: ValueKey('sub_$register'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 14,
                 ),
               ),

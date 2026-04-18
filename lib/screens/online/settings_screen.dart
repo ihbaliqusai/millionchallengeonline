@@ -64,7 +64,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await context.read<NativeBridgeService>().openNotificationSettings();
   }
 
-  void _openLanguage() {}
+  void _openLanguage() {
+    if (_haptic) HapticFeedback.lightImpact();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF152055),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+        title: const Text(
+          'اللغة',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+        ),
+        content: const Text(
+          'اللغة العربية محددة حالياً.\nسيتم إضافة دعم لغات أخرى في تحديث قادم.',
+          style: TextStyle(color: Colors.white70, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'حسناً',
+              style: TextStyle(color: Color(0xFF7DD3FC), fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _openPrivacyPolicy() {
     if (_haptic) HapticFeedback.lightImpact();
@@ -74,19 +102,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: const Color(0xFF152055),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: const Text(
-          'Privacy Policy',
+          'سياسة الخصوصية',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
         ),
-        content: SingleChildScrollView(
+        content: const SingleChildScrollView(
           child: Text(
-            'We collect only the data necessary to run the game, '
-            'including your username, profile photo, and game progress.\n\n'
-            'Your data is stored securely using Firebase and is never sold '
-            'or shared with third parties for advertising.\n\n'
-            'You may delete your account and all associated data at any time '
-            'by contacting us through the app store listing.\n\n'
-            'By using this app you agree to these terms.',
-            style: const TextStyle(color: Colors.white70, height: 1.5),
+            'نجمع فقط البيانات الضرورية لتشغيل اللعبة، '
+            'بما في ذلك اسم المستخدم وصورة الملف الشخصي وتقدم اللعبة.\n\n'
+            'يتم تخزين بياناتك بأمان عبر Firebase ولا تُباع أو تُشارك '
+            'مع أطراف ثالثة لأغراض إعلانية.\n\n'
+            'يمكنك حذف حسابك وجميع البيانات المرتبطة به في أي وقت '
+            'عن طريق التواصل معنا من خلال صفحة التطبيق في متجر التطبيقات.\n\n'
+            'باستخدامك هذا التطبيق فإنك توافق على هذه الشروط.',
+            style: TextStyle(color: Colors.white70, height: 1.5),
           ),
         ),
         actions: [
@@ -109,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          restored ? 'Purchases restored successfully.' : 'No purchases found to restore.',
+          restored ? 'تمت استعادة المشتريات بنجاح.' : 'لم يتم العثور على مشتريات لاستعادتها.',
         ),
       ),
     );
@@ -133,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         _TappableRow(
                           icon: Icons.language_rounded,
-                          label: 'Language',
+                          label: 'اللغة',
                           trailing: Container(
                             width: 38,
                             height: 26,
@@ -366,7 +394,7 @@ class _SignOutRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Text(
-            'Sign Out',
+            'تسجيل الخروج',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w900,
@@ -447,7 +475,7 @@ class _BottomButtons extends StatelessWidget {
         children: [
           Expanded(
             child: _ActionButton(
-              label: 'PRIVACY\nPOLICY',
+              label: 'سياسة\nالخصوصية',
               color: const Color(0xFF2563EB),
               onTap: onPrivacyPolicy,
             ),
@@ -455,7 +483,7 @@ class _BottomButtons extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _ActionButton(
-              label: 'RESTORE\nPURCHASES',
+              label: 'استعادة\nالمشتريات',
               color: const Color(0xFF16A34A),
               onTap: onRestorePurchases,
             ),

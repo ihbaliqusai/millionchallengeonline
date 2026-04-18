@@ -196,6 +196,7 @@ class _StoreScreenState extends State<StoreScreen>
     _tabCtrl.addListener(() => setState(() {}));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final iap      = context.read<IapService>();
       final appState = context.read<AppState>();
 
@@ -223,6 +224,7 @@ class _StoreScreenState extends State<StoreScreen>
 
   @override
   void dispose() {
+    context.read<IapService>().onItemsDelivered = null;
     _tabCtrl.dispose();
     super.dispose();
   }
@@ -869,7 +871,7 @@ class _GemSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _SectionHeader(title: 'جواهر', color: const Color(0xFF1D4ED8)),
+        const _SectionHeader(title: 'جواهر', color: Color(0xFF1D4ED8)),
         const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -959,11 +961,11 @@ class _GemCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Expanded(
+            const Expanded(
               child: Center(
                 child: Icon(
                   Icons.diamond_rounded,
-                  color: const Color(0xFF93C5FD),
+                  color: Color(0xFF93C5FD),
                   size: 32,
                 ),
               ),
@@ -1137,7 +1139,7 @@ class _CoinSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _SectionHeader(title: 'عملات', color: const Color(0xFFB45309)),
+        const _SectionHeader(title: 'عملات', color: Color(0xFFB45309)),
         const SizedBox(height: 6),
         _CoinRow(items: row1, onBuy: onBuy),
         if (row2.isNotEmpty) ...[
@@ -1205,11 +1207,11 @@ class _CoinCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Expanded(
+            const Expanded(
               child: Center(
                 child: Icon(
                   Icons.monetization_on_rounded,
-                  color: const Color(0xFFFDE68A),
+                  color: Color(0xFFFDE68A),
                   size: 32,
                 ),
               ),
@@ -1685,12 +1687,12 @@ class _PowerupCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.monetization_on_rounded,
+                    Icon(Icons.monetization_on_rounded,
                         color: Color(0xFFFACC15), size: 14),
-                    const SizedBox(width: 5),
-                    const Text(
+                    SizedBox(width: 5),
+                    Text(
                       'شراء بالكوينز',
                       style: TextStyle(
                           fontSize: 11,
@@ -1716,12 +1718,12 @@ class _PowerupCard extends StatelessWidget {
                       .toList(),
                 ),
                 const SizedBox(height: 10),
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.diamond_rounded,
+                    Icon(Icons.diamond_rounded,
                         color: Color(0xFF38BDF8), size: 14),
-                    const SizedBox(width: 5),
-                    const Text(
+                    SizedBox(width: 5),
+                    Text(
                       'شراء بالجواهر',
                       style: TextStyle(
                           fontSize: 11,

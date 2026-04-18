@@ -6,6 +6,82 @@ import '../../core/app_state.dart';
 import '../../core/player_rank.dart';
 import '../../services/native_bridge_service.dart';
 
+Future<void> _showEditUsernameDialog(BuildContext context) async {
+  final appState = context.read<AppState>();
+  final controller = TextEditingController(
+    text: appState.user?.displayName ?? '',
+  );
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: const Color(0xFF152055),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Row(
+        children: [
+          Icon(Icons.edit_rounded, color: Color(0xFFFACC15), size: 20),
+          SizedBox(width: 8),
+          Text(
+            'تغيير الاسم',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+          ),
+        ],
+      ),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        maxLength: 20,
+        style: const TextStyle(color: Colors.white, fontSize: 15),
+        decoration: InputDecoration(
+          hintText: 'اسم اللاعب الجديد',
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+          counterStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('إلغاء', style: TextStyle(color: Colors.white54)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFACC15),
+            foregroundColor: const Color(0xFF1F2937),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('حفظ', style: TextStyle(fontWeight: FontWeight.w900)),
+        ),
+      ],
+    ),
+  );
+  final newName = controller.text.trim();
+  controller.dispose();
+  if (confirmed != true || !context.mounted) return;
+  if (newName.isEmpty) return;
+  try {
+    await context.read<AppState>().updateUsername(newName);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم تحديث الاسم بنجاح ✓'),
+          backgroundColor: Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('فشل تحديث الاسم، حاول مرة أخرى'),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+}
+
 // ── Trophy League Definitions ─────────────────────────────────────────────────
 
 class _League {
@@ -219,7 +295,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             children: [
               GestureDetector(
-                onTap: () {},
+                onTap: () => _showEditUsernameDialog(context),
                 child: Icon(Icons.edit_rounded, size: 14, color: Colors.white.withValues(alpha: 0.5)),
               ),
             ],

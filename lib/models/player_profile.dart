@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class PlayerProfile {
   PlayerProfile({
     required this.uid,
@@ -98,8 +100,8 @@ class PlayerProfile {
   static DateTime? _readDate(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
-    final milliseconds = value.millisecondsSinceEpoch;
-    return DateTime.fromMillisecondsSinceEpoch(milliseconds);
+    if (value is Timestamp) return value.toDate();
+    return null;
   }
 
   static String _resolveUsername(Map<String, dynamic> map) {

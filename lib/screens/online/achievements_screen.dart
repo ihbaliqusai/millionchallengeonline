@@ -453,11 +453,13 @@ const _kCategories = [
     color: Color(0xFF38BDF8),
     items: [
       _AchDef(
-        key: 'ACH_FIRST_ONLINE',
-        titleAr: 'المنافس الأول',
-        descAr: 'العب أول مباراة أونلاين',
+        key: 'ACH_ONLINE_WIN_5',
+        titleAr: 'مقاتل الإنترنت',
+        descAr: 'افز بـ5 مباريات أونلاين',
         icon: Icons.wifi_rounded,
         color: Color(0xFF38BDF8),
+        progressKey: 'onlineWins',
+        progressTarget: 5,
       ),
       _AchDef(
         key: 'ACH_ONLINE_WIN_10',

@@ -154,7 +154,7 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           const Text(
-            'Stats',
+            'الإحصائيات',
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w900,
