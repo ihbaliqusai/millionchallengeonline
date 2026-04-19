@@ -394,6 +394,7 @@ public class GameActivity extends AppCompatActivity {
         imgHelpCall = findViewById(R.id.imgHelpCall);
         imgHelpAudience = findViewById(R.id.imgHelpAudience);
         txtCallAnswer = findViewById(R.id.txtCallAnswer);
+        updateInventoryBadges();
 
         imgHome = findViewById(R.id.imgHome);
         imgVolume = findViewById(R.id.imgVolume);
@@ -498,6 +499,7 @@ public class GameActivity extends AppCompatActivity {
         btnDialogYes.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+
                 if (CAN_CLICK) {
                     CAN_CLICK = false;
                     CAN_HOME = true;
@@ -525,6 +527,7 @@ public class GameActivity extends AppCompatActivity {
                         case "ConfirmHelp5050":
                             usedHelp5050 = true;
                             help_hideTwoAnswers();
+                            startTimer(false);
                             imgHelp5050.setTag("0");
                             imgHelp5050.setImageResource(R.drawable.help_5050_0);
                             break;
@@ -546,6 +549,8 @@ public class GameActivity extends AppCompatActivity {
                             if (PlayerProgress.consumeInventory(GameActivity.this, "5050")) {
                                 usedHelp5050 = true;
                                 help_hideTwoAnswers();
+                                startTimer(false);
+                                updateInventoryBadges();
                                 Toast.makeText(GameActivity.this, "تم استخدام 50:50 إضافية", Toast.LENGTH_SHORT).show();
                             }
                             break;
@@ -554,6 +559,7 @@ public class GameActivity extends AppCompatActivity {
                                 usedHelpAudience = true;
                                 stopTimer(true);
                                 help_getVoteAudience();
+                                updateInventoryBadges();
                                 Toast.makeText(GameActivity.this, "تم استخدام مساعدة جمهور إضافية", Toast.LENGTH_SHORT).show();
                             }
                             break;
@@ -562,6 +568,7 @@ public class GameActivity extends AppCompatActivity {
                                 usedHelpCall = true;
                                 stopTimer(true);
                                 help_call();
+                                updateInventoryBadges();
                                 Toast.makeText(GameActivity.this, "تم استخدام اتصال إضافي", Toast.LENGTH_SHORT).show();
                             }
                             break;
@@ -622,6 +629,7 @@ public class GameActivity extends AppCompatActivity {
         btnDialogNo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+
                 if (CAN_CLICK) {
                     CAN_CLICK = false;
                     CAN_HOME = true;
@@ -637,8 +645,12 @@ public class GameActivity extends AppCompatActivity {
                         case "ConfirmHelp5050":
                         case "ConfirmHelpAudience":
                         case "ConfirmHelpCall":
+                        case "ConfirmExtraHelp5050":
+                        case "ConfirmExtraHelpAudience":
+                        case "ConfirmExtraHelpCall":
                             rlyDialog.setVisibility(View.INVISIBLE);
                             CAN_PLAY = true;
+                            startTimer(false);
                             break;
                         case "ConfirmHome":
                         case "ConfirmExit":
@@ -675,8 +687,10 @@ public class GameActivity extends AppCompatActivity {
             public void onClick(View view) {
                 if (CAN_PLAY) {
                     if (imgHelp5050.getTag().toString().equals("1")) {
+                        stopTimer(true);
                         showDialog("هل تريد حذف إجابتين ؟", "ConfirmHelp5050", 2000, 0, R.drawable.mouth_05, false);
                     } else if (PlayerProgress.getInventory5050(GameActivity.this) > 0) {
+                        stopTimer(true);
                         showDialog("استخدام 50:50 إضافية من المخزون؟", "ConfirmExtraHelp5050", 1500, 0, R.drawable.mouth_05, false);
                     }
                 }
@@ -689,8 +703,10 @@ public class GameActivity extends AppCompatActivity {
             public void onClick(View view) {
                 if (CAN_PLAY) {
                     if (imgHelpAudience.getTag().toString().equals("1")) {
+                        stopTimer(true);
                         showDialog("هل تريد طلب مساعدة الجمهور ؟", "ConfirmHelpAudience", 2000, 0, R.drawable.mouth_05, false);
                     } else if (PlayerProgress.getInventoryAudience(GameActivity.this) > 0) {
+                        stopTimer(true);
                         showDialog("استخدام مساعدة جمهور إضافية من المخزون؟", "ConfirmExtraHelpAudience", 1500, 0, R.drawable.mouth_05, false);
                     }
                 }
@@ -711,8 +727,10 @@ public class GameActivity extends AppCompatActivity {
             public void onClick(View view) {
                 if (CAN_PLAY) {
                     if (imgHelpCall.getTag().toString().equals("1")) {
+                        stopTimer(true);
                         showDialog("هل تريد الاتصال بصديق ؟", "ConfirmHelpCall", 2000, 0, R.drawable.mouth_05, false);
                     } else if (PlayerProgress.getInventoryCall(GameActivity.this) > 0) {
+                        stopTimer(true);
                         showDialog("استخدام اتصال إضافي من المخزون؟", "ConfirmExtraHelpCall", 1500, 0, R.drawable.mouth_05, false);
                     }
                 }
@@ -3862,6 +3880,7 @@ public class GameActivity extends AppCompatActivity {
                         txtDialog.setCharacterDelay(18);
                         txtDialog.animateText(message);
                         rlyDialog.setVisibility(View.VISIBLE);
+                        rlyDialog.bringToFront();
                         Animations.dialogZoom(rlyDialog, 4, 150, 1.05f);
                         person.talk(timeTalk, nextMouthId);
                         if (timeDialog > 0) {
@@ -4271,6 +4290,23 @@ public class GameActivity extends AppCompatActivity {
             }
         } catch (Exception e) {
             Log.w("GameActivity", "initAdsIfNeeded failed", e);
+        }
+    }
+
+    private void updateInventoryBadges() {
+        updateBadge(R.id.badge5050,    PlayerProgress.getInventory5050(this));
+        updateBadge(R.id.badgeCall,    PlayerProgress.getInventoryCall(this));
+        updateBadge(R.id.badgeAudience, PlayerProgress.getInventoryAudience(this));
+    }
+
+    private void updateBadge(int badgeId, int count) {
+        android.widget.TextView badge = findViewById(badgeId);
+        if (badge == null) return;
+        if (count > 0) {
+            badge.setText(String.valueOf(count));
+            badge.setVisibility(View.VISIBLE);
+        } else {
+            badge.setVisibility(View.GONE);
         }
     }
 

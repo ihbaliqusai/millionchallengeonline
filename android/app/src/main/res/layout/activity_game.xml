@@ -120,6 +120,23 @@
             android:src="@drawable/help_5050"
             android:tag="1"
             android:contentDescription="@string/todo18" />
+        <TextView
+            android:id="@+id/badge5050"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_alignRight="@id/imgHelp5050"
+            android:layout_alignTop="@id/imgHelp5050"
+            android:layout_marginTop="-4dp"
+            android:layout_marginRight="-4dp"
+            android:background="#FFFACC15"
+            android:gravity="center"
+            android:text="0"
+            android:textColor="#FF000000"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:clickable="false"
+            android:focusable="false" />
         <ImageView
             android:id="@+id/imgHelpCall"
             android:layout_width="50dp"
@@ -131,6 +148,21 @@
             android:tag="1"
             android:contentDescription="@string/todo11"
             />
+        <TextView
+            android:id="@+id/badgeCall"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_alignRight="@id/imgHelpCall"
+            android:layout_alignTop="@id/imgHelpCall"
+            android:layout_marginTop="-4dp"
+            android:layout_marginRight="-4dp"
+            android:background="#FFFACC15"
+            android:gravity="center"
+            android:text="0"
+            android:textColor="#FF000000"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
         <ImageView
             android:id="@+id/imgHelpAudience"
             android:layout_width="50dp"
@@ -142,6 +174,21 @@
             android:tag="1"
             android:contentDescription="@string/todo11"
             />
+        <TextView
+            android:id="@+id/badgeAudience"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_alignRight="@id/imgHelpAudience"
+            android:layout_alignTop="@id/imgHelpAudience"
+            android:layout_marginTop="-4dp"
+            android:layout_marginRight="-4dp"
+            android:background="#FFFACC15"
+            android:gravity="center"
+            android:text="0"
+            android:textColor="#FF000000"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
         <ImageView
             android:id="@+id/imgVolume"
             android:layout_width="50dp"

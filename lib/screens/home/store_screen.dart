@@ -192,7 +192,7 @@ class _StoreScreenState extends State<StoreScreen>
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    _tabCtrl = TabController(length: 3, vsync: this, initialIndex: 1);
+    _tabCtrl = TabController(length: 3, vsync: this, initialIndex: 2);
     _tabCtrl.addListener(() => setState(() {}));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -346,6 +346,8 @@ class _BottomTabBar extends StatelessWidget {
     (label: 'قدرات', icon: Icons.bolt_rounded),
   ];
 
+  static const _hiddenTabs = {0, 1};
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -358,6 +360,7 @@ class _BottomTabBar extends StatelessWidget {
       ),
       child: Row(
         children: List.generate(_tabs.length, (i) {
+          if (_hiddenTabs.contains(i)) return const SizedBox.shrink();
           final sel = controller.index == i;
           final tab = _tabs[i];
           return Expanded(
