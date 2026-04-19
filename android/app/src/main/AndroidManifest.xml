@@ -14,7 +14,7 @@
 
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-2427194500639575~5148833442" />
+            android:value="ca-app-pub-2427194500639575~7554355290" />
 
         <activity android:name=".LegacyMainActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".StatsActivity" android:screenOrientation="sensorLandscape" />

@@ -6,9 +6,9 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 class AdService extends ChangeNotifier {
   // ── Test IDs (replace with real IDs before publishing) ──────────────────────
   static const String _rewardedId =
-      'ca-app-pub-3940256099942544/5224354917';
+      'ca-app-pub-2427194500639575/4290411051';
   static const String _interstitialId =
-      'ca-app-pub-3940256099942544/1033173712';
+      'ca-app-pub-2427194500639575/3315194558';
 
   // ── Reward config ────────────────────────────────────────────────────────────
   static const int rewardCoins = 100;

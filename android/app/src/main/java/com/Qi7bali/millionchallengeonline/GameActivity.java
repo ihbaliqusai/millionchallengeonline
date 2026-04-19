@@ -3156,9 +3156,9 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void showInterstitialAd() {
-        if (mInterstitialAd != null && mInterstitialAd.isLoaded()) {
+        if (mInterstitialAd != null) {
             Log.d("TestAdmob", "Ad loaded");
-            mInterstitialAd.show();
+            mInterstitialAd.show(this);
         } else {
             Log.d("TestAdmob", "Ad not loaded");
             Intent intent = new Intent(GameActivity.this, MainActivity.class);
@@ -4245,14 +4245,29 @@ public class GameActivity extends AppCompatActivity {
     private void initAdsIfNeeded() {
         try {
             if (mInterstitialAd == null) {
-                MobileAds.initialize(this, new OnInitializationCompleteListener() {
-                    @Override
-                    public void onInitializationComplete(InitializationStatus initializationStatus) {
-                        // no-op
-                    }
-                });
-                mInterstitialAd = new InterstitialAd(this);
-                // Ad unit can be assigned later if needed; keep this safe/no-op for offline mode.
+                MobileAds.initialize(this, initializationStatus -> {});
+                InterstitialAd.load(this,
+                    getResources().getString(R.string.interstitial_ad_id),
+                    new AdRequest.Builder().build(),
+                    new InterstitialAdLoadCallback() {
+                        @Override
+                        public void onAdLoaded(InterstitialAd ad) {
+                            mInterstitialAd = ad;
+                            mInterstitialAd.setFullScreenContentCallback(new FullScreenContentCallback() {
+                                @Override
+                                public void onAdDismissedFullScreenContent() {
+                                    mInterstitialAd = null;
+                                    Intent intent = new Intent(GameActivity.this, MainActivity.class);
+                                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                    startActivity(intent);
+                                }
+                            });
+                        }
+                        @Override
+                        public void onAdFailedToLoad(LoadAdError error) {
+                            mInterstitialAd = null;
+                        }
+                    });
             }
         } catch (Exception e) {
             Log.w("GameActivity", "initAdsIfNeeded failed", e);
