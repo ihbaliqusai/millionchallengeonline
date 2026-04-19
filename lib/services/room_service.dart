@@ -79,6 +79,8 @@ class RoomService {
     required String hostId,
     int maxPlayers = 4,
     String mode = 'battle',
+    int roundDurationSeconds = 60,
+    int seriesTarget = 2,
   }) =>
       _guard(() async {
         await purgeStaleRooms(force: true);
@@ -93,6 +95,8 @@ class RoomService {
             hostId: const RoomPlayer(score: 0, ready: true).toMap(),
           },
           'createdAt': FieldValue.serverTimestamp(),
+          if (mode == 'blitz') 'roundDurationSeconds': roundDurationSeconds,
+          if (mode == 'series') 'seriesTarget': seriesTarget,
         });
         return doc.id;
       });
@@ -132,10 +136,10 @@ class RoomService {
           };
 
           final nextPlayerCount = room.playerCount + 1;
-          // Elimination rooms never auto-start — the host must initiate so
-          // that question IDs can be generated client-side before starting.
+          // Modes that require host initiation (question IDs or round tracking).
+          const hostStartModes = {'elimination', 'survival', 'series'};
           if (nextPlayerCount >= room.maxPlayers &&
-              room.mode != 'elimination') {
+              !hostStartModes.contains(room.mode)) {
             updates['started'] = true;
             updates['startedAt'] = FieldValue.serverTimestamp();
 
@@ -198,10 +202,7 @@ class RoomService {
           final existingPlayerIds = <String>[...room.playerIds];
 
           if (room.mode == 'elimination') {
-            // Elimination mode uses the original native gameplay too, so fill
-            // missing seats with bots just like battle mode.
             updates['phase'] = 'playing_round';
-
             final missingPlayers = room.maxPlayers - room.playerCount;
             for (var slot = 0; slot < missingPlayers; slot++) {
               final botId = _buildBotId(room.id, slot + 1);
@@ -211,7 +212,6 @@ class RoomService {
                 eliminated: false,
               ).toMap();
             }
-
             for (final playerId in existingPlayerIds) {
               updates['players.$playerId.ready'] = false;
               updates['players.$playerId.eliminated'] = false;
@@ -219,15 +219,70 @@ class RoomService {
               updates['players.$playerId.answeredCount'] = 0;
               updates['players.$playerId.completedAt'] = FieldValue.delete();
             }
-          } else {
-            // Battle mode: fill missing slots with bots
+          } else if (room.mode == 'survival') {
+            // Like elimination but players have 3 lives instead of 1-strike.
+            updates['phase'] = 'playing_round';
+            updates['roundNumber'] = 1;
+            final missingPlayers = room.maxPlayers - room.playerCount;
+            for (var slot = 0; slot < missingPlayers; slot++) {
+              final botId = _buildBotId(room.id, slot + 1);
+              updates['players.$botId'] = const RoomPlayer(
+                score: 0,
+                ready: false,
+                eliminated: false,
+                lives: 3,
+              ).toMap();
+            }
+            for (final playerId in existingPlayerIds) {
+              updates['players.$playerId.ready'] = false;
+              updates['players.$playerId.eliminated'] = false;
+              updates['players.$playerId.lives'] = 3;
+              updates['players.$playerId.score'] = 0;
+              updates['players.$playerId.answeredCount'] = 0;
+              updates['players.$playerId.completedAt'] = FieldValue.delete();
+            }
+          } else if (room.mode == 'series') {
+            // Best-of-N: multiple battle rounds tracked by roundWins.
+            updates['phase'] = 'playing_round';
+            updates['roundNumber'] = 1;
             final missingPlayers = room.maxPlayers - room.playerCount;
             for (var slot = 0; slot < missingPlayers; slot++) {
               final botId = _buildBotId(room.id, slot + 1);
               updates['players.$botId'] =
                   const RoomPlayer(score: 0, ready: false).toMap();
             }
-
+            for (final playerId in existingPlayerIds) {
+              updates['players.$playerId.ready'] = false;
+              updates['players.$playerId.score'] = 0;
+              updates['players.$playerId.answeredCount'] = 0;
+              updates['players.$playerId.completedAt'] = FieldValue.delete();
+            }
+          } else if (room.mode == 'team_battle') {
+            // Assign alternating team IDs then start like battle.
+            final allPlayerIds = [...existingPlayerIds];
+            final missingPlayers = room.maxPlayers - room.playerCount;
+            for (var slot = 0; slot < missingPlayers; slot++) {
+              final botId = _buildBotId(room.id, slot + 1);
+              allPlayerIds.add(botId);
+              updates['players.$botId'] =
+                  const RoomPlayer(score: 0, ready: false).toMap();
+            }
+            for (var i = 0; i < allPlayerIds.length; i++) {
+              final pid = allPlayerIds[i];
+              updates['players.$pid.teamId'] = i.isEven ? 'A' : 'B';
+              updates['players.$pid.ready'] = false;
+              updates['players.$pid.score'] = 0;
+              updates['players.$pid.answeredCount'] = 0;
+              updates['players.$pid.completedAt'] = FieldValue.delete();
+            }
+          } else {
+            // battle / blitz: fill missing slots with bots and start immediately.
+            final missingPlayers = room.maxPlayers - room.playerCount;
+            for (var slot = 0; slot < missingPlayers; slot++) {
+              final botId = _buildBotId(room.id, slot + 1);
+              updates['players.$botId'] =
+                  const RoomPlayer(score: 0, ready: false).toMap();
+            }
             for (final playerId in existingPlayerIds) {
               updates['players.$playerId.ready'] = false;
               updates['players.$playerId.answeredCount'] = 0;
@@ -437,6 +492,242 @@ class RoomService {
           } else {
             updates['players.$userId.eliminated'] = true;
           }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  // ── Survival with Lives ────────────────────────────────────────────────────
+
+  /// Submit an answer in survival mode.
+  /// Correct → score +1. Wrong → lose one life; eliminated when lives reach 0.
+  Future<void> submitSurvivalAnswer({
+    required String roomId,
+    required String userId,
+    required String answer,
+    required bool isCorrect,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (!room.containsPlayer(userId)) return;
+
+          final player = room.players[userId]!;
+          if (player.eliminated) return;
+          if (player.currentAnswer != null) return;
+
+          final updates = <String, dynamic>{
+            'players.$userId.currentAnswer': answer,
+            'players.$userId.answeredCount': FieldValue.increment(1),
+          };
+
+          if (isCorrect) {
+            updates['players.$userId.score'] = FieldValue.increment(1);
+          } else {
+            final newLives = (player.lives - 1).clamp(0, 99);
+            updates['players.$userId.lives'] = newLives;
+            if (newLives == 0) {
+              updates['players.$userId.eliminated'] = true;
+            }
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  /// Eliminates players with 0 lives and transitions phase after a survival round.
+  Future<void> processSurvivalRound({required String roomId}) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.phase != 'playing_round') return;
+
+          final activePlayers =
+              room.players.entries.where((e) => !e.value.eliminated).toList();
+          if (activePlayers.isEmpty) {
+            transaction.update(ref, {'phase': 'finished'});
+            return;
+          }
+
+          final allSubmitted =
+              activePlayers.every((e) => e.value.completedAt != null);
+          if (!allSubmitted) return;
+
+          final updates = <String, dynamic>{};
+          final survivors =
+              activePlayers.where((e) => e.value.lives > 0).map((e) => e.key).toList();
+
+          if (survivors.length <= 1) {
+            updates['phase'] = 'finished';
+            if (survivors.length == 1) updates['winnerId'] = survivors.first;
+          } else {
+            updates['phase'] = 'round_over';
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  /// Host starts the next survival round — resets per-round scores for alive players.
+  Future<void> startNextSurvivalRound({
+    required String roomId,
+    required String userId,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.hostId != userId) {
+            throw StateError('Only the host can start the next round.');
+          }
+          if (room.phase != 'round_over') return;
+
+          final updates = <String, dynamic>{
+            'phase': 'playing_round',
+            'startedAt': FieldValue.serverTimestamp(),
+            'roundNumber': room.roundNumber + 1,
+          };
+
+          for (final entry in room.players.entries) {
+            if (!entry.value.eliminated) {
+              updates['players.${entry.key}.score'] = 0;
+              updates['players.${entry.key}.answeredCount'] = 0;
+              updates['players.${entry.key}.completedAt'] = FieldValue.delete();
+              updates['players.${entry.key}.currentAnswer'] = FieldValue.delete();
+            }
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  // ── Best of N Series ───────────────────────────────────────────────────────
+
+  /// Determines the round winner, increments their roundWins, and either
+  /// declares a series winner or moves to 'round_over' for the next round.
+  Future<void> processSeriesRound({required String roomId}) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.phase != 'playing_round') return;
+
+          final activePlayers = room.players.entries.toList();
+          final allSubmitted =
+              activePlayers.every((e) => e.value.completedAt != null);
+          if (!allSubmitted) return;
+
+          final updates = <String, dynamic>{};
+
+          // Find the highest score for this round.
+          final maxScore =
+              activePlayers.map((e) => e.value.score).reduce(math.max);
+          final roundWinners = activePlayers
+              .where((e) => e.value.score == maxScore)
+              .map((e) => e.key)
+              .toList();
+
+          // Award a round win to each player tied for the top score.
+          String? seriesWinnerId;
+          for (final winnerId in roundWinners) {
+            final newWins = room.players[winnerId]!.roundWins + 1;
+            updates['players.$winnerId.roundWins'] = newWins;
+            if (newWins >= room.seriesTarget) {
+              seriesWinnerId = winnerId;
+            }
+          }
+
+          if (seriesWinnerId != null) {
+            updates['phase'] = 'finished';
+            updates['winnerId'] = seriesWinnerId;
+          } else {
+            updates['phase'] = 'round_over';
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  /// Host starts the next series round — resets per-round scores.
+  Future<void> startNextSeriesRound({
+    required String roomId,
+    required String userId,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.hostId != userId) {
+            throw StateError('Only the host can start the next round.');
+          }
+          if (room.phase != 'round_over') return;
+
+          final updates = <String, dynamic>{
+            'phase': 'playing_round',
+            'startedAt': FieldValue.serverTimestamp(),
+            'roundNumber': room.roundNumber + 1,
+          };
+
+          for (final entry in room.players.entries) {
+            updates['players.${entry.key}.score'] = 0;
+            updates['players.${entry.key}.answeredCount'] = 0;
+            updates['players.${entry.key}.completedAt'] = FieldValue.delete();
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  // ── Team Battle ────────────────────────────────────────────────────────────
+
+  /// Computes team scores from individual scores and sets the winning team.
+  /// Call after all players have submitted their final scores.
+  Future<void> processTeamBattleResult({required String roomId}) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.phase == 'finished') return;
+
+          final allSubmitted =
+              room.players.values.every((p) => p.completedAt != null);
+          if (!allSubmitted) return;
+
+          var scoreA = 0;
+          var scoreB = 0;
+          for (final player in room.players.values) {
+            if (player.teamId == 'A') {
+              scoreA += player.score;
+            } else if (player.teamId == 'B') {
+              scoreB += player.score;
+            }
+          }
+
+          final winnerTeam =
+              scoreA > scoreB ? 'A' : scoreB > scoreA ? 'B' : null;
+
+          final updates = <String, dynamic>{'phase': 'finished'};
+          if (winnerTeam != null) updates['winnerTeamId'] = winnerTeam;
 
           transaction.update(ref, updates);
         });

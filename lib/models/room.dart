@@ -22,6 +22,9 @@ class RoomPlayer {
     this.completedAt,
     this.eliminated = false,
     this.currentAnswer,
+    this.lives = 0,
+    this.roundWins = 0,
+    this.teamId,
   });
 
   final int score;
@@ -31,6 +34,15 @@ class RoomPlayer {
   final bool eliminated;
   final String? currentAnswer;
 
+  /// survival: remaining lives (starts at 3, eliminated when 0).
+  final int lives;
+
+  /// series: rounds won so far in this series.
+  final int roundWins;
+
+  /// team_battle: 'A' or 'B'.
+  final String? teamId;
+
   factory RoomPlayer.fromMap(Map<String, dynamic> map) => RoomPlayer(
         score: (map['score'] as num?)?.toInt() ?? 0,
         ready: map['ready'] == true,
@@ -38,6 +50,9 @@ class RoomPlayer {
         completedAt: _readDate(map['completedAt']),
         eliminated: map['eliminated'] == true,
         currentAnswer: map['currentAnswer'] as String?,
+        lives: (map['lives'] as num?)?.toInt() ?? 0,
+        roundWins: (map['roundWins'] as num?)?.toInt() ?? 0,
+        teamId: map['teamId'] as String?,
       );
 
   Map<String, dynamic> toMap() => <String, dynamic>{
@@ -48,6 +63,9 @@ class RoomPlayer {
           'completedAt': Timestamp.fromDate(completedAt!),
         if (eliminated) 'eliminated': eliminated,
         if (currentAnswer != null) 'currentAnswer': currentAnswer,
+        if (lives > 0) 'lives': lives,
+        if (roundWins > 0) 'roundWins': roundWins,
+        if (teamId != null) 'teamId': teamId,
       };
 
   RoomPlayer copyWith({
@@ -57,6 +75,9 @@ class RoomPlayer {
     DateTime? completedAt,
     bool? eliminated,
     String? currentAnswer,
+    int? lives,
+    int? roundWins,
+    String? teamId,
   }) {
     return RoomPlayer(
       score: score ?? this.score,
@@ -65,6 +86,9 @@ class RoomPlayer {
       completedAt: completedAt ?? this.completedAt,
       eliminated: eliminated ?? this.eliminated,
       currentAnswer: currentAnswer ?? this.currentAnswer,
+      lives: lives ?? this.lives,
+      roundWins: roundWins ?? this.roundWins,
+      teamId: teamId ?? this.teamId,
     );
   }
 
@@ -179,6 +203,10 @@ class Room {
     this.questionStartedAt,
     this.questionIds = const [],
     this.winnerId,
+    this.winnerTeamId,
+    this.roundDurationSeconds = 0,
+    this.seriesTarget = 2,
+    this.roundNumber = 1,
   });
 
   final String id;
@@ -189,21 +217,33 @@ class Room {
   final DateTime? createdAt;
   final DateTime? startedAt;
 
-  /// 'battle' = existing native multiplayer | 'elimination' = new elimination mode
+  /// 'battle' | 'elimination' | 'blitz' | 'survival' | 'series' | 'team_battle'
   final String mode;
 
-  /// battle:     'lobby' | 'playing' | 'finished'
-  /// elimination:'lobby' | 'playing_round' | 'round_over' | 'finished'
+  /// battle/blitz/team_battle: 'lobby' | 'playing' | 'finished'
+  /// elimination/survival/series: 'lobby' | 'playing_round' | 'round_over' | 'finished'
   final String phase;
 
   final int currentQuestionIndex;
   final DateTime? questionStartedAt;
 
-  /// Shuffled list of indices into questions.json, set when game starts.
+  /// Shuffled list of indices into questions.json, set when game starts (elimination/survival).
   final List<int> questionIds;
 
   /// UID of the winning player when phase == 'finished'. Null = draw / no winner.
   final String? winnerId;
+
+  /// team_battle: 'A' or 'B' — winning team.
+  final String? winnerTeamId;
+
+  /// blitz: game duration in seconds (60 or 90). 0 = not applicable.
+  final int roundDurationSeconds;
+
+  /// series: number of round wins needed to win the series.
+  final int seriesTarget;
+
+  /// series/survival: current round number (1-indexed).
+  final int roundNumber;
 
   factory Room.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
     final data = snapshot.data() ?? const <String, dynamic>{};
@@ -240,6 +280,11 @@ class Room {
       questionStartedAt: _readDate(data['questionStartedAt']),
       questionIds: _readIntList(data['questionIds']),
       winnerId: data['winnerId'] as String?,
+      winnerTeamId: data['winnerTeamId'] as String?,
+      roundDurationSeconds:
+          (data['roundDurationSeconds'] as num?)?.toInt() ?? 0,
+      seriesTarget: (data['seriesTarget'] as num?)?.toInt() ?? 2,
+      roundNumber: (data['roundNumber'] as num?)?.toInt() ?? 1,
     );
   }
 

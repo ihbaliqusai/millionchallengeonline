@@ -106,7 +106,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     setState(() => _starting = true);
 
     List<int>? questionIds;
-    if (room.mode == 'elimination') {
+    if (room.mode == 'elimination' || room.mode == 'survival') {
       questionIds = await _generateShuffledQuestionIds();
     }
 
@@ -388,12 +388,12 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                       final isHost = widget.createdByCurrentUser ||
                           currentUserId == room.hostId;
 
-                      // Battle mode: launch once when started.
-                      // Elimination mode: launch each time phase becomes
-                      // 'playing_round', identified by the round's startedAt.
+                      // Round-based modes re-launch native for every new round.
+                      const roundBasedModes = {'elimination', 'survival', 'series'};
+                      final isRoundBased = roundBasedModes.contains(room.mode);
                       final shouldLaunch = room.started && (
-                        (room.mode != 'elimination' && !_navigatedToGame) ||
-                        (room.mode == 'elimination' &&
+                        (!isRoundBased && !_navigatedToGame) ||
+                        (isRoundBased &&
                           room.phase == 'playing_round' &&
                           room.startedAt != null &&
                           room.startedAt != _lastLaunchedRoundAt)
@@ -1158,9 +1158,20 @@ class _ControlsPanel extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  room.mode == 'elimination'
-                      ? 'وضع الإقصاء: خطأ واحد = خروج. سيُستكمل العدد المختار بلاعبين آليين عند الحاجة.'
-                      : 'المضيف يمكنه البدء مبكراً، وستُملأ المقاعد الفارغة بلاعبين آليين.',
+                  switch (room.mode) {
+                    'elimination' =>
+                      'وضع الإقصاء: خطأ واحد = خروج فوري.',
+                    'survival' =>
+                      'وضع النجاة: 3 أرواح لكل لاعب — تُقصى عند نفادها.',
+                    'series' =>
+                      'وضع السلسلة: الفائز بجولتين أولاً يكسب السلسلة.',
+                    'team_battle' =>
+                      'وضع الفرق: الفريق A مقابل الفريق B — المجموع يحدد الفائز.',
+                    'blitz' =>
+                      'وضع البلتز: أجب على أكبر عدد ممكن قبل انتهاء الوقت.',
+                    _ =>
+                      'المضيف يمكنه البدء مبكراً، وستُملأ المقاعد الفارغة بلاعبين آليين.',
+                  },
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.white.withValues(alpha: 0.35),

@@ -21,6 +21,8 @@ class _RoomsScreenState extends State<RoomsScreen>
   final TextEditingController _roomCodeController = TextEditingController();
   int _maxPlayers = 4;
   String _mode = 'battle';
+  int _roundDurationSeconds = 60;
+  int _seriesTarget = 2;
   bool _creatingRoom = false;
   bool _joiningRoom = false;
   late final AnimationController _pulseCtrl;
@@ -55,6 +57,8 @@ class _RoomsScreenState extends State<RoomsScreen>
             hostId: userId,
             maxPlayers: _maxPlayers,
             mode: _mode,
+            roundDurationSeconds: _roundDurationSeconds,
+            seriesTarget: _seriesTarget,
           );
       if (!mounted) return;
       await Navigator.of(context).push(
@@ -136,12 +140,24 @@ class _RoomsScreenState extends State<RoomsScreen>
                       final leftPanel = _CreateJoinPanel(
                         maxPlayers: _maxPlayers,
                         mode: _mode,
+                        roundDurationSeconds: _roundDurationSeconds,
+                        seriesTarget: _seriesTarget,
                         creatingRoom: _creatingRoom,
                         joiningRoom: _joiningRoom,
                         roomCodeController: _roomCodeController,
                         onMaxPlayersChanged: (v) =>
                             setState(() => _maxPlayers = v),
-                        onModeChanged: (v) => setState(() => _mode = v),
+                        onModeChanged: (v) => setState(() {
+                          _mode = v;
+                          // team_battle requires an even player count.
+                          if (v == 'team_battle' && _maxPlayers.isOdd) {
+                            _maxPlayers = _maxPlayers + 1;
+                          }
+                        }),
+                        onRoundDurationChanged: (v) =>
+                            setState(() => _roundDurationSeconds = v),
+                        onSeriesTargetChanged: (v) =>
+                            setState(() => _seriesTarget = v),
                         onCreateRoom: _createRoom,
                         onJoinRoom: () =>
                             _joinRoom(_roomCodeController.text),
@@ -269,22 +285,30 @@ class _CreateJoinPanel extends StatelessWidget {
   const _CreateJoinPanel({
     required this.maxPlayers,
     required this.mode,
+    required this.roundDurationSeconds,
+    required this.seriesTarget,
     required this.creatingRoom,
     required this.joiningRoom,
     required this.roomCodeController,
     required this.onMaxPlayersChanged,
     required this.onModeChanged,
+    required this.onRoundDurationChanged,
+    required this.onSeriesTargetChanged,
     required this.onCreateRoom,
     required this.onJoinRoom,
   });
 
   final int maxPlayers;
   final String mode;
+  final int roundDurationSeconds;
+  final int seriesTarget;
   final bool creatingRoom;
   final bool joiningRoom;
   final TextEditingController roomCodeController;
   final ValueChanged<int> onMaxPlayersChanged;
   final ValueChanged<String> onModeChanged;
+  final ValueChanged<int> onRoundDurationChanged;
+  final ValueChanged<int> onSeriesTargetChanged;
   final VoidCallback onCreateRoom;
   final VoidCallback onJoinRoom;
 
@@ -342,7 +366,7 @@ class _CreateJoinPanel extends StatelessWidget {
                     selectedColor: const Color(0xFF3B82F6),
                     onTap: () => onModeChanged('battle'),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   _ModeChip(
                     label: 'إقصاء',
                     icon: Icons.whatshot_rounded,
@@ -353,6 +377,148 @@ class _CreateJoinPanel extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _ModeChip(
+                    label: 'بلتز',
+                    icon: Icons.timer_rounded,
+                    description: 'سباق ضد الوقت',
+                    selected: mode == 'blitz',
+                    selectedColor: const Color(0xFF10B981),
+                    onTap: () => onModeChanged('blitz'),
+                  ),
+                  const SizedBox(width: 8),
+                  _ModeChip(
+                    label: 'نجاة',
+                    icon: Icons.favorite_rounded,
+                    description: '3 أرواح لكل لاعب',
+                    selected: mode == 'survival',
+                    selectedColor: const Color(0xFFF97316),
+                    onTap: () => onModeChanged('survival'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _ModeChip(
+                    label: 'سلسلة',
+                    icon: Icons.emoji_events_rounded,
+                    description: 'أول من يفوز جولتين',
+                    selected: mode == 'series',
+                    selectedColor: const Color(0xFFF59E0B),
+                    onTap: () => onModeChanged('series'),
+                  ),
+                  const SizedBox(width: 8),
+                  _ModeChip(
+                    label: 'فرق',
+                    icon: Icons.groups_rounded,
+                    description: '2 ضد 2 بنظام الفريق',
+                    selected: mode == 'team_battle',
+                    selectedColor: const Color(0xFF8B5CF6),
+                    onTap: () => onModeChanged('team_battle'),
+                  ),
+                ],
+              ),
+              // ── Blitz duration selector ─────────────────────────
+              if (mode == 'blitz') ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'مدة الجولة',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [60, 90, 120].map((secs) {
+                    final selected = roundDurationSeconds == secs;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => onRoundDurationChanged(secs),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                                : Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: selected
+                                  ? const Color(0xFF10B981)
+                                  : Colors.white.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: Text(
+                            '$secsث',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: selected
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+              // ── Series target selector ──────────────────────────
+              if (mode == 'series') ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'عدد الانتصارات للفوز',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [2, 3].map((target) {
+                    final selected = seriesTarget == target;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => onSeriesTargetChanged(target),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? const Color(0xFFF59E0B).withValues(alpha: 0.2)
+                                : Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: selected
+                                  ? const Color(0xFFF59E0B)
+                                  : Colors.white.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: Text(
+                            target == 2 ? 'أفضل من 3' : 'أفضل من 5',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: selected
+                                  ? const Color(0xFFF59E0B)
+                                  : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
               const SizedBox(height: 16),
               // Player count selector
               const Text(
