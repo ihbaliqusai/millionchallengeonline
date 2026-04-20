@@ -82,6 +82,9 @@ class MainActivity : FlutterActivity() {
                             putExtra("opponentsJson", call.argument<String>("opponentsJson") ?: "[]")
                             putExtra("meOwner", call.argument<Boolean>("meOwner") ?: false)
                             putExtra("matchMode", matchMode)
+                            putExtra("seriesTarget", call.argument<Int>("seriesTarget") ?: 2)
+                            putExtra("roundDurationSeconds", call.argument<Int>("roundDurationSeconds") ?: 30)
+                            putExtra("myTeam", call.argument<String>("myTeam") ?: "")
                         }
                         startActivity(intent)
                         result.success(true)

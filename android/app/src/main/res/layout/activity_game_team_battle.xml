@@ -1109,6 +1109,75 @@
             android:visibility="invisible"
             android:contentDescription="@string/todo26" />
 
+        <!-- TEAM SCORES -->
+        <LinearLayout
+            android:id="@+id/llyTeamScores"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true"
+            android:layout_marginBottom="8dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="#AA000000"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            >
+            <!-- Team A -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="A"
+                android:textColor="#FF3B82F6"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/baloo"
+                />
+            <TextView
+                android:id="@+id/txtTeamAScore"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textColor="#FF3B82F6"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/baloo"
+                android:layout_marginLeft="4dp"
+                />
+            <!-- VS -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" vs "
+                android:textColor="#FFAAAAAA"
+                android:textSize="12sp"
+                android:fontFamily="@font/baloo"
+                />
+            <!-- Team B -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="B"
+                android:textColor="#FFEF4444"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/baloo"
+                />
+            <TextView
+                android:id="@+id/txtTeamBScore"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textColor="#FFEF4444"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:fontFamily="@font/baloo"
+                android:layout_marginLeft="4dp"
+                />
+        </LinearLayout>
+
     </RelativeLayout>
 
     <!-- BANNER AD -->

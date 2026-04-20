@@ -794,6 +794,22 @@ class RoomService {
         });
       });
 
+  /// يبدّل فريق اللاعب بين A وB (في وضع team_battle فقط، قبل بدء المباراة).
+  Future<void> switchTeam({
+    required String roomId,
+    required String userId,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        final snapshot = await ref.get();
+        if (!snapshot.exists) return;
+        final room = Room.fromSnapshot(snapshot);
+        if (room.started) return;
+        final currentTeam = room.players[userId]?.teamId ?? 'A';
+        final newTeam = currentTeam == 'A' ? 'B' : 'A';
+        await ref.update({'players.$userId.teamId': newTeam});
+      });
+
   Future<void> leaveRoom({
     required String roomId,
     required String userId,

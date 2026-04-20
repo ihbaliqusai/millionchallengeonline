@@ -64,6 +64,28 @@ import java.util.Locale;
 public abstract class BaseGameActivity extends AppCompatActivity {
 
     protected abstract int getLayoutResId();
+
+    /** عدد الجولات المطلوبة للفوز — يُعاد تعريفه في SeriesGameActivity */
+    protected int getSeriesTarget() { return 2; }
+
+    /** هل الطور هو Survival (3 أرواح) — يُعاد تعريفه في SurvivalGameActivity */
+    protected boolean isSurvivalMode() { return false; }
+
+    /** يُستدعى عند خسارة اللاعب الحالي روحاً — يُعاد تعريفه للتحديث البصري */
+    protected void onMyLifeLost() {}
+
+    /** يُستدعى عند خسارة خصم روحاً — يُعاد تعريفه للتحديث البصري */
+    protected void onOpponentLifeLost(Object opponent) {}
+
+    /** هل الطور هو Blitz (كل لاعب يتقدم بسرعته الخاصة) — يُعاد تعريفه في BlitzGameActivity */
+    protected boolean isBlitzMode() { return false; }
+
+    /** هل الطور هو TeamBattle — يُعاد تعريفه في TeamBattleGameActivity */
+    protected boolean isTeamBattleMode() { return false; }
+
+    /** يُعيد قائمة الخصوم للقراءة (للاستخدام في الأطوار الفرعية) */
+    protected java.util.List<MatchOpponent> getOpponentsList() { return opponents; }
+
     private static final int ANSWER_KEY_RIGHT = 1;
     private static final int ANSWER_KEY_WRONG_1 = 2;
     private static final int ANSWER_KEY_WRONG_2 = 3;
@@ -111,7 +133,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             new BotProfile("سالم",   "drawable:avatar12", 78)
     };
 
-    private static class MatchOpponent {
+    static class MatchOpponent {
         String id = "";
         String name = "Computer";
         String photo = "";
@@ -120,6 +142,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         int score = 0;
         boolean bot = false;
         boolean left = false;
+        String teamId = "";
         int sets = 0;
         int roundScore = 0;
         int gameScore = 0;
@@ -131,6 +154,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         int roundPoints = 0;
         boolean submitted = false;
         boolean eliminated = false;
+        int livesRemaining = 3;
         long answerElapsedMs = QUESTION_TIMEOUT_MS;
         long totalAnswerTimeMs = 0L;
         long setAnswerTimeMs = 0L;
@@ -180,7 +204,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     Data dataAnswer;
     InterstitialAd mInterstitialAd;
     String myID, opponentID, myName, opponentName, myPhoto, opponentPhoto,
-            currentDialog, gameID;
+            currentDialog, gameID, myTeam;
     int myLevel = 1, opponentLevel = 1, myScore = 0, opponentScore = 0,
             currentQuestion, currentStep, PROGRESS_VALUE, T_LIGHTS = 0,
             setMe = 0, setOpponent = 0,
@@ -228,6 +252,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     private long questionStartTimeMs = 0L;
     private boolean localPlayerRemoved = false;
     private boolean localPlayerEliminated = false;
+    protected int myLivesRemaining = 3;
     private boolean spectatorEliminationRound = false;
     private int pendingQuestionIndex = -1;
     private long scheduledQuestionStartAt = 0L;
@@ -277,6 +302,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         modeOnline = "online".equals(modeExtra);
         eliminationMode = "elimination".equals(matchModeExtra);
         meOwner = getIntent().getBooleanExtra("meOwner", true);
+        myTeam = safeString(getIntent().getStringExtra("myTeam"));
 
 
         findViewById(android.R.id.content).post(new Runnable() {
@@ -812,6 +838,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 opponent.intelligence = Math.max(0, item.optInt("intelligence", 0));
                 opponent.score = Math.max(0, item.optInt("score", 0));
                 opponent.bot = item.optBoolean("bot", false) || "fictitious".equals(opponent.id);
+                opponent.teamId = safeString(item.optString("teamId"));
                 if (opponent.bot) {
                     applyBotIdentity(opponent, false);
                 }
@@ -1744,24 +1771,31 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         myTotalAnswerTimeMs += myAnswerElapsedMs;
         myTimeoutStreak = mySubmittedAnswerKey == 0 ? myTimeoutStreak + 1 : 0;
 
-        for (MatchOpponent opponent : opponents) {
-            if (opponent.roundPoints > 0) {
-                opponent.roundScore += opponent.roundPoints;
-                opponent.gameScore += opponent.roundPoints;
+        // Blitz: نقاط الخصوم تُطبَّق مباشرةً في المستمع عند إرسالهم إجاباتهم — نتجنب التكرار هنا
+        if (!isBlitzMode()) {
+            for (MatchOpponent opponent : opponents) {
+                if (opponent.roundPoints > 0) {
+                    opponent.roundScore += opponent.roundPoints;
+                    opponent.gameScore += opponent.roundPoints;
+                }
+                if (opponent.submittedAnswerKey == ANSWER_KEY_RIGHT) {
+                    opponent.setCorrectAnswers++;
+                    opponent.totalCorrectAnswers++;
+                }
+                opponent.setAnswerTimeMs += opponent.answerElapsedMs;
+                opponent.totalAnswerTimeMs += opponent.answerElapsedMs;
+                opponent.timeoutStreak = opponent.submittedAnswerKey == 0 ? opponent.timeoutStreak + 1 : 0;
             }
-            if (opponent.submittedAnswerKey == ANSWER_KEY_RIGHT) {
-                opponent.setCorrectAnswers++;
-                opponent.totalCorrectAnswers++;
-            }
-            opponent.setAnswerTimeMs += opponent.answerElapsedMs;
-            opponent.totalAnswerTimeMs += opponent.answerElapsedMs;
-            opponent.timeoutStreak = opponent.submittedAnswerKey == 0 ? opponent.timeoutStreak + 1 : 0;
         }
 
         txtScoreMe.setText(setScoreMe + "");
         txtScoreGameMe.setText(gameScoreMe + "");
         refreshOpponentPanels();
+        onRoundMetricsApplied();
     }
+
+    /** هوك يُستدعى بعد تطبيق نقاط الجولة — يمكن تعريفه في الأطوار الفرعية */
+    protected void onRoundMetricsApplied() {}
 
     private boolean handleLocalTimeoutRemovalIfNeeded() {
         if (!modeOnline || eliminationMode || localPlayerRemoved || myTimeoutStreak < MAX_TIMEOUT_STREAK) {
@@ -1792,15 +1826,26 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         return true;
     }
 
-    private int handleEliminationRoundProgress() {
+    protected int handleEliminationRoundProgress() {
         final ArrayList<String> eliminatedNames = new ArrayList<>();
         boolean localEliminatedThisRound = false;
 
         if (!localPlayerEliminated && mySubmittedAnswerKey != ANSWER_KEY_RIGHT) {
-            localPlayerEliminated = true;
-            markMyGameState("eliminated");
-            localEliminatedThisRound = true;
-            eliminatedNames.add("أنت");
+            if (isSurvivalMode()) {
+                myLivesRemaining--;
+                onMyLifeLost();
+                if (myLivesRemaining <= 0) {
+                    localPlayerEliminated = true;
+                    markMyGameState("eliminated");
+                    localEliminatedThisRound = true;
+                    eliminatedNames.add("أنت");
+                }
+            } else {
+                localPlayerEliminated = true;
+                markMyGameState("eliminated");
+                localEliminatedThisRound = true;
+                eliminatedNames.add("أنت");
+            }
         }
 
         for (MatchOpponent opponent : opponents) {
@@ -1808,8 +1853,17 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 continue;
             }
             if (opponent.submittedAnswerKey != ANSWER_KEY_RIGHT) {
-                opponent.eliminated = true;
-                eliminatedNames.add(opponent.name);
+                if (isSurvivalMode()) {
+                    opponent.livesRemaining--;
+                    onOpponentLifeLost(opponent);
+                    if (opponent.livesRemaining <= 0) {
+                        opponent.eliminated = true;
+                        eliminatedNames.add(opponent.name);
+                    }
+                } else {
+                    opponent.eliminated = true;
+                    eliminatedNames.add(opponent.name);
+                }
             }
         }
 
@@ -2312,7 +2366,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         showDialog("انسحب منافسك من المباراة.\nهل تريد أن تكمل مع الكمبيوتر؟", "OpponentLeftContinue", 1000, 0, R.drawable.mouth_05, false);
     }
 
-    private void openOnlineResultScreen(boolean opponentLeft) {
+    protected void openOnlineResultScreen(boolean opponentLeft) {
         if (!modeOnline) {
             return;
         }
@@ -2603,14 +2657,14 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         int setNumResolved = (currentQuestion == 4 ? 1 : (currentQuestion == 9 ? 2 : 3));
         int leaderSetsResolved = getSetsForPlayer(leaderIdResolved);
 
-        // إنهاء مبكر: بعد الجولة الثانية فقط إذا فاز أحد بجولتين (لا يمكن اللحاق به)
-        boolean earlyEnd = (setNumResolved == 2 && leaderSetsResolved >= 2);
+        // إنهاء مبكر: إذا فاز أحد بعدد الجولات المطلوبة قبل نهاية آخر سؤال
+        boolean earlyEnd = (currentQuestion != 14 && leaderSetsResolved >= getSeriesTarget());
         if (currentQuestion != 14 && !earlyEnd) {
             return -2;
         }
 
-        // تعادل في الجولات بعد الجولة الثالثة (مثلاً 1-1-1) → الفاصل النقاط الكلية
-        boolean tiedOnSets = (currentQuestion == 14 && leaderSetsResolved == 1);
+        // تعادل: انتهت كل الجولات لكن لم يصل أحد للهدف → الفاصل النقاط الكلية
+        boolean tiedOnSets = (currentQuestion == 14 && leaderSetsResolved < getSeriesTarget());
 
         int resolvedResult;
         if (myID.equals(leaderIdResolved)) {
@@ -2618,7 +2672,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             person.moveShow2Hands(2000);
             person.raiseEyeBrowsUp(1000, false, true);
             if (earlyEnd) {
-                showDialog("مبروك! فزت بجولتين وحسمت المباراة مبكراً", "", 2000, 3000, R.drawable.mouth_01, false);
+                showDialog("مبروك! فزت بـ " + getSeriesTarget() + " جولات وحسمت المباراة مبكراً", "", 2000, 3000, R.drawable.mouth_01, false);
             } else if (tiedOnSets) {
                 showDialog("تعادلنا في الجولات.. لكن نقاطك الأعلى تجعلك الفائز! مبروك", "", 2000, 3000, R.drawable.mouth_01, false);
             } else {
@@ -2627,7 +2681,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         } else {
             resolvedResult = -1;
             if (earlyEnd) {
-                showDialog("انتهت المباراة مبكراً. " + getPlayerDisplayName(leaderIdResolved) + " فاز بجولتين متتاليتين", "", 2000, 3000, R.drawable.mouth_01, false);
+                showDialog("انتهت المباراة مبكراً. " + getPlayerDisplayName(leaderIdResolved) + " فاز بـ " + getSeriesTarget() + " جولات", "", 2000, 3000, R.drawable.mouth_01, false);
             } else if (tiedOnSets) {
                 showDialog("تعادلنا في الجولات! الفائز بأعلى نقاط: " + getPlayerDisplayName(leaderIdResolved), "", 2000, 3000, R.drawable.mouth_01, false);
             } else {
@@ -2985,10 +3039,31 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                     Long answerValue = opponentSnapshot.child("answerKey").getValue(Long.class);
                     Long elapsedValue = opponentSnapshot.child("elapsedMs").getValue(Long.class);
                     Boolean submittedValue = opponentSnapshot.child("submitted").getValue(Boolean.class);
-                    opponent.submittedAnswerKey = answerValue == null ? 0 : answerValue.intValue();
-                    opponent.submitted = submittedValue != null && submittedValue;
-                    opponent.displayedAnswer = getDisplayedIndexForAnswerKey(opponent.submittedAnswerKey);
-                    opponent.answerElapsedMs = elapsedValue == null ? QUESTION_TIMEOUT_MS : elapsedValue;
+                    boolean nowSubmitted = submittedValue != null && submittedValue;
+                    int newAnswerKey = answerValue == null ? 0 : answerValue.intValue();
+                    long newElapsed = elapsedValue == null ? QUESTION_TIMEOUT_MS : elapsedValue;
+
+                    // Blitz: نسجّل نقاط الخصم فوراً عند إرساله إجابته (مرة واحدة لكل سؤال)
+                    if (isBlitzMode() && nowSubmitted && !opponent.submitted) {
+                        opponent.submittedAnswerKey = newAnswerKey;
+                        opponent.answerElapsedMs = newElapsed;
+                        opponent.displayedAnswer = getDisplayedIndexForAnswerKey(newAnswerKey);
+                        opponent.submitted = true;
+                        if (newAnswerKey == ANSWER_KEY_RIGHT) {
+                            opponent.roundScore += 1;
+                            opponent.setCorrectAnswers++;
+                            opponent.totalCorrectAnswers++;
+                            opponent.gameScore += ONLINE_SPEED_POINTS[0];
+                        }
+                        opponent.setAnswerTimeMs += newElapsed;
+                        opponent.totalAnswerTimeMs += newElapsed;
+                        runOnUiThread(() -> refreshOpponentPanels());
+                    } else {
+                        opponent.submittedAnswerKey = newAnswerKey;
+                        opponent.submitted = nowSubmitted;
+                        opponent.displayedAnswer = getDisplayedIndexForAnswerKey(opponent.submittedAnswerKey);
+                        opponent.answerElapsedMs = newElapsed;
+                    }
                 }
 
                 if (resolvingRound) {
@@ -3040,6 +3115,18 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private void resolveOnlineRoundIfReady() {
+        // Blitz: لا ننتظر الخصوم — نحسم الجولة فوراً بناءً على إجابتنا فقط
+        if (isBlitzMode()) {
+            if (!modeOnline || roundResolved || resolvingFinal || !resolvingRound || !myAnswerSubmitted) {
+                return;
+            }
+            myRoundPoints = (mySubmittedAnswerKey == ANSWER_KEY_RIGHT) ? ONLINE_SPEED_POINTS[0] : 0;
+            roundResolved = true;
+            resolvingRound = false;
+            resolvingFinal = false;
+            checkAnswer(myAnswer <= 0);
+            return;
+        }
         if (!modeOnline || roundResolved || resolvingFinal || !resolvingRound || !myAnswerSubmitted || !allOpponentsSubmitted()) {
             return;
         }

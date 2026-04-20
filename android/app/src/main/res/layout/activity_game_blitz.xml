@@ -107,6 +107,27 @@
 
         </RelativeLayout>
 
+        <!-- BLITZ: عداد وقت المباراة الكلي -->
+        <TextView
+            android:id="@+id/txtBlitzGlobalTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentLeft="true"
+            android:layout_marginTop="20dp"
+            android:layout_marginLeft="16dp"
+            android:text="60s"
+            android:textSize="20sp"
+            android:textColor="#FFFFFFFF"
+            android:textStyle="bold"
+            android:fontFamily="@font/baloo"
+            android:background="#AA000000"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            />
+
         <!-- BUTTONS -->
         <ImageView
             android:id="@+id/imgHelp5050"

@@ -13,6 +13,9 @@ class NativeBridgeService {
     required List<Map<String, dynamic>> opponents,
     required bool meOwner,
     String matchMode = 'battle',
+    int seriesTarget = 2,
+    int roundDurationSeconds = 30,
+    String myTeam = '',
   }) async {
     final safeOpponents = opponents
         .map(
@@ -24,6 +27,7 @@ class NativeBridgeService {
             'intelligence': (opponent['intelligence'] as num?)?.toInt() ?? 0,
             'score': (opponent['score'] as num?)?.toInt() ?? 0,
             'bot': opponent['bot'] == true,
+            'teamId': (opponent['teamId'] ?? '').toString(),
           },
         )
         .toList(growable: false);
@@ -32,6 +36,9 @@ class NativeBridgeService {
       'opponentsJson': jsonEncode(safeOpponents),
       'meOwner': meOwner,
       'matchMode': matchMode,
+      'seriesTarget': seriesTarget,
+      'roundDurationSeconds': roundDurationSeconds,
+      'myTeam': myTeam,
     });
   }
 

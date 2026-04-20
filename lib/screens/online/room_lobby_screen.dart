@@ -162,6 +162,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
           'intelligence': botProfile.intelligence,
           'score': roomPlayer?.score ?? 0,
           'bot': true,
+          'teamId': roomPlayer?.teamId ?? '',
         });
         continue;
       }
@@ -182,6 +183,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
         'level': 1,
         'score': roomPlayer?.score ?? 0,
         'bot': false,
+        'teamId': roomPlayer?.teamId ?? '',
       });
     }
 
@@ -193,6 +195,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
         'level': 1,
         'score': 0,
         'bot': true,
+        'teamId': 'B',
       });
     }
 
@@ -201,6 +204,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       opponents: opponents,
       meOwner: currentUserId == room.hostId,
       matchMode: matchMode,
+      seriesTarget: room.seriesTarget,
+      roundDurationSeconds: room.roundDurationSeconds,
+      myTeam: room.players[currentUserId]?.teamId ?? 'A',
     );
   }
 
@@ -652,7 +658,7 @@ class _PlayersPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Fill empty slots
+    final isTeamBattle = room.mode == 'team_battle';
     final totalSlots = room.maxPlayers;
     final emptyCount = totalSlots - sortedIds.length;
 
@@ -671,17 +677,21 @@ class _PlayersPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.groups_rounded, color: Color(0xFFA78BFA), size: 18),
-              SizedBox(width: 8),
-              Text(
+              const Icon(Icons.groups_rounded, color: Color(0xFFA78BFA), size: 18),
+              const SizedBox(width: 8),
+              const Text(
                 'اللاعبون',
                 style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
                     color: Colors.white),
               ),
+              if (isTeamBattle) ...[
+                const Spacer(),
+                const _TeamLegend(),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -693,11 +703,12 @@ class _PlayersPanel extends StatelessWidget {
                   final profile = profiles[id];
                   final isBot = Room.isBotUserId(id);
                   final botProfile = isBot ? Room.botProfile(id) : null;
+                  final isMe = id == currentUserId;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: _PlayerTile(
                       isHost: id == room.hostId,
-                      isCurrentUser: id == currentUserId,
+                      isCurrentUser: isMe,
                       isBot: isBot,
                       username: isBot
                           ? botProfile!.displayName
@@ -708,6 +719,10 @@ class _PlayersPanel extends StatelessWidget {
                       botIntelligence: botProfile?.intelligence,
                       ready: player.ready,
                       score: player.score,
+                      teamId: isTeamBattle ? player.teamId : null,
+                      canSwitchTeam: isTeamBattle && isMe && !room.started,
+                      roomId: room.id,
+                      userId: id,
                     ),
                   );
                 }),
@@ -725,6 +740,28 @@ class _PlayersPanel extends StatelessWidget {
   }
 }
 
+class _TeamLegend extends StatelessWidget {
+  const _TeamLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _teamDot(const Color(0xFF3B82F6)),
+        const SizedBox(width: 2),
+        const Text('A', style: TextStyle(color: Color(0xFF3B82F6), fontSize: 11, fontWeight: FontWeight.w800)),
+        const SizedBox(width: 10),
+        _teamDot(const Color(0xFFEF4444)),
+        const SizedBox(width: 2),
+        const Text('B', style: TextStyle(color: Color(0xFFEF4444), fontSize: 11, fontWeight: FontWeight.w800)),
+      ],
+    );
+  }
+
+  Widget _teamDot(Color color) =>
+      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
+}
+
 class _PlayerTile extends StatelessWidget {
   const _PlayerTile({
     required this.isHost,
@@ -736,6 +773,10 @@ class _PlayerTile extends StatelessWidget {
     required this.botIntelligence,
     required this.ready,
     required this.score,
+    this.teamId,
+    this.canSwitchTeam = false,
+    this.roomId,
+    this.userId,
   });
 
   final bool isHost;
@@ -747,6 +788,10 @@ class _PlayerTile extends StatelessWidget {
   final int? botIntelligence;
   final bool ready;
   final int score;
+  final String? teamId;
+  final bool canSwitchTeam;
+  final String? roomId;
+  final String? userId;
 
   @override
   Widget build(BuildContext context) {
@@ -829,6 +874,22 @@ class _PlayerTile extends StatelessWidget {
               ],
             ),
           ),
+          // Team badge / switch button
+          if (teamId != null) ...[
+            const SizedBox(width: 8),
+            canSwitchTeam
+                ? GestureDetector(
+                    onTap: () {
+                      context.read<RoomService>().switchTeam(
+                            roomId: roomId!,
+                            userId: userId!,
+                          );
+                    },
+                    child: _TeamBadge(teamId: teamId!, tappable: true),
+                  )
+                : _TeamBadge(teamId: teamId!, tappable: false),
+          ],
+          const SizedBox(width: 8),
           // Ready status
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -869,6 +930,43 @@ class _PlayerTile extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TeamBadge extends StatelessWidget {
+  const _TeamBadge({required this.teamId, required this.tappable});
+  final String teamId;
+  final bool tappable;
+
+  @override
+  Widget build(BuildContext context) {
+    final isA = teamId == 'A';
+    final color = isA ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'فريق $teamId',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+          if (tappable) ...[
+            const SizedBox(width: 4),
+            Icon(Icons.swap_horiz_rounded, size: 13, color: color),
+          ],
         ],
       ),
     );
