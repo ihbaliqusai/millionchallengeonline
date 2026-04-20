@@ -43,14 +43,18 @@ class RoomPlayer {
   /// team_battle: 'A' or 'B'.
   final String? teamId;
 
-  factory RoomPlayer.fromMap(Map<String, dynamic> map) => RoomPlayer(
+  factory RoomPlayer.fromMap(
+    Map<String, dynamic> map, {
+    int defaultLives = 0,
+  }) =>
+      RoomPlayer(
         score: (map['score'] as num?)?.toInt() ?? 0,
         ready: map['ready'] == true,
         answeredCount: (map['answeredCount'] as num?)?.toInt() ?? 0,
         completedAt: _readDate(map['completedAt']),
         eliminated: map['eliminated'] == true,
         currentAnswer: map['currentAnswer'] as String?,
-        lives: (map['lives'] as num?)?.toInt() ?? 0,
+        lives: _readLives(map, defaultLives: defaultLives),
         roundWins: (map['roundWins'] as num?)?.toInt() ?? 0,
         teamId: map['teamId'] as String?,
       );
@@ -63,7 +67,7 @@ class RoomPlayer {
           'completedAt': Timestamp.fromDate(completedAt!),
         if (eliminated) 'eliminated': eliminated,
         if (currentAnswer != null) 'currentAnswer': currentAnswer,
-        if (lives > 0) 'lives': lives,
+        if (lives > 0 || eliminated) 'lives': lives,
         if (roundWins > 0) 'roundWins': roundWins,
         if (teamId != null) 'teamId': teamId,
       };
@@ -98,9 +102,37 @@ class RoomPlayer {
     if (value is Timestamp) return value.toDate();
     return null;
   }
+
+  static int _readLives(
+    Map<String, dynamic> map, {
+    required int defaultLives,
+  }) {
+    final rawLives = map['lives'];
+    if (rawLives is num) {
+      return rawLives.toInt();
+    }
+    if (map['eliminated'] == true) {
+      return 0;
+    }
+    return defaultLives;
+  }
 }
 
 class Room {
+  static const String modeBattle = 'battle';
+  static const String modeElimination = 'elimination';
+  static const String modeBlitz = 'blitz';
+  static const String modeSurvival = 'survival';
+  static const String modeSeries = 'series';
+  static const String modeTeamBattle = 'team_battle';
+
+  static const String phaseLobby = 'lobby';
+  static const String phasePlaying = 'playing';
+  static const String phasePlayingRound = 'playing_round';
+  static const String phaseRoundOver = 'round_over';
+  static const String phaseFinished = 'finished';
+
+  static const int initialSurvivalLives = 3;
   static const String botIdPrefix = 'bot_room_';
   static const List<RoomBotProfile> _botProfiles = <RoomBotProfile>[
     // 1 — ذكر — العبقري الهادئ
@@ -247,6 +279,8 @@ class Room {
 
   factory Room.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
     final data = snapshot.data() ?? const <String, dynamic>{};
+    final mode = (data['mode'] ?? modeBattle).toString();
+    final started = data['started'] == true;
     final playersRaw = data['players'];
     final parsedPlayers = <String, RoomPlayer>{};
 
@@ -254,11 +288,24 @@ class Room {
       for (final entry in playersRaw.entries) {
         final rawPlayer = entry.value;
         if (rawPlayer is Map<String, dynamic>) {
-          parsedPlayers[entry.key] = RoomPlayer.fromMap(rawPlayer);
-        } else if (rawPlayer is Map) {
           parsedPlayers[entry.key] = RoomPlayer.fromMap(
-            rawPlayer.map(
+            rawPlayer,
+            defaultLives: _defaultLivesForPlayer(
+              rawPlayer,
+              mode: mode,
+              started: started,
+            ),
+          );
+        } else if (rawPlayer is Map) {
+          final normalizedPlayer = rawPlayer.map(
               (key, value) => MapEntry(key.toString(), value),
+          );
+          parsedPlayers[entry.key] = RoomPlayer.fromMap(
+            normalizedPlayer,
+            defaultLives: _defaultLivesForPlayer(
+              normalizedPlayer,
+              mode: mode,
+              started: started,
             ),
           );
         }
@@ -269,12 +316,12 @@ class Room {
       id: snapshot.id,
       hostId: (data['hostId'] ?? '').toString(),
       maxPlayers: (data['maxPlayers'] as num?)?.toInt() ?? 4,
-      started: data['started'] == true,
+      started: started,
       players: parsedPlayers,
       createdAt: _readDate(data['createdAt']),
       startedAt: _readDate(data['startedAt']),
-      mode: (data['mode'] ?? 'battle').toString(),
-      phase: (data['phase'] ?? 'lobby').toString(),
+      mode: mode,
+      phase: (data['phase'] ?? phaseLobby).toString(),
       currentQuestionIndex:
           (data['currentQuestionIndex'] as num?)?.toInt() ?? 0,
       questionStartedAt: _readDate(data['questionStartedAt']),
@@ -296,8 +343,15 @@ class Room {
 
   List<String> get playerIds => players.keys.toList(growable: false);
 
-  int get aliveCount =>
-      players.values.where((p) => !p.eliminated).length;
+  bool get isRoundBasedMode =>
+      mode == modeElimination ||
+      mode == modeSurvival ||
+      mode == modeSeries;
+
+  int get aliveCount => players.values.where((p) => !p.eliminated).length;
+
+  int get survivalAliveCount =>
+      players.values.where((p) => !p.eliminated && p.lives > 0).length;
 
   static bool isBotUserId(String userId) => userId.startsWith(botIdPrefix);
 
@@ -332,5 +386,19 @@ class Room {
       hash = ((hash << 5) + hash) ^ unit;
     }
     return hash & 0x7fffffff;
+  }
+
+  static int _defaultLivesForPlayer(
+    Map<String, dynamic> playerMap, {
+    required String mode,
+    required bool started,
+  }) {
+    if (mode != modeSurvival || !started) {
+      return 0;
+    }
+    if (playerMap.containsKey('lives') || playerMap['eliminated'] == true) {
+      return 0;
+    }
+    return initialSurvivalLives;
   }
 }

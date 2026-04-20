@@ -823,6 +823,22 @@ class _RoomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isFull = room.isFull;
+    final modeLabel = switch (room.mode) {
+      Room.modeElimination => 'Elimination',
+      Room.modeSurvival => 'Survival',
+      Room.modeSeries => 'Series',
+      Room.modeTeamBattle => 'Team Battle',
+      Room.modeBlitz => 'Blitz',
+      _ => 'Battle',
+    };
+    final modeColor = switch (room.mode) {
+      Room.modeElimination => const Color(0xFFEF4444),
+      Room.modeSurvival => const Color(0xFFF97316),
+      Room.modeSeries => const Color(0xFFF59E0B),
+      Room.modeTeamBattle => const Color(0xFF8B5CF6),
+      Room.modeBlitz => const Color(0xFF10B981),
+      _ => const Color(0xFF38BDF8),
+    };
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -871,6 +887,32 @@ class _RoomCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: modeColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: modeColor.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        modeLabel,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: modeColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
                 Row(
                   children: [
                     // Player slots

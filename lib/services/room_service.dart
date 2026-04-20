@@ -78,7 +78,7 @@ class RoomService {
   Future<String> createRoom({
     required String hostId,
     int maxPlayers = 4,
-    String mode = 'battle',
+    String mode = Room.modeBattle,
     int roundDurationSeconds = 60,
     int seriesTarget = 2,
   }) =>
@@ -89,14 +89,15 @@ class RoomService {
           'hostId': hostId,
           'maxPlayers': maxPlayers,
           'mode': mode,
-          'phase': 'lobby',
+          'phase': Room.phaseLobby,
           'started': false,
           'players': <String, dynamic>{
             hostId: const RoomPlayer(score: 0, ready: true).toMap(),
           },
           'createdAt': FieldValue.serverTimestamp(),
-          if (mode == 'blitz') 'roundDurationSeconds': roundDurationSeconds,
-          if (mode == 'series') 'seriesTarget': seriesTarget,
+          if (mode == Room.modeBlitz)
+            'roundDurationSeconds': roundDurationSeconds,
+          if (mode == Room.modeSeries) 'seriesTarget': seriesTarget,
         });
         return doc.id;
       });
@@ -137,16 +138,24 @@ class RoomService {
 
           final nextPlayerCount = room.playerCount + 1;
           // Modes that require host initiation (question IDs or round tracking).
-          const hostStartModes = {'elimination', 'survival', 'series'};
+          const hostStartModes = {
+            Room.modeElimination,
+            Room.modeSurvival,
+            Room.modeSeries,
+          };
           if (nextPlayerCount >= room.maxPlayers &&
               !hostStartModes.contains(room.mode)) {
             updates['started'] = true;
             updates['startedAt'] = FieldValue.serverTimestamp();
+            updates['phase'] = Room.phasePlaying;
+            updates['winnerId'] = FieldValue.delete();
+            updates['winnerTeamId'] = FieldValue.delete();
 
             for (final playerId in <String>[...room.playerIds, userId]) {
               updates['players.$playerId.ready'] = false;
               updates['players.$playerId.answeredCount'] = 0;
               updates['players.$playerId.completedAt'] = FieldValue.delete();
+              updates['players.$playerId.currentAnswer'] = FieldValue.delete();
               updates['players.$playerId.score'] = 0;
             }
           }
@@ -197,12 +206,21 @@ class RoomService {
           final updates = <String, dynamic>{
             'started': true,
             'startedAt': FieldValue.serverTimestamp(),
+            'winnerId': FieldValue.delete(),
+            'winnerTeamId': FieldValue.delete(),
           };
+          if (eliminationQuestionIds != null &&
+              (room.mode == Room.modeElimination ||
+                  room.mode == Room.modeSurvival)) {
+            updates['questionIds'] = eliminationQuestionIds;
+            updates['currentQuestionIndex'] = 0;
+            updates['questionStartedAt'] = FieldValue.delete();
+          }
 
           final existingPlayerIds = <String>[...room.playerIds];
 
-          if (room.mode == 'elimination') {
-            updates['phase'] = 'playing_round';
+          if (room.mode == Room.modeElimination) {
+            updates['phase'] = Room.phasePlayingRound;
             final missingPlayers = room.maxPlayers - room.playerCount;
             for (var slot = 0; slot < missingPlayers; slot++) {
               final botId = _buildBotId(room.id, slot + 1);
@@ -218,10 +236,10 @@ class RoomService {
               updates['players.$playerId.score'] = 0;
               updates['players.$playerId.answeredCount'] = 0;
               updates['players.$playerId.completedAt'] = FieldValue.delete();
+              updates['players.$playerId.currentAnswer'] = FieldValue.delete();
             }
-          } else if (room.mode == 'survival') {
-            // Like elimination but players have 3 lives instead of 1-strike.
-            updates['phase'] = 'playing_round';
+          } else if (room.mode == Room.modeSurvival) {
+            updates['phase'] = Room.phasePlayingRound;
             updates['roundNumber'] = 1;
             final missingPlayers = room.maxPlayers - room.playerCount;
             for (var slot = 0; slot < missingPlayers; slot++) {
@@ -230,20 +248,21 @@ class RoomService {
                 score: 0,
                 ready: false,
                 eliminated: false,
-                lives: 3,
+                lives: Room.initialSurvivalLives,
               ).toMap();
             }
             for (final playerId in existingPlayerIds) {
               updates['players.$playerId.ready'] = false;
               updates['players.$playerId.eliminated'] = false;
-              updates['players.$playerId.lives'] = 3;
+              updates['players.$playerId.lives'] = Room.initialSurvivalLives;
               updates['players.$playerId.score'] = 0;
               updates['players.$playerId.answeredCount'] = 0;
               updates['players.$playerId.completedAt'] = FieldValue.delete();
+              updates['players.$playerId.currentAnswer'] = FieldValue.delete();
             }
-          } else if (room.mode == 'series') {
+          } else if (room.mode == Room.modeSeries) {
             // Best-of-N: multiple battle rounds tracked by roundWins.
-            updates['phase'] = 'playing_round';
+            updates['phase'] = Room.phasePlayingRound;
             updates['roundNumber'] = 1;
             final missingPlayers = room.maxPlayers - room.playerCount;
             for (var slot = 0; slot < missingPlayers; slot++) {
@@ -256,9 +275,11 @@ class RoomService {
               updates['players.$playerId.score'] = 0;
               updates['players.$playerId.answeredCount'] = 0;
               updates['players.$playerId.completedAt'] = FieldValue.delete();
+              updates['players.$playerId.currentAnswer'] = FieldValue.delete();
             }
-          } else if (room.mode == 'team_battle') {
+          } else if (room.mode == Room.modeTeamBattle) {
             // Assign alternating team IDs then start like battle.
+            updates['phase'] = Room.phasePlaying;
             final allPlayerIds = [...existingPlayerIds];
             final missingPlayers = room.maxPlayers - room.playerCount;
             for (var slot = 0; slot < missingPlayers; slot++) {
@@ -274,9 +295,11 @@ class RoomService {
               updates['players.$pid.score'] = 0;
               updates['players.$pid.answeredCount'] = 0;
               updates['players.$pid.completedAt'] = FieldValue.delete();
+              updates['players.$pid.currentAnswer'] = FieldValue.delete();
             }
           } else {
             // battle / blitz: fill missing slots with bots and start immediately.
+            updates['phase'] = Room.phasePlaying;
             final missingPlayers = room.maxPlayers - room.playerCount;
             for (var slot = 0; slot < missingPlayers; slot++) {
               final botId = _buildBotId(room.id, slot + 1);
@@ -287,6 +310,7 @@ class RoomService {
               updates['players.$playerId.ready'] = false;
               updates['players.$playerId.answeredCount'] = 0;
               updates['players.$playerId.completedAt'] = FieldValue.delete();
+              updates['players.$playerId.currentAnswer'] = FieldValue.delete();
               updates['players.$playerId.score'] = 0;
             }
           }
@@ -377,14 +401,14 @@ class RoomService {
           if (!snapshot.exists) return;
 
           final room = Room.fromSnapshot(snapshot);
-          if (room.phase != 'playing_round') return; // Guard: already processed
+          if (room.phase != Room.phasePlayingRound) return;
 
           final activePlayers = room.players.entries
               .where((e) => !e.value.eliminated)
               .toList();
 
           if (activePlayers.isEmpty) {
-            transaction.update(ref, {'phase': 'finished'});
+            transaction.update(ref, {'phase': Room.phaseFinished});
             return;
           }
 
@@ -411,12 +435,15 @@ class RoomService {
               .toList();
 
           if (survivors.length <= 1) {
-            updates['phase'] = 'finished';
+            updates['phase'] = Room.phaseFinished;
             if (survivors.length == 1) {
               updates['winnerId'] = survivors.first;
+            } else {
+              updates['winnerId'] = FieldValue.delete();
             }
           } else {
-            updates['phase'] = 'round_over';
+            updates['phase'] = Room.phaseRoundOver;
+            updates['winnerId'] = FieldValue.delete();
           }
 
           transaction.update(ref, updates);
@@ -440,10 +467,10 @@ class RoomService {
           if (room.hostId != userId) {
             throw StateError('Only the host can start the next round.');
           }
-          if (room.phase != 'round_over') return;
+          if (room.phase != Room.phaseRoundOver) return;
 
           final updates = <String, dynamic>{
-            'phase': 'playing_round',
+            'phase': Room.phasePlayingRound,
             'startedAt': FieldValue.serverTimestamp(),
           };
 
@@ -453,6 +480,7 @@ class RoomService {
               updates['players.${entry.key}.score'] = 0;
               updates['players.${entry.key}.answeredCount'] = 0;
               updates['players.${entry.key}.completedAt'] = FieldValue.delete();
+              updates['players.${entry.key}.currentAnswer'] = FieldValue.delete();
             }
           }
 
@@ -476,19 +504,24 @@ class RoomService {
           if (!snapshot.exists) return;
 
           final room = Room.fromSnapshot(snapshot);
+          if (room.mode != Room.modeElimination ||
+              room.phase != Room.phasePlayingRound) {
+            return;
+          }
           if (!room.containsPlayer(userId)) return;
 
           final player = room.players[userId]!;
           if (player.eliminated) return; // Already out
-          if (player.currentAnswer != null) return; // Already answered this round
+          if (_hasSubmittedRound(player)) return;
 
           final updates = <String, dynamic>{
             'players.$userId.currentAnswer': answer,
-            'players.$userId.answeredCount': FieldValue.increment(1),
+            'players.$userId.answeredCount': 1,
+            'players.$userId.completedAt': FieldValue.serverTimestamp(),
           };
 
           if (isCorrect) {
-            updates['players.$userId.score'] = FieldValue.increment(1);
+            updates['players.$userId.score'] = player.score + 1;
           } else {
             updates['players.$userId.eliminated'] = true;
           }
@@ -514,25 +547,38 @@ class RoomService {
           if (!snapshot.exists) return;
 
           final room = Room.fromSnapshot(snapshot);
+          if (room.mode != Room.modeSurvival ||
+              room.phase != Room.phasePlayingRound) {
+            return;
+          }
           if (!room.containsPlayer(userId)) return;
 
           final player = room.players[userId]!;
-          if (player.eliminated) return;
-          if (player.currentAnswer != null) return;
+          if (!_isActiveSurvivalPlayer(player)) return;
+          if (_hasSubmittedRound(player)) return;
 
-          final updates = <String, dynamic>{
-            'players.$userId.currentAnswer': answer,
-            'players.$userId.answeredCount': FieldValue.increment(1),
-          };
+          final updates = <String, dynamic>{};
+          final playersAfter = Map<String, RoomPlayer>.from(room.players);
+          final answeredPlayer = _answeredSurvivalPlayer(
+            player,
+            answer: answer,
+            isCorrect: isCorrect,
+          );
+          playersAfter[userId] = answeredPlayer;
+          _writeSurvivalSubmission(
+            updates,
+            playerId: userId,
+            player: answeredPlayer,
+          );
+          _applyPendingSurvivalBotTurns(
+            roomId: room.id,
+            roundNumber: room.roundNumber,
+            players: playersAfter,
+            updates: updates,
+          );
 
-          if (isCorrect) {
-            updates['players.$userId.score'] = FieldValue.increment(1);
-          } else {
-            final newLives = (player.lives - 1).clamp(0, 99);
-            updates['players.$userId.lives'] = newLives;
-            if (newLives == 0) {
-              updates['players.$userId.eliminated'] = true;
-            }
+          if (_allActiveSurvivalPlayersSubmitted(playersAfter)) {
+            _applySurvivalRoundOutcome(playersAfter, updates);
           }
 
           transaction.update(ref, updates);
@@ -548,30 +594,38 @@ class RoomService {
           if (!snapshot.exists) return;
 
           final room = Room.fromSnapshot(snapshot);
-          if (room.phase != 'playing_round') return;
-
-          final activePlayers =
-              room.players.entries.where((e) => !e.value.eliminated).toList();
-          if (activePlayers.isEmpty) {
-            transaction.update(ref, {'phase': 'finished'});
+          if (room.mode != Room.modeSurvival ||
+              room.phase != Room.phasePlayingRound) {
             return;
           }
 
-          final allSubmitted =
-              activePlayers.every((e) => e.value.completedAt != null);
-          if (!allSubmitted) return;
-
           final updates = <String, dynamic>{};
-          final survivors =
-              activePlayers.where((e) => e.value.lives > 0).map((e) => e.key).toList();
+          final playersAfter = Map<String, RoomPlayer>.from(room.players);
+          _applyPendingSurvivalBotTurns(
+            roomId: room.id,
+            roundNumber: room.roundNumber,
+            players: playersAfter,
+            updates: updates,
+          );
 
-          if (survivors.length <= 1) {
-            updates['phase'] = 'finished';
-            if (survivors.length == 1) updates['winnerId'] = survivors.first;
-          } else {
-            updates['phase'] = 'round_over';
+          final activePlayers = playersAfter.entries
+              .where((entry) => _isActiveSurvivalPlayer(entry.value))
+              .toList(growable: false);
+          if (activePlayers.isEmpty) {
+            updates['phase'] = Room.phaseFinished;
+            updates['winnerId'] = FieldValue.delete();
+            transaction.update(ref, updates);
+            return;
           }
 
+          if (!_allActiveSurvivalPlayersSubmitted(playersAfter)) {
+            if (updates.isNotEmpty) {
+              transaction.update(ref, updates);
+            }
+            return;
+          }
+
+          _applySurvivalRoundOutcome(playersAfter, updates);
           transaction.update(ref, updates);
         });
       });
@@ -591,20 +645,47 @@ class RoomService {
           if (room.hostId != userId) {
             throw StateError('Only the host can start the next round.');
           }
-          if (room.phase != 'round_over') return;
+          if (room.mode != Room.modeSurvival ||
+              room.phase != Room.phaseRoundOver) {
+            return;
+          }
 
           final updates = <String, dynamic>{
-            'phase': 'playing_round',
+            'phase': Room.phasePlayingRound,
             'startedAt': FieldValue.serverTimestamp(),
             'roundNumber': room.roundNumber + 1,
+            'winnerId': FieldValue.delete(),
           };
+          final playersAfter = Map<String, RoomPlayer>.from(room.players);
 
           for (final entry in room.players.entries) {
-            if (!entry.value.eliminated) {
-              updates['players.${entry.key}.score'] = 0;
+            if (_isActiveSurvivalPlayer(entry.value)) {
               updates['players.${entry.key}.answeredCount'] = 0;
               updates['players.${entry.key}.completedAt'] = FieldValue.delete();
               updates['players.${entry.key}.currentAnswer'] = FieldValue.delete();
+              playersAfter[entry.key] = _clearedRoundPlayer(
+                entry.value,
+                resetScore: false,
+              );
+            }
+          }
+
+          final aliveHumans = playersAfter.entries
+              .where(
+                (entry) =>
+                    _isActiveSurvivalPlayer(entry.value) &&
+                    !Room.isBotUserId(entry.key),
+              )
+              .length;
+          if (aliveHumans == 0) {
+            _applyPendingSurvivalBotTurns(
+              roomId: room.id,
+              roundNumber: room.roundNumber + 1,
+              players: playersAfter,
+              updates: updates,
+            );
+            if (_allActiveSurvivalPlayersSubmitted(playersAfter)) {
+              _applySurvivalRoundOutcome(playersAfter, updates);
             }
           }
 
@@ -624,7 +705,7 @@ class RoomService {
           if (!snapshot.exists) return;
 
           final room = Room.fromSnapshot(snapshot);
-          if (room.phase != 'playing_round') return;
+          if (room.phase != Room.phasePlayingRound) return;
 
           final activePlayers = room.players.entries.toList();
           final allSubmitted =
@@ -652,10 +733,11 @@ class RoomService {
           }
 
           if (seriesWinnerId != null) {
-            updates['phase'] = 'finished';
+            updates['phase'] = Room.phaseFinished;
             updates['winnerId'] = seriesWinnerId;
           } else {
-            updates['phase'] = 'round_over';
+            updates['phase'] = Room.phaseRoundOver;
+            updates['winnerId'] = FieldValue.delete();
           }
 
           transaction.update(ref, updates);
@@ -677,10 +759,10 @@ class RoomService {
           if (room.hostId != userId) {
             throw StateError('Only the host can start the next round.');
           }
-          if (room.phase != 'round_over') return;
+          if (room.phase != Room.phaseRoundOver) return;
 
           final updates = <String, dynamic>{
-            'phase': 'playing_round',
+            'phase': Room.phasePlayingRound,
             'startedAt': FieldValue.serverTimestamp(),
             'roundNumber': room.roundNumber + 1,
           };
@@ -707,7 +789,7 @@ class RoomService {
           if (!snapshot.exists) return;
 
           final room = Room.fromSnapshot(snapshot);
-          if (room.phase == 'finished') return;
+          if (room.phase == Room.phaseFinished) return;
 
           final allSubmitted =
               room.players.values.every((p) => p.completedAt != null);
@@ -726,7 +808,7 @@ class RoomService {
           final winnerTeam =
               scoreA > scoreB ? 'A' : scoreB > scoreA ? 'B' : null;
 
-          final updates = <String, dynamic>{'phase': 'finished'};
+          final updates = <String, dynamic>{'phase': Room.phaseFinished};
           if (winnerTeam != null) updates['winnerTeamId'] = winnerTeam;
 
           transaction.update(ref, updates);
@@ -749,7 +831,7 @@ class RoomService {
           final room = Room.fromSnapshot(snapshot);
           // Guard: only advance if we're still on the same question
           if (room.currentQuestionIndex != fromIndex) return;
-          if (room.phase != 'playing_round') return;
+          if (room.phase != Room.phasePlayingRound) return;
 
           final updates = <String, dynamic>{};
 
@@ -781,7 +863,7 @@ class RoomService {
 
           if (aliveIds.length <= 1 || nextIndex >= totalQuestions) {
             // Game over
-            updates['phase'] = 'finished';
+            updates['phase'] = Room.phaseFinished;
             if (aliveIds.length == 1) {
               updates['winnerId'] = aliveIds.first;
             }
@@ -867,6 +949,141 @@ class RoomService {
 
   static String _buildBotId(String roomId, int slot) =>
       '${Room.botIdPrefix}${roomId}_$slot';
+
+  static bool _hasSubmittedRound(RoomPlayer player) =>
+      player.completedAt != null ||
+      player.currentAnswer != null ||
+      player.answeredCount > 0;
+
+  static bool _isActiveSurvivalPlayer(RoomPlayer player) =>
+      !player.eliminated && player.lives > 0;
+
+  static RoomPlayer _answeredSurvivalPlayer(
+    RoomPlayer player, {
+    required String answer,
+    required bool isCorrect,
+  }) {
+    final nextLives = isCorrect ? player.lives : math.max(0, player.lives - 1);
+    return RoomPlayer(
+      score: isCorrect ? player.score + 1 : player.score,
+      ready: player.ready,
+      answeredCount: 1,
+      completedAt: DateTime.now(),
+      eliminated: player.eliminated || nextLives == 0,
+      currentAnswer: answer,
+      lives: nextLives,
+      roundWins: player.roundWins,
+      teamId: player.teamId,
+    );
+  }
+
+  static RoomPlayer _clearedRoundPlayer(
+    RoomPlayer player, {
+    required bool resetScore,
+  }) {
+    return RoomPlayer(
+      score: resetScore ? 0 : player.score,
+      ready: player.ready,
+      answeredCount: 0,
+      completedAt: null,
+      eliminated: player.eliminated,
+      currentAnswer: null,
+      lives: player.lives,
+      roundWins: player.roundWins,
+      teamId: player.teamId,
+    );
+  }
+
+  static void _writeSurvivalSubmission(
+    Map<String, dynamic> updates, {
+    required String playerId,
+    required RoomPlayer player,
+  }) {
+    updates['players.$playerId.currentAnswer'] = player.currentAnswer;
+    updates['players.$playerId.answeredCount'] = player.answeredCount;
+    updates['players.$playerId.completedAt'] = FieldValue.serverTimestamp();
+    updates['players.$playerId.score'] = player.score;
+    updates['players.$playerId.lives'] = player.lives;
+    updates['players.$playerId.eliminated'] = player.eliminated;
+  }
+
+  static void _applyPendingSurvivalBotTurns({
+    required String roomId,
+    required int roundNumber,
+    required Map<String, RoomPlayer> players,
+    required Map<String, dynamic> updates,
+  }) {
+    for (final entry in players.entries.toList(growable: false)) {
+      if (!Room.isBotUserId(entry.key) || !_isActiveSurvivalPlayer(entry.value)) {
+        continue;
+      }
+      if (_hasSubmittedRound(entry.value)) {
+        continue;
+      }
+
+      final botProfile = Room.botProfile(entry.key);
+      final isCorrect = _isSurvivalBotCorrect(
+        roomId: roomId,
+        playerId: entry.key,
+        roundNumber: roundNumber,
+        intelligence: botProfile.intelligence,
+      );
+      final answeredPlayer = _answeredSurvivalPlayer(
+        entry.value,
+        answer: isCorrect ? 'bot_correct' : 'bot_wrong',
+        isCorrect: isCorrect,
+      );
+      players[entry.key] = answeredPlayer;
+      _writeSurvivalSubmission(
+        updates,
+        playerId: entry.key,
+        player: answeredPlayer,
+      );
+    }
+  }
+
+  static bool _allActiveSurvivalPlayersSubmitted(
+    Map<String, RoomPlayer> players,
+  ) {
+    final activePlayers = players.values.where(_isActiveSurvivalPlayer).toList();
+    if (activePlayers.isEmpty) {
+      return true;
+    }
+    return activePlayers.every(_hasSubmittedRound);
+  }
+
+  static void _applySurvivalRoundOutcome(
+    Map<String, RoomPlayer> players,
+    Map<String, dynamic> updates,
+  ) {
+    final survivors = players.entries
+        .where((entry) => _isActiveSurvivalPlayer(entry.value))
+        .map((entry) => entry.key)
+        .toList(growable: false);
+
+    if (survivors.length <= 1) {
+      updates['phase'] = Room.phaseFinished;
+      if (survivors.length == 1) {
+        updates['winnerId'] = survivors.first;
+      } else {
+        updates['winnerId'] = FieldValue.delete();
+      }
+      return;
+    }
+
+    updates['phase'] = Room.phaseRoundOver;
+    updates['winnerId'] = FieldValue.delete();
+  }
+
+  static bool _isSurvivalBotCorrect({
+    required String roomId,
+    required String playerId,
+    required int roundNumber,
+    required int intelligence,
+  }) {
+    final roll = _stableHash('$roomId|$playerId|$roundNumber') % 100;
+    return roll < intelligence;
+  }
 
   bool _isExpiredOpenRoom(
     Room room, {

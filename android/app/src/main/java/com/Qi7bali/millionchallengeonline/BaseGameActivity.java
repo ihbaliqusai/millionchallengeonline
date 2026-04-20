@@ -15,6 +15,9 @@ import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
@@ -90,6 +93,10 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     private static final int ANSWER_KEY_WRONG_1 = 2;
     private static final int ANSWER_KEY_WRONG_2 = 3;
     private static final int ANSWER_KEY_WRONG_3 = 4;
+    private static final String HEART_FULL = "\u2665";
+    private static final String HEART_EMPTY = "\u2661";
+    private static final int SURVIVAL_HEART_FULL_COLOR = 0xFFE53935;
+    private static final int SURVIVAL_HEART_EMPTY_COLOR = 0xFF6B7280;
     private static final int[] ONLINE_SPEED_POINTS = new int[]{10, 7, 5, 3};
     private static final long QUESTION_TIMEOUT_MS = 30_000L;
     private static final long FIRST_QUESTION_SYNC_BUFFER_MS = 4_500L;
@@ -160,6 +167,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         long setAnswerTimeMs = 0L;
         CircleImageView topImageView;
         TextView topNameView;
+        TextView topStateView;
         CircleImageView scoreImageView;
         TextView scoreNameView;
         TextView roundScoreView;
@@ -340,11 +348,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 txtScoreMe = findViewById(R.id.txtScoreMe);
                 txtScoreGameMe = findViewById(R.id.txtScoreGameMe);
                 txtSetsMe = findViewById(R.id.txtSetsMe);
-                if (eliminationMode) {
+                if (usesStatusScoreCells()) {
                     labScore.setText("الصحيح");
-                    labSets.setText("الحالة");
+                    labSets.setText(isSurvivalMode() ? "الأرواح" : "الحالة");
                     labScoreGame.setText("النقاط");
-                    txtSetsMe.setText("نشط");
+                    txtSetsMe.setText(isSurvivalMode() ? buildLivesLabel(myLivesRemaining) : "نشط");
                 }
                 if (txtMeName != null) txtMeName.setText(myName);
 
@@ -423,6 +431,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         imgHelpAudience = findViewById(R.id.imgHelpAudience);
         txtCallAnswer = findViewById(R.id.txtCallAnswer);
         updateInventoryBadges();
+        configureModeHud();
 
         imgHome = findViewById(R.id.imgHome);
         imgVolume = findViewById(R.id.imgVolume);
@@ -631,7 +640,14 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         case "Rules2":
                             person.like(600);
                             person.raiseEyeBrowsUp(600, false, true);
-                            showDialog("إذا لم تعرف الإجابة يمكنك استخدام إحدى وسائل المساعدة", "Rules3", 2000, -1, R.drawable.mouth_05, false);
+                            if (isSurvivalMode()) {
+                                showDialog("في طور النجاة لا توجد وسائل مساعدة، وتظهر أرواحك أعلى الشاشة بدلًا منها.", "RulesSurvival", 2000, -1, R.drawable.mouth_05, false);
+                            } else {
+                                showDialog("إذا لم تعرف الإجابة يمكنك استخدام إحدى وسائل المساعدة", "Rules3", 2000, -1, R.drawable.mouth_05, false);
+                            }
+                            break;
+                        case "RulesSurvival":
+                            showDialog("تبدأ بثلاث أرواح، وكل إجابة خاطئة تخصم روحًا، وآخر لاعب يصمد يفوز.", "Rules7", 2000, -1, R.drawable.mouth_05, false);
                             break;
                         case "Rules3":
                             showDialog("الوسيلة الأولى\nحذف إجابتين خاطئتين", "Rules4", 1000, -1, R.drawable.mouth_05, false);
@@ -697,6 +713,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         case "ConfirmRules":
                         case "Rules1":
                         case "Rules2":
+                        case "RulesSurvival":
                         case "Rules3":
                         case "Rules4":
                         case "Rules5":
@@ -904,7 +921,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         llyPlayer1.setVisibility(View.GONE);
         View scrollOpponents = findViewById(R.id.scrollOpponents);
         if (scrollOpponents != null) {
-            scrollOpponents.setVisibility(View.GONE);
+            scrollOpponents.setVisibility(isSurvivalMode() && !opponents.isEmpty() ? View.VISIBLE : View.GONE);
         }
         if (llyOpponents != null) {
             llyOpponents.removeAllViews();
@@ -1077,6 +1094,39 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
     }
 
+    private boolean usesStatusScoreCells() {
+        return eliminationMode || isSurvivalMode();
+    }
+
+    private CharSequence buildLivesLabel(int livesRemaining) {
+        final int safeLives = Math.max(0, Math.min(3, livesRemaining));
+        SpannableStringBuilder builder = new SpannableStringBuilder();
+        for (int i = 0; i < 3; i++) {
+            int start = builder.length();
+            builder.append(i < safeLives ? HEART_FULL : HEART_EMPTY);
+            builder.setSpan(
+                    new ForegroundColorSpan(i < safeLives ? SURVIVAL_HEART_FULL_COLOR : SURVIVAL_HEART_EMPTY_COLOR),
+                    start,
+                    builder.length(),
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+            if (i < 2) {
+                builder.append(' ');
+            }
+        }
+        return builder;
+    }
+
+    private CharSequence resolveStatusCellText(boolean eliminated, int livesRemaining, int setsValue) {
+        if (isSurvivalMode()) {
+            return eliminated ? "خارج" : buildLivesLabel(livesRemaining);
+        }
+        if (usesStatusScoreCells()) {
+            return eliminated ? "خارج" : "نشط";
+        }
+        return String.valueOf(setsValue);
+    }
+
     private void styleStateCell(TextView textView, boolean eliminated) {
         if (textView == null) {
             return;
@@ -1084,15 +1134,16 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
         LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) textView.getLayoutParams();
         final int verticalInsetDp = Math.max(1, Math.min(5, (scoreboardRowHeightDp - 16) / 3));
-        params.height = eliminationMode ? dp(Math.max(16, scoreboardRowHeightDp - (verticalInsetDp * 2))) : ViewGroup.LayoutParams.MATCH_PARENT;
-        params.topMargin = eliminationMode ? dp(verticalInsetDp) : 0;
-        params.bottomMargin = eliminationMode ? dp(verticalInsetDp) : 0;
-        params.leftMargin = eliminationMode ? dp(2) : 0;
-        params.rightMargin = eliminationMode ? dp(2) : 0;
+        final boolean statusMode = usesStatusScoreCells();
+        params.height = statusMode ? dp(Math.max(16, scoreboardRowHeightDp - (verticalInsetDp * 2))) : ViewGroup.LayoutParams.MATCH_PARENT;
+        params.topMargin = statusMode ? dp(verticalInsetDp) : 0;
+        params.bottomMargin = statusMode ? dp(verticalInsetDp) : 0;
+        params.leftMargin = statusMode ? dp(2) : 0;
+        params.rightMargin = statusMode ? dp(2) : 0;
         textView.setLayoutParams(params);
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, eliminationMode ? (scoreboardValueTextSp - 1f) : scoreboardValueTextSp);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, statusMode ? (scoreboardValueTextSp - 1f) : scoreboardValueTextSp);
 
-        if (!eliminationMode) {
+        if (!statusMode) {
             textView.setTextColor(getResources().getColor(R.color.stepSelected));
             textView.setBackground(null);
             return;
@@ -1104,10 +1155,33 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             drawable.setColor(android.graphics.Color.parseColor("#33B91C1C"));
             drawable.setStroke(dp(1), android.graphics.Color.parseColor("#F87171"));
             textView.setTextColor(android.graphics.Color.parseColor("#FECACA"));
+        } else if (isSurvivalMode()) {
+            drawable.setColor(android.graphics.Color.parseColor("#22F97316"));
+            drawable.setStroke(dp(1), android.graphics.Color.parseColor("#FDBA74"));
+            textView.setTextColor(android.graphics.Color.WHITE);
         } else {
             drawable.setColor(android.graphics.Color.parseColor("#1A0EA5E9"));
             drawable.setStroke(dp(1), android.graphics.Color.parseColor("#7DD3FC"));
             textView.setTextColor(android.graphics.Color.parseColor("#E0F2FE"));
+        }
+        textView.setBackground(drawable);
+    }
+
+    private void styleTopStatusBadge(TextView textView, boolean eliminated) {
+        if (textView == null) {
+            return;
+        }
+
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setCornerRadius(dp(10));
+        if (eliminated) {
+            drawable.setColor(android.graphics.Color.parseColor("#33B91C1C"));
+            drawable.setStroke(dp(1), android.graphics.Color.parseColor("#F87171"));
+            textView.setTextColor(android.graphics.Color.parseColor("#FECACA"));
+        } else {
+            drawable.setColor(android.graphics.Color.parseColor("#66111827"));
+            drawable.setStroke(dp(1), android.graphics.Color.parseColor("#FDBA74"));
+            textView.setTextColor(android.graphics.Color.WHITE);
         }
         textView.setBackground(drawable);
     }
@@ -1134,12 +1208,36 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         nameView.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
         nameView.setMaxLines(2);
         nameView.setText(opponent.name);
+        nameView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+        TextView stateView = null;
+        if (isSurvivalMode()) {
+            stateView = new TextView(this);
+            LinearLayout.LayoutParams stateParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            stateParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+            stateParams.topMargin = dp(4);
+            stateView.setLayoutParams(stateParams);
+            stateView.setPadding(dp(8), dp(3), dp(8), dp(3));
+            stateView.setMinWidth(dp(44));
+            stateView.setGravity(android.view.Gravity.CENTER);
+            stateView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f);
+            stateView.setTypeface(null, android.graphics.Typeface.BOLD);
+            stateView.setText(resolveStatusCellText(opponent.eliminated, opponent.livesRemaining, opponent.sets));
+            styleTopStatusBadge(stateView, opponent.eliminated);
+        }
 
         opponent.topImageView = imageView;
         opponent.topNameView = nameView;
+        opponent.topStateView = stateView;
 
         card.addView(imageView);
         card.addView(nameView);
+        if (stateView != null) {
+            card.addView(stateView);
+        }
         return card;
     }
 
@@ -1225,19 +1323,19 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         TextView textView = new TextView(this);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 0,
-                eliminationMode ? dp(Math.max(26, scoreboardRowHeightDp - 12)) : ViewGroup.LayoutParams.MATCH_PARENT,
+                usesStatusScoreCells() ? dp(Math.max(26, scoreboardRowHeightDp - 12)) : ViewGroup.LayoutParams.MATCH_PARENT,
                 1f
         );
-        if (eliminationMode) {
+        if (usesStatusScoreCells()) {
             params.setMargins(dp(2), dp(5), dp(2), dp(5));
         }
         textView.setLayoutParams(params);
         textView.setGravity(android.view.Gravity.CENTER);
         textView.setTextColor(getResources().getColor(R.color.stepSelected));
         textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP,
-                eliminationMode ? (scoreboardValueTextSp - 1f) : scoreboardValueTextSp);
+                usesStatusScoreCells() ? (scoreboardValueTextSp - 1f) : scoreboardValueTextSp);
         textView.setTypeface(null, android.graphics.Typeface.BOLD);
-        textView.setText("0");
+        textView.setText(isSurvivalMode() ? buildLivesLabel(3) : "0");
         return textView;
     }
 
@@ -1287,6 +1385,15 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 Data.setImageSource(this, opponent.topImageView, opponent.photo);
                 updatePlayerVisualState(opponent.topImageView, opponent.eliminated);
             }
+            if (opponent.topStateView != null) {
+                opponent.topStateView.setText(resolveStatusCellText(
+                        opponent.eliminated,
+                        opponent.livesRemaining,
+                        opponent.sets
+                ));
+                opponent.topStateView.setAlpha(opponent.eliminated ? 0.65f : 1f);
+                styleTopStatusBadge(opponent.topStateView, opponent.eliminated);
+            }
             if (opponent.scoreImageView != null) {
                 Data.setImageSource(this, opponent.scoreImageView, opponent.photo);
                 updatePlayerVisualState(opponent.scoreImageView, opponent.eliminated);
@@ -1300,9 +1407,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 opponent.roundScoreView.setAlpha(opponent.eliminated ? 0.45f : 1f);
             }
             if (opponent.setsView != null) {
-                opponent.setsView.setText(eliminationMode
-                        ? (opponent.eliminated ? "خارج" : "نشط")
-                        : String.valueOf(opponent.sets));
+                opponent.setsView.setText(resolveStatusCellText(
+                        opponent.eliminated,
+                        opponent.livesRemaining,
+                        opponent.sets
+                ));
                 opponent.setsView.setAlpha(opponent.eliminated ? 0.45f : 1f);
                 styleStateCell(opponent.setsView, opponent.eliminated);
             }
@@ -1361,11 +1470,19 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (txtScoreGameMe != null) txtScoreGameMe.setAlpha(localPlayerEliminated ? 0.45f : 1f);
         if (txtSetsMe != null) {
             txtSetsMe.setAlpha(localPlayerEliminated ? 0.45f : 1f);
-            if (eliminationMode) {
-                txtSetsMe.setText(localPlayerEliminated ? "خارج" : "نشط");
+            if (usesStatusScoreCells()) {
+                txtSetsMe.setText(resolveStatusCellText(
+                        localPlayerEliminated,
+                        myLivesRemaining,
+                        setMe
+                ));
             }
             styleStateCell(txtSetsMe, localPlayerEliminated);
         }
+    }
+
+    protected void refreshPlayerPanels() {
+        runOnUiThread(this::refreshOpponentPanels);
     }
 
     private void updatePlayerVisualState(ImageView view, boolean eliminated) {
@@ -4383,7 +4500,40 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
     }
 
+    private void configureModeHud() {
+        if (!isSurvivalMode()) {
+            return;
+        }
+
+        disableAndHideView(imgHelp5050);
+        disableAndHideView(imgHelpCall);
+        disableAndHideView(imgHelpAudience);
+        disableAndHideView(findViewById(R.id.badge5050));
+        disableAndHideView(findViewById(R.id.badgeCall));
+        disableAndHideView(findViewById(R.id.badgeAudience));
+
+        if (imgHelp5050 != null) imgHelp5050.setTag("0");
+        if (imgHelpCall != null) imgHelpCall.setTag("0");
+        if (imgHelpAudience != null) imgHelpAudience.setTag("0");
+    }
+
+    private void disableAndHideView(@Nullable View view) {
+        if (view == null) {
+            return;
+        }
+        view.setVisibility(View.GONE);
+        view.setEnabled(false);
+        view.setClickable(false);
+        view.setFocusable(false);
+    }
+
     private void updateInventoryBadges() {
+        if (isSurvivalMode()) {
+            updateBadge(R.id.badge5050, 0);
+            updateBadge(R.id.badgeCall, 0);
+            updateBadge(R.id.badgeAudience, 0);
+            return;
+        }
         updateBadge(R.id.badge5050,    PlayerProgress.getInventory5050(this));
         updateBadge(R.id.badgeCall,    PlayerProgress.getInventoryCall(this));
         updateBadge(R.id.badgeAudience, PlayerProgress.getInventoryAudience(this));

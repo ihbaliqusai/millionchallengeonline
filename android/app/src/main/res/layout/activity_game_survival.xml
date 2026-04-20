@@ -119,6 +119,7 @@
             android:layout_marginLeft="10dp"
             android:src="@drawable/help_5050"
             android:tag="1"
+            android:visibility="gone"
             android:contentDescription="@string/todo18" />
         <TextView
             android:id="@+id/badge5050"
@@ -146,6 +147,7 @@
             android:layout_marginLeft="10dp"
             android:src="@drawable/help_call"
             android:tag="1"
+            android:visibility="gone"
             android:contentDescription="@string/todo11"
             />
         <TextView
@@ -172,6 +174,7 @@
             android:layout_marginLeft="30dp"
             android:src="@drawable/help_audience"
             android:tag="1"
+            android:visibility="gone"
             android:contentDescription="@string/todo11"
             />
         <TextView
@@ -193,8 +196,8 @@
             android:id="@+id/imgVolume"
             android:layout_width="50dp"
             android:layout_height="50dp"
-            android:layout_toLeftOf="@id/imgHelpAudience"
-            android:layout_alignTop="@id/imgHelp5050"
+            android:layout_toLeftOf="@id/llyMyLives"
+            android:layout_alignTop="@id/llyMyLives"
             android:layout_marginLeft="10dp"
             android:src="@drawable/volume"
             android:tag="1"
@@ -205,7 +208,7 @@
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:layout_toLeftOf="@id/imgVolume"
-            android:layout_alignTop="@id/imgHelp5050"
+            android:layout_alignTop="@id/llyMyLives"
             android:src="@drawable/home"
             android:tag="1"
             android:contentDescription="@string/todo11"
@@ -1115,9 +1118,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_alignParentBottom="true"
-            android:layout_centerHorizontal="true"
-            android:layout_marginBottom="10dp"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentRight="true"
+            android:layout_marginTop="8dp"
+            android:layout_marginRight="18dp"
             android:background="#AA000000"
             android:paddingHorizontal="14dp"
             android:paddingVertical="6dp"
