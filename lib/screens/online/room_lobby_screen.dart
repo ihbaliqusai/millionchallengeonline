@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -33,10 +33,12 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   bool _starting = false;
   bool _leaving = false;
   bool _navigatedToGame = false;
-  // Tracks the startedAt timestamp of the last launched round so elimination
-  // mode can re-launch the native game for each new round.
   DateTime? _lastLaunchedRoundAt;
   late final AnimationController _pulseCtrl;
+
+  Timer? _blitzTimer;
+  int _blitzSecondsLeft = 0;
+  String? _blitzTimerRoomId;
 
   @override
   void initState() {
@@ -50,8 +52,44 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
 
   @override
   void dispose() {
+    _blitzTimer?.cancel();
     _pulseCtrl.dispose();
     super.dispose();
+  }
+
+  void _scheduleBlitzFinalization(Room room) {
+    if (_blitzTimerRoomId == room.id) return;
+    _blitzTimer?.cancel();
+    _blitzTimerRoomId = room.id;
+
+    final remaining = room.blitzSecondsRemaining;
+    setState(() => _blitzSecondsLeft = remaining);
+
+    if (remaining <= 0) {
+      _triggerBlitzFinalize(room.id);
+      return;
+    }
+
+    _blitzTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _blitzSecondsLeft = math.max(0, _blitzSecondsLeft - 1);
+      });
+      if (_blitzSecondsLeft <= 0) {
+        timer.cancel();
+        _triggerBlitzFinalize(room.id);
+      }
+    });
+  }
+
+  void _triggerBlitzFinalize(String roomId) {
+    context
+        .read<RoomService>()
+        .finalizeBlitzRoom(roomId: roomId)
+        .catchError((_) {});
   }
 
   Future<void> _leaveRoom() async {
@@ -459,6 +497,15 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                         });
                       }
 
+                      // Blitz: start countdown as soon as the game is live.
+                      if (room.mode == Room.modeBlitz &&
+                          room.phase == Room.phasePlaying &&
+                          room.startedAt != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          _scheduleBlitzFinalization(room);
+                        });
+                      }
                       return Column(
                         children: [
                           // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Header ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
@@ -466,6 +513,10 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                             room: room,
                             pulseCtrl: _pulseCtrl,
                             onBack: _confirmLeave,
+                            blitzSecondsLeft: room.mode == Room.modeBlitz &&
+                                    room.phase == Room.phasePlaying
+                                ? _blitzSecondsLeft
+                                : null,
                           ),
                           // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Content ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
                           Expanded(
@@ -619,11 +670,13 @@ class _LobbyHeader extends StatelessWidget {
     required this.room,
     required this.pulseCtrl,
     required this.onBack,
+    this.blitzSecondsLeft,
   });
 
   final Room room;
   final AnimationController pulseCtrl;
   final Future<bool> Function() onBack;
+  final int? blitzSecondsLeft;
 
   @override
   Widget build(BuildContext context) {
@@ -706,6 +759,13 @@ class _LobbyHeader extends StatelessWidget {
                       _MiniChip(
                         label: 'Alive $aliveCount',
                         color: const Color(0xFF4ADE80),
+                      ),
+                    if (blitzSecondsLeft != null)
+                      _MiniChip(
+                        label: '${blitzSecondsLeft}s',
+                        color: blitzSecondsLeft! > 10
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
                       ),
                   ],
                 ),

@@ -552,6 +552,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                                     stopTimer(false);
                                     CAN_PLAY = false;
                                     submitOnlineAnswer(getAnswerKeyForDisplayedIndex(myAnswer));
+                                    onLocalAnswerSubmitted();
                                     rlySelected.getChildAt(2).setVisibility(View.VISIBLE);
                                     resolveOnlineRoundIfReady();
                                 } else {
@@ -1774,7 +1775,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                                 }
                                 if (myResult != -2) t = 6;
                                 handler.postDelayed(this, 3000);
-                            } else if (checkScoresMulti()) {
+                            } else if (!isBlitzMode() && checkScoresMulti()) {
                                 myResult = checkEndOfGameMulti();
                                 if (myResult != -2) t = 6;
                                 handler.postDelayed(this, 3000);
@@ -1913,6 +1914,18 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     /** هوك يُستدعى بعد تطبيق نقاط الجولة — يمكن تعريفه في الأطوار الفرعية */
     protected void onRoundMetricsApplied() {}
+
+    /** Blitz hook: called when a new question's timer starts. */
+    protected void onQuestionTimerStarted() {}
+
+    /** Blitz hook: called immediately after the local player submits an answer. */
+    protected void onLocalAnswerSubmitted() {}
+
+    /** Override to false in Blitz mode so bots never answer questions. */
+    protected boolean shouldScheduleBotAnswers() { return true; }
+
+    /** Called when the question list is exhausted (currentQuestion >= questions.size()). */
+    protected void onQuestionsExhausted() {}
 
     private boolean handleLocalTimeoutRemovalIfNeeded() {
         if (!modeOnline || eliminationMode || localPlayerRemoved || myTimeoutStreak < MAX_TIMEOUT_STREAK) {
@@ -2686,7 +2699,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         opponent.statusRef = null;
         opponent.statusListener = null;
         refreshOpponentPanels();
-        if (currentQuestion >= 0 && !opponent.submitted) {
+        if (currentQuestion >= 0 && !opponent.submitted && shouldScheduleBotAnswers()) {
             scheduleBotAnswer(opponent);
         }
     }
@@ -3487,8 +3500,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 if (modeOnline && hasBotOpponents()) {
                     randomTime = getFictitiousRandomTime();
                 }
-                Animations.progressZoomIn(rlyProgress);
-                if (modeOnline) {
+                if (!isBlitzMode()) {
+                    Animations.progressZoomIn(rlyProgress);
+                }
+                onQuestionTimerStarted();
+                if (modeOnline && shouldScheduleBotAnswers()) {
                     scheduleBotAnswersForCurrentQuestion();
                 }
             }
@@ -3920,9 +3936,12 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 handler.postDelayed(runnable, 1000);
 
             } else {
-                Toast.makeText(this,
-                        "خطأ أثناء الانصال .. لا يمكنك الاتصال بالخادم. تحقق من اتصالك بالانترنت ثم حاول مرة أخرى.",
-                        Toast.LENGTH_LONG).show();
+                onQuestionsExhausted();
+                if (!isBlitzMode()) {
+                    Toast.makeText(this,
+                            "خطأ أثناء الانصال .. لا يمكنك الاتصال بالخادم. تحقق من اتصالك بالانترنت ثم حاول مرة أخرى.",
+                            Toast.LENGTH_LONG).show();
+                }
             }
         }
     }
@@ -4501,7 +4520,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private void configureModeHud() {
-        if (!isSurvivalMode()) {
+        if (!isSurvivalMode() && !isBlitzMode()) {
             return;
         }
 

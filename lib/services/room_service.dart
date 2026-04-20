@@ -357,6 +357,95 @@ class RoomService {
         });
       });
 
+  /// Blitz mode: save the player's score. Rejects calls once time has expired.
+  Future<void> submitBlitzScore({
+    required String roomId,
+    required String userId,
+    required int score,
+    required int answeredCount,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) throw StateError('Room no longer exists.');
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.mode != Room.modeBlitz) return;
+          if (!room.containsPlayer(userId)) {
+            throw StateError('You are no longer in this room.');
+          }
+          if (room.phase == Room.phaseFinished) return;
+          if (room.isBlitzExpired) return; // post-timeout — reject silently
+
+          final current = room.players[userId]!;
+          if (current.completedAt != null &&
+              current.score >= score &&
+              current.answeredCount >= answeredCount) {
+            return;
+          }
+
+          transaction.update(ref, <String, dynamic>{
+            'players.$userId.score': score,
+            'players.$userId.answeredCount': answeredCount,
+            'players.$userId.completedAt': FieldValue.serverTimestamp(),
+          });
+        });
+      });
+
+  /// Seeds bot scores, resolves the winner, and marks the blitz room finished.
+  /// Idempotent: no-ops if already finished or timer has not expired yet.
+  Future<void> finalizeBlitzRoom({required String roomId}) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.mode != Room.modeBlitz) return;
+          if (room.phase == Room.phaseFinished) return;
+          if (!room.isBlitzExpired) return; // too early
+
+          final updates = <String, dynamic>{'phase': Room.phaseFinished};
+
+          for (final botId in room.playerIds.where(Room.isBotUserId)) {
+            final player = room.players[botId];
+            if (player == null || player.completedAt != null) continue;
+            final botScore = _buildBlitzBotScore(
+              roomId: room.id,
+              botId: botId,
+              durationSeconds: room.roundDurationSeconds,
+            );
+            updates['players.$botId.score'] = botScore;
+            updates['players.$botId.answeredCount'] = botScore;
+            updates['players.$botId.completedAt'] = FieldValue.serverTimestamp();
+          }
+
+          // Build the effective players map with bot scores applied.
+          final effectivePlayers = Map<String, RoomPlayer>.from(room.players);
+          for (final botId in room.playerIds.where(Room.isBotUserId)) {
+            final botScore = updates['players.$botId.score'] as int?;
+            if (botScore != null) {
+              effectivePlayers[botId] = effectivePlayers[botId]!.copyWith(
+                score: botScore,
+                answeredCount: botScore,
+                completedAt: DateTime.now(),
+              );
+            }
+          }
+
+          final winnerId = _computeBlitzWinner(effectivePlayers);
+          if (winnerId != null) {
+            updates['winnerId'] = winnerId;
+          } else {
+            updates['winnerId'] = FieldValue.delete();
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
   Future<void> submitFinalScore({
     required String roomId,
     required String userId,
@@ -1106,6 +1195,49 @@ class RoomService {
     } catch (_) {
       // Ignore cleanup failures so room browsing stays responsive.
     }
+  }
+
+  static int _buildBlitzBotScore({
+    required String roomId,
+    required String botId,
+    required int durationSeconds,
+  }) {
+    final profile = Room.botProfile(botId);
+    // ~1 answer per 5 s at 100 % intelligence; scaled by actual intelligence.
+    final maxAnswers = math.max(1, (durationSeconds / 5.0).round());
+    final expected = (maxAnswers * profile.intelligence / 100).round();
+    final minScore = math.max(0, expected - 3);
+    final hash = _stableHash('blitz|$roomId|$botId');
+    return math.min(maxAnswers, minScore + (hash % 7));
+  }
+
+  /// Returns the UID of the blitz winner using deterministic tie-breaking.
+  /// Returns null only when every player scored 0.
+  static String? _computeBlitzWinner(Map<String, RoomPlayer> players) {
+    if (players.isEmpty) return null;
+
+    final sorted = players.entries.toList()
+      ..sort((a, b) {
+        final scoreCmp = b.value.score.compareTo(a.value.score);
+        if (scoreCmp != 0) return scoreCmp;
+        final answerCmp =
+            b.value.answeredCount.compareTo(a.value.answeredCount);
+        if (answerCmp != 0) return answerCmp;
+        final aAt = a.value.completedAt;
+        final bAt = b.value.completedAt;
+        if (aAt != null && bAt != null) {
+          final timeCmp = aAt.compareTo(bAt);
+          if (timeCmp != 0) return timeCmp;
+        } else if (aAt != null) {
+          return -1;
+        } else if (bAt != null) {
+          return 1;
+        }
+        return _stableHash(a.key).compareTo(_stableHash(b.key));
+      });
+
+    if (sorted.first.value.score == 0) return null;
+    return sorted.first.key;
   }
 
   static int _buildBotScore(

@@ -277,6 +277,31 @@ class Room {
   /// series/survival: current round number (1-indexed).
   final int roundNumber;
 
+  static const List<int> allowedBlitzDurations = [60, 90, 120];
+
+  /// The UTC moment when the blitz game ends (startedAt + roundDurationSeconds).
+  DateTime? get blitzEndTime {
+    if (mode != modeBlitz) return null;
+    final start = startedAt;
+    if (start == null || roundDurationSeconds <= 0) return null;
+    return start.add(Duration(seconds: roundDurationSeconds));
+  }
+
+  /// Client-side estimate: true when the blitz timer has elapsed.
+  bool get isBlitzExpired {
+    final end = blitzEndTime;
+    if (end == null) return false;
+    return DateTime.now().isAfter(end);
+  }
+
+  /// Seconds remaining in the blitz game; 0 when expired or not applicable.
+  int get blitzSecondsRemaining {
+    final end = blitzEndTime;
+    if (end == null) return 0;
+    final secs = end.difference(DateTime.now()).inSeconds;
+    return secs < 0 ? 0 : secs;
+  }
+
   factory Room.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
     final data = snapshot.data() ?? const <String, dynamic>{};
     final mode = (data['mode'] ?? modeBattle).toString();
