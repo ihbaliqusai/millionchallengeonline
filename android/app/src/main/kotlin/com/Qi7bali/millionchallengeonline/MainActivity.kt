@@ -68,11 +68,20 @@ class MainActivity : FlutterActivity() {
                         )
                     }
                     "launchRoomMatch" -> {
-                        val intent = Intent(this, GameActivity::class.java).apply {
+                        val matchMode = call.argument<String>("matchMode") ?: "battle"
+                        val activityClass = when (matchMode) {
+                            "elimination" -> EliminationGameActivity::class.java
+                            "blitz"       -> BlitzGameActivity::class.java
+                            "survival"    -> SurvivalGameActivity::class.java
+                            "series"      -> SeriesGameActivity::class.java
+                            "team_battle" -> TeamBattleGameActivity::class.java
+                            else          -> BattleGameActivity::class.java
+                        }
+                        val intent = Intent(this, activityClass).apply {
                             putExtra("mode", "online")
                             putExtra("opponentsJson", call.argument<String>("opponentsJson") ?: "[]")
                             putExtra("meOwner", call.argument<Boolean>("meOwner") ?: false)
-                            putExtra("matchMode", call.argument<String>("matchMode") ?: "battle")
+                            putExtra("matchMode", matchMode)
                         }
                         startActivity(intent)
                         result.success(true)
