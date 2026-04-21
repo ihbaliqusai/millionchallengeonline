@@ -706,7 +706,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:layout_marginLeft="10dp"
-            android:background="@drawable/score_panel"
+            android:background="@drawable/bg_team_battle_score_panel"
             android:orientation="vertical"
             android:visibility="invisible"
             >
@@ -716,7 +716,7 @@
                 android:id="@+id/llyScoreHeader"
                 android:layout_width="match_parent"
                 android:layout_height="28dp"
-                android:background="@drawable/score_header"
+                android:background="@drawable/bg_team_battle_score_header"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingLeft="6dp"
