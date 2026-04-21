@@ -29,6 +29,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     _currentUid = appState.user?.uid;
 
     try {
+      await appState.checkAndAwardXpForGames();
       final snap = await FirebaseFirestore.instance
           .collection('users')
           .orderBy('trophies', descending: true)
@@ -46,9 +47,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         };
       }).toList();
 
-      if (mounted) setState(() { _players = list; _loading = false; });
+      if (mounted) {
+        setState(() {
+          _players = list;
+          _loading = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -66,14 +74,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           children: [
             _buildHeader(total),
             if (_loading)
-              const Expanded(child: Center(child: CircularProgressIndicator(color: Color(0xFFFACC15))))
+              const Expanded(
+                  child: Center(
+                      child:
+                          CircularProgressIndicator(color: Color(0xFFFACC15))))
             else
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(flex: 3, child: _buildRankedList(myRank, total)),
-                    SizedBox(width: 178, child: _buildBestPlayers(topPlayers, myRank)),
+                    SizedBox(
+                        width: 178,
+                        child: _buildBestPlayers(topPlayers, myRank)),
                   ],
                 ),
               ),
@@ -98,14 +111,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
-              child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.arrow_back_rounded,
+                  color: Colors.white, size: 20),
             ),
           ),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
               'Global Leaderboard',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white),
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white),
             ),
           ),
           Row(
@@ -116,7 +133,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 total > 1000000
                     ? '${(total / 1000000).toStringAsFixed(2)}M'
                     : '$total',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white70),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white70),
               ),
             ],
           ),
@@ -128,7 +148,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Widget _buildRankedList(int? myRank, int total) {
     if (_players.isEmpty) {
       return const Center(
-        child: Text('لا يوجد لاعبون بعد', style: TextStyle(color: Colors.white54, fontSize: 14)),
+        child: Text('لا يوجد لاعبون بعد',
+            style: TextStyle(color: Colors.white54, fontSize: 14)),
       );
     }
     return ListView.builder(
@@ -149,7 +170,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 : const Color(0xFF152055).withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isMe ? const Color(0xFFF59E0B) : Colors.white.withValues(alpha: 0.08),
+              color: isMe
+                  ? const Color(0xFFF59E0B)
+                  : Colors.white.withValues(alpha: 0.08),
             ),
           ),
           child: Row(
@@ -164,7 +187,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 child: Text(
                   'Top\n$topPercent%',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white70),
+                  style: const TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white70),
                 ),
               ),
               const SizedBox(width: 8),
@@ -179,7 +205,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     width: 1.5,
                   ),
                 ),
-                child: const Icon(Icons.person_rounded, size: 14, color: Colors.white),
+                child: const Icon(Icons.person_rounded,
+                    size: 14, color: Colors.white),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -195,11 +222,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
               Row(
                 children: [
-                  const Icon(Icons.emoji_events_rounded, size: 13, color: Color(0xFFFACC15)),
+                  const Icon(Icons.emoji_events_rounded,
+                      size: 13, color: Color(0xFFFACC15)),
                   const SizedBox(width: 2),
                   Text(
                     '${p['trophies']}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFFFACC15)),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFFFACC15)),
                   ),
                 ],
               ),
@@ -217,7 +248,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           padding: EdgeInsets.only(top: 8, bottom: 6),
           child: Text(
             'BEST PLAYERS',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFACC15), letterSpacing: 1),
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFFFACC15),
+                letterSpacing: 1),
           ),
         ),
         ...topPlayers.asMap().entries.map((e) {
@@ -244,25 +279,36 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 Container(
                   width: 22,
                   height: 22,
-                  decoration: BoxDecoration(color: rankColor, shape: BoxShape.circle),
+                  decoration:
+                      BoxDecoration(color: rankColor, shape: BoxShape.circle),
                   child: Center(
                     child: Text('#$rank',
-                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Colors.white)),
+                        style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white)),
                   ),
                 ),
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text(
                     p['username'] as String,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.emoji_events_rounded, size: 11, color: Color(0xFFFACC15)),
+                    const Icon(Icons.emoji_events_rounded,
+                        size: 11, color: Color(0xFFFACC15)),
                     Text('${p['trophies']}',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFACC15))),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFFACC15))),
                   ],
                 ),
               ],
@@ -274,7 +320,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             padding: EdgeInsets.symmetric(vertical: 4),
             child: Divider(color: Colors.white24, height: 1),
           ),
-          const Text('أنت', style: TextStyle(color: Colors.white54, fontSize: 10)),
+          const Text('أنت',
+              style: TextStyle(color: Colors.white54, fontSize: 10)),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
@@ -288,25 +335,36 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 Container(
                   width: 22,
                   height: 22,
-                  decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                      color: Color(0xFFF59E0B), shape: BoxShape.circle),
                   child: Center(
                     child: Text('#$myRank',
-                        style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white)),
+                        style: const TextStyle(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white)),
                   ),
                 ),
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text(
                     _players[myRank - 1]['username'] as String,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFFACC15)),
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFFACC15)),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.emoji_events_rounded, size: 11, color: Color(0xFFFACC15)),
+                    const Icon(Icons.emoji_events_rounded,
+                        size: 11, color: Color(0xFFFACC15)),
                     Text('${_players[myRank - 1]['trophies']}',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFACC15))),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFFACC15))),
                   ],
                 ),
               ],

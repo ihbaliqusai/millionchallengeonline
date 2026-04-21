@@ -125,9 +125,14 @@ class MainActivity : FlutterActivity() {
                         val correct       = PlayerStats.getCorrectAnswers(this)
                         val wrong         = PlayerStats.getWrongAnswers(this)
                         val total         = correct + wrong
-                        val streak        = PlayerStats.getBestStreak(this)
+                        val bestStreak    = PlayerStats.getBestStreak(this)
+                        val winStreak     = PlayerStats.getCurrentWinStreak(this)
+                        val bestWinStreak = PlayerStats.getBestWinStreak(this)
                         val highest       = PlayerStats.getHighestMoney(this)
                         val totalEarnings = PlayerStats.getTotalEarnings(this)
+                        val onlineWins    = PlayerProgress.getOnlineWins(this)
+                        val xp            = PlayerProgress.getXp(this)
+                        val level         = PlayerProgress.getLevel(this)
                         val winPct        = if (games > 0) (wins * 100 / games) else 0
                         val accPct        = if (total > 0) (correct * 100 / total) else 0
                         result.success(mapOf(
@@ -137,9 +142,14 @@ class MainActivity : FlutterActivity() {
                             "correctAnswers" to correct,
                             "wrongAnswers"   to wrong,
                             "totalAnswered"  to total,
-                            "bestStreak"     to streak,
+                            "bestStreak"     to bestStreak,
+                            "winStreak"      to winStreak,
+                            "bestWinStreak"  to bestWinStreak,
                             "highestMoney"   to highest,
                             "totalEarnings"  to totalEarnings,
+                            "onlineWins"     to onlineWins,
+                            "xp"             to xp,
+                            "level"          to level,
                             "winPercent"     to winPct,
                             "accuracy"       to accPct
                         ))
@@ -219,6 +229,12 @@ class MainActivity : FlutterActivity() {
                         val games = PlayerStats.getGamesPlayed(this)
                         val wins  = PlayerStats.getWins(this)
                         val correct = PlayerStats.getCorrectAnswers(this)
+                        val onlineWins = PlayerProgress.getOnlineWins(this)
+                        val blitzFinishes = PlayerProgress.getBlitzFinishes(this)
+                        val eliminationWins = PlayerProgress.getEliminationWins(this)
+                        val survivalWins = PlayerProgress.getSurvivalWins(this)
+                        val seriesWins = PlayerProgress.getSeriesWins(this)
+                        val teamBattleWins = PlayerProgress.getTeamBattleWins(this)
                         if (games >= 10)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_10)
                         if (games >= 25)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_25)
                         if (games >= 50)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_50)
@@ -233,6 +249,13 @@ class MainActivity : FlutterActivity() {
                         if (correct >= 500)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_500)
                         if (correct >= 1000) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_1000)
                         if (correct >= 5000) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_5000)
+                        if (onlineWins >= 5) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_ONLINE_WIN_5)
+                        if (onlineWins >= 10) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_ONLINE_WIN_10)
+                        if (blitzFinishes >= 5) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_BLITZ_FINISH_5)
+                        if (eliminationWins >= 3) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_ELIMINATION_WIN_3)
+                        if (survivalWins >= 3) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_SURVIVAL_WIN_3)
+                        if (seriesWins >= 3) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_SERIES_WIN_3)
+                        if (teamBattleWins >= 5) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_TEAM_BATTLE_WIN_5)
 
                         // Check ACH_ALL_DONE after updating
                         PlayerProgress.checkAllDone(this)
@@ -247,7 +270,9 @@ class MainActivity : FlutterActivity() {
                             "ACH_GAMES_10", "ACH_GAMES_25", "ACH_GAMES_50", "ACH_GAMES_100",
                             "ACH_COINS_1000", "ACH_COINS_5000", "ACH_COINS_10000", "ACH_GEMS_50", "ACH_GEMS_500",
                             "ACH_USE_5050", "ACH_USE_AUDIENCE", "ACH_USE_CALL", "ACH_USE_ALL_HELPS",
-                            "ACH_PERFECT_GAME", "ACH_ONLINE_WIN_10", "ACH_ALL_DONE"
+                            "ACH_PERFECT_GAME", "ACH_ONLINE_WIN_5", "ACH_ONLINE_WIN_10",
+                            "ACH_BLITZ_FINISH_5", "ACH_ELIMINATION_WIN_3", "ACH_SURVIVAL_WIN_3",
+                            "ACH_SERIES_WIN_3", "ACH_TEAM_BATTLE_WIN_5", "ACH_ALL_DONE"
                         )
                         val map = mutableMapOf<String, Any>()
                         for (k in allKeys) map[k] = PlayerProgress.isAchievementUnlocked(this, k)
@@ -261,7 +286,12 @@ class MainActivity : FlutterActivity() {
                         map["gems"]           = PlayerProgress.getGems(this)
                         map["level"]          = PlayerProgress.getLevel(this)
                         map["totalEarnings"]  = PlayerStats.getTotalEarnings(this).toInt()
-                        map["onlineWins"]     = PlayerProgress.getOnlineWins(this)
+                        map["onlineWins"]     = onlineWins
+                        map["blitzFinishes"]  = blitzFinishes
+                        map["eliminationWins"] = eliminationWins
+                        map["survivalWins"]   = survivalWins
+                        map["seriesWins"]     = seriesWins
+                        map["teamBattleWins"] = teamBattleWins
 
                         result.success(map)
                     }

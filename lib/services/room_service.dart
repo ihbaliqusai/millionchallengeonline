@@ -518,6 +518,163 @@ class RoomService {
         });
       });
 
+  Future<void> finalizeSeriesMatchFromNative({
+    required String roomId,
+    required String userId,
+    required int score,
+    required int answeredCount,
+    required int roundWins,
+    required String winnerId,
+    required List<Map<String, dynamic>> opponents,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) {
+            throw StateError('This room no longer exists.');
+          }
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.mode != Room.modeSeries) {
+            return;
+          }
+          if (!room.containsPlayer(userId)) {
+            throw StateError('You are no longer in this room.');
+          }
+
+          final updates = <String, dynamic>{
+            'phase': Room.phaseFinished,
+            'players.$userId.score': score,
+            'players.$userId.answeredCount': answeredCount,
+            'players.$userId.roundWins': math.max(0, roundWins),
+            'players.$userId.completedAt': FieldValue.serverTimestamp(),
+          };
+
+          final safeWinnerId = winnerId.trim();
+          if (safeWinnerId.isEmpty) {
+            updates['winnerId'] = FieldValue.delete();
+          } else {
+            updates['winnerId'] = safeWinnerId;
+          }
+
+          var playedRounds = math.max(0, roundWins);
+          for (final opponent in opponents) {
+            final opponentId = (opponent['id'] ?? '').toString().trim();
+            if (opponentId.isEmpty || !room.containsPlayer(opponentId)) {
+              continue;
+            }
+
+            final opponentScore = (opponent['score'] as num?)?.toInt() ??
+                room.players[opponentId]?.score ??
+                0;
+            final opponentAnsweredCount =
+                (opponent['correctAnswers'] as num?)?.toInt() ??
+                    (opponent['answeredCount'] as num?)?.toInt() ??
+                    room.players[opponentId]?.answeredCount ??
+                    0;
+            final opponentRoundWins = (opponent['sets'] as num?)?.toInt() ??
+                room.players[opponentId]?.roundWins ??
+                0;
+
+            updates['players.$opponentId.score'] = opponentScore;
+            updates['players.$opponentId.answeredCount'] =
+                opponentAnsweredCount;
+            updates['players.$opponentId.roundWins'] =
+                math.max(0, opponentRoundWins);
+            updates['players.$opponentId.completedAt'] =
+                FieldValue.serverTimestamp();
+            playedRounds += math.max(0, opponentRoundWins);
+          }
+
+          if (playedRounds > 0) {
+            updates['roundNumber'] = math.max(room.roundNumber, playedRounds);
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
+  Future<void> finalizeRoundBasedMatchFromNative({
+    required String roomId,
+    required String userId,
+    required String matchMode,
+    required int score,
+    required int answeredCount,
+    required String winnerId,
+    required bool myEliminated,
+    required int myLivesRemaining,
+    required List<Map<String, dynamic>> opponents,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) {
+            throw StateError('This room no longer exists.');
+          }
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.mode != matchMode ||
+              (room.mode != Room.modeElimination &&
+                  room.mode != Room.modeSurvival)) {
+            return;
+          }
+          if (!room.containsPlayer(userId)) {
+            throw StateError('You are no longer in this room.');
+          }
+
+          final updates = <String, dynamic>{
+            'phase': Room.phaseFinished,
+            'players.$userId.score': score,
+            'players.$userId.answeredCount': answeredCount,
+            'players.$userId.completedAt': FieldValue.serverTimestamp(),
+            'players.$userId.eliminated': myEliminated,
+          };
+          if (room.mode == Room.modeSurvival) {
+            updates['players.$userId.lives'] = math.max(0, myLivesRemaining);
+          }
+
+          final safeWinnerId = winnerId.trim();
+          if (safeWinnerId.isEmpty) {
+            updates['winnerId'] = FieldValue.delete();
+          } else {
+            updates['winnerId'] = safeWinnerId;
+          }
+
+          for (final opponent in opponents) {
+            final opponentId = (opponent['id'] ?? '').toString().trim();
+            if (opponentId.isEmpty || !room.containsPlayer(opponentId)) {
+              continue;
+            }
+
+            final opponentScore = (opponent['score'] as num?)?.toInt() ??
+                room.players[opponentId]?.score ??
+                0;
+            final opponentAnsweredCount =
+                (opponent['correctAnswers'] as num?)?.toInt() ??
+                    (opponent['answeredCount'] as num?)?.toInt() ??
+                    room.players[opponentId]?.answeredCount ??
+                    0;
+            final opponentEliminated = opponent['eliminated'] == true;
+
+            updates['players.$opponentId.score'] = opponentScore;
+            updates['players.$opponentId.answeredCount'] =
+                opponentAnsweredCount;
+            updates['players.$opponentId.completedAt'] =
+                FieldValue.serverTimestamp();
+            updates['players.$opponentId.eliminated'] = opponentEliminated;
+
+            if (room.mode == Room.modeSurvival) {
+              updates['players.$opponentId.lives'] = math.max(
+                  0, (opponent['livesRemaining'] as num?)?.toInt() ?? 0);
+            }
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
   /// Called when all alive players finish a native-game round in elimination mode.
   /// Eliminates the player(s) with the lowest score and transitions the phase.
   Future<void> processEliminationRound({required String roomId}) =>

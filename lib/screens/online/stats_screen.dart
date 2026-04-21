@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import '../../core/player_rank.dart';
+import '../../core/trophy_league.dart';
 import '../../services/native_bridge_service.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -26,7 +27,10 @@ class _StatsScreenState extends State<StatsScreen> {
 
   Future<void> _loadStats() async {
     try {
-      final stats = await context.read<NativeBridgeService>().getPlayerStats();
+      final appState = context.read<AppState>();
+      final nativeBridge = context.read<NativeBridgeService>();
+      await appState.checkAndAwardXpForGames();
+      final stats = await nativeBridge.getPlayerStats();
       if (!mounted) return;
       setState(() {
         _stats = stats;
@@ -48,6 +52,7 @@ class _StatsScreenState extends State<StatsScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
+    final trophies = appState.trophies;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1640),
@@ -59,7 +64,8 @@ class _StatsScreenState extends State<StatsScreen> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       children: [
                         _PlayerInfoCard(appState: appState),
                         const SizedBox(height: 12),
@@ -99,10 +105,28 @@ class _StatsScreenState extends State<StatsScreen> {
                               label: 'نسبة الفوز',
                             ),
                             _StatCard(
+                              icon: Icons.public_rounded,
+                              color: const Color(0xFF38BDF8),
+                              value: _fmt('onlineWins'),
+                              label: 'ONLINE WINS',
+                            ),
+                            _StatCard(
                               icon: Icons.bolt_rounded,
                               color: const Color(0xFFF97316),
                               value: _fmt('bestStreak'),
-                              label: 'أفضل تتالي',
+                              label: 'تتالي الإجابات',
+                            ),
+                            _StatCard(
+                              icon: Icons.local_fire_department_rounded,
+                              color: const Color(0xFFFB7185),
+                              value: _fmt('winStreak'),
+                              label: 'WIN STREAK',
+                            ),
+                            _StatCard(
+                              icon: Icons.workspace_premium_rounded,
+                              color: const Color(0xFFFACC15),
+                              value: _fmt('bestWinStreak'),
+                              label: 'BEST WIN STREAK',
                             ),
                             _StatCard(
                               icon: Icons.quiz_rounded,
@@ -115,6 +139,14 @@ class _StatsScreenState extends State<StatsScreen> {
                               color: const Color(0xFF34D399),
                               value: '${_stats['accuracy'] ?? 0}%',
                               label: 'الدقة',
+                            ),
+                            _StatCard(
+                              icon: Icons.emoji_events_rounded,
+                              color: const Color(0xFFFACC15),
+                              value: trophies >= 1000
+                                  ? '${(trophies / 1000).toStringAsFixed(1)}k'
+                                  : '$trophies',
+                              label: 'TROPHIES',
                             ),
                           ],
                         ),
@@ -172,7 +204,8 @@ class _Header extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
-              child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.arrow_back_rounded,
+                  color: Colors.white, size: 20),
             ),
           ),
         ],
@@ -189,9 +222,11 @@ class _PlayerInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final username = appState.user?.displayName ?? appState.user?.email ?? 'Player';
+    final username =
+        appState.user?.displayName ?? appState.user?.email ?? 'Player';
     final rankTitle = PlayerRank.titleForLevel(appState.level);
     final rankColor = PlayerRank.colorForLevel(appState.level);
+    final league = TrophyProgression.leagueFor(appState.trophies);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -209,7 +244,8 @@ class _PlayerInfoCard extends StatelessWidget {
               color: Color(0xFF7C3AED),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.person_rounded, color: Colors.white, size: 30),
+            child:
+                const Icon(Icons.person_rounded, color: Colors.white, size: 30),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -236,6 +272,21 @@ class _PlayerInfoCard extends StatelessWidget {
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: rankColor,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(league.icon, color: league.color, size: 15),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${appState.trophies} ${league.nameAr}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: league.color,
                       ),
                     ),
                   ],

@@ -74,6 +74,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     /** عدد الجولات المطلوبة للفوز — يُعاد تعريفه في SeriesGameActivity */
     protected int getSeriesTarget() { return 2; }
 
+    protected boolean isSeriesMode() { return "series".equals(roomMatchMode) || "series".equals(getMatchModeId()); }
+
     /** هل هذا الطور يستخدم منطق الجولات/الإقصاء المشترك. */
     protected boolean usesEliminationRoundFlow() { return false; }
 
@@ -91,6 +93,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     /** هل الطور هو TeamBattle — يُعاد تعريفه في TeamBattleGameActivity */
     protected boolean isTeamBattleMode() { return false; }
+
+    protected int getQuestionsPerRound() { return 5; }
 
     /** هل عمود المنتصف في لوحة النقاط يعرض حالة/أرواح بدل عدد الجولات. */
     protected boolean usesStatusScoreCells() { return usesEliminationRoundFlow(); }
@@ -669,7 +673,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         case "ConfirmRules":
                             person.moveShowHand(1000);
                             if (modeOnline)
-                                showDialog("تتكون المباراة من 3 جولات\nكل جولة من 5 أسئلة", "Rules-1", 1000, -1, R.drawable.mouth_05, false);
+                                showDialog(buildOnlineRulesIntroMessage(), "Rules-1", 1000, -1, R.drawable.mouth_05, false);
                             else
                                 showDialog("أمامك 15 سؤال نحو المليون", "Rules1", 1000, -1, R.drawable.mouth_05, false);
                             break;
@@ -677,7 +681,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                             showDialog("كل إجابة صحيحة تربح قيمتها من النقاط\nوكل إجابة خاطئة تساوي صفر", "Rules0", 1000, -1, R.drawable.mouth_05, false);
                             break;
                         case "Rules0":
-                            showDialog("من يفوز بجولتبن يربح المباراة", "Rules1", 1000, -1, R.drawable.mouth_05, false);
+                            showDialog(buildOnlineVictoryConditionMessage(), "Rules1", 1000, -1, R.drawable.mouth_05, false);
                             break;
                         case "Rules1":
                             person.moveHead(600);
@@ -2060,6 +2064,77 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     /** Called when the question list is exhausted (currentQuestion >= questions.size()). */
     protected void onQuestionsExhausted() {}
 
+    private int getConfiguredRoundCount() {
+        return isSeriesMode() ? Math.max(1, (getSeriesTarget() * 2) - 1) : 3;
+    }
+
+    private int getCompetitiveQuestionCount() {
+        return getConfiguredRoundCount() * getQuestionsPerRound();
+    }
+
+    private int getFinalCompetitiveQuestionIndex() {
+        return Math.max(0, getCompetitiveQuestionCount() - 1);
+    }
+
+    private boolean isRoundBoundaryQuestion(int questionIndex) {
+        return questionIndex >= 0 && ((questionIndex + 1) % getQuestionsPerRound() == 0);
+    }
+
+    private int getResolvedRoundNumber(int questionIndex) {
+        if (questionIndex < 0) {
+            return 0;
+        }
+        return Math.max(1, (questionIndex + 1) / getQuestionsPerRound());
+    }
+
+    private String getRoundLabel(int roundNumber) {
+        switch (roundNumber) {
+            case 1:
+                return "الأولى";
+            case 2:
+                return "الثانية";
+            case 3:
+                return "الثالثة";
+            case 4:
+                return "الرابعة";
+            case 5:
+                return "الخامسة";
+            default:
+                return "رقم " + roundNumber;
+        }
+    }
+
+    private String getRoundLabelForQuestion(int questionIndex) {
+        return getRoundLabel(getResolvedRoundNumber(questionIndex));
+    }
+
+    private String buildOnlineRulesIntroMessage() {
+        int totalRounds = getConfiguredRoundCount();
+        return "تتكون المباراة من " + totalRounds + " جولات\nكل جولة من " + getQuestionsPerRound() + " أسئلة";
+    }
+
+    private String buildOnlineVictoryConditionMessage() {
+        if (isSeriesMode()) {
+            return "من يفوز بـ " + getSeriesTarget() + " جولات يحسم السلسلة";
+        }
+        if (isTeamBattleMode()) {
+            return "الفريق الأكثر حسمًا للجولات يفوز بالمباراة";
+        }
+        return "من يفوز بجولتين يربح المباراة";
+    }
+
+    private ArrayList<Question> trimQuestionsForCurrentMatch(@Nullable ArrayList<Question> loadedQuestions) {
+        ArrayList<Question> safeQuestions = loadedQuestions == null ? new ArrayList<>() : loadedQuestions;
+        if (!modeOnline || isBlitzMode() || usesEliminationRoundFlow()) {
+            return safeQuestions;
+        }
+        int requiredQuestions = Math.min(safeQuestions.size(), getCompetitiveQuestionCount());
+        if (requiredQuestions <= 0 || requiredQuestions >= safeQuestions.size()) {
+            return safeQuestions;
+        }
+        return new ArrayList<>(safeQuestions.subList(0, requiredQuestions));
+    }
+
     private boolean handleLocalTimeoutRemovalIfNeeded() {
         if (!modeOnline || eliminationMode || localPlayerRemoved || myTimeoutStreak < MAX_TIMEOUT_STREAK) {
             return false;
@@ -2220,7 +2295,14 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
 
         updateScoreAndLevel();
-        PlayerProgress.onOnlineMatchFinished(BaseGameActivity.this, false, setMe);
+        PlayerProgress.onOnlineMatchFinished(
+                BaseGameActivity.this,
+                false,
+                setMe,
+                roomMatchMode,
+                false,
+                roomId
+        );
         PlayerStats.recordGameEnd(BaseGameActivity.this, false, gameScoreMe * 1000);
         detachOpponentStatusListener();
         detachOpponentRoundListener();
@@ -2394,8 +2476,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         new Data().getQuestions(gameID, new OnGetQuestionsListener() {
             @Override
             public void onSuccess(ArrayList<Question> questions) {
-                BaseGameActivity.this.questions = questions;
-                questionsReady = questions != null && !questions.isEmpty();
+                BaseGameActivity.this.questions = trimQuestionsForCurrentMatch(questions);
+                questionsReady = !BaseGameActivity.this.questions.isEmpty();
                 questionsLoadFailed = false;
             }
 
@@ -2420,8 +2502,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                     new Data().getGameQuestions(BaseGameActivity.this.gameID, new OnGetQuestionsListener() {
                         @Override
                         public void onSuccess(ArrayList<Question> questions) {
-                            BaseGameActivity.this.questions = questions;
-                            questionsReady = questions != null && !questions.isEmpty();
+                            BaseGameActivity.this.questions = trimQuestionsForCurrentMatch(questions);
+                            questionsReady = !BaseGameActivity.this.questions.isEmpty();
                             questionsLoadFailed = false;
                         }
 
@@ -2645,6 +2727,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         intent.putExtra("myScore", gameScoreMe);
         intent.putExtra("myNewScore", myScore);
         intent.putExtra("mySets", setMe);
+        intent.putExtra("myCorrectAnswers", myTotalCorrectAnswers);
+        intent.putExtra("myEliminated", localPlayerEliminated);
+        intent.putExtra("myLivesRemaining", Math.max(0, myLivesRemaining));
+        intent.putExtra("seriesTarget", isSeriesMode() ? getSeriesTarget() : 0);
+        intent.putExtra("roundDurationSeconds", isBlitzMode() ? getBlitzRoundDurationSeconds() : 0);
         intent.putExtra("opponentSets", getLeaderSets());
         intent.putExtra("myName", myName);
         intent.putExtra("myPhoto", myPhoto);
@@ -2930,6 +3017,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             return;
         }
         if (!"battle".equals(roomMatchMode)
+                && !"elimination".equals(roomMatchMode)
+                && !"survival".equals(roomMatchMode)
+                && !"series".equals(roomMatchMode)
                 && !"team_battle".equals(roomMatchMode)
                 && !"blitz".equals(roomMatchMode)) {
             return;
@@ -2937,10 +3027,19 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
         try {
             JSONObject payload = new JSONObject();
+            int answeredCount = ("series".equals(roomMatchMode) || usesEliminationRoundFlow())
+                    ? myTotalCorrectAnswers
+                    : Math.max(myTotalCorrectAnswers, gameScoreMe);
             payload.put("roomId", roomId);
             payload.put("matchMode", roomMatchMode);
             payload.put("score", gameScoreMe);
-            payload.put("answeredCount", Math.max(myTotalCorrectAnswers, gameScoreMe));
+            payload.put("answeredCount", answeredCount);
+            payload.put("winnerId", getMatchLeaderId());
+            payload.put("mySets", setMe);
+            payload.put("myCorrectAnswers", myTotalCorrectAnswers);
+            payload.put("myEliminated", localPlayerEliminated);
+            payload.put("myLivesRemaining", Math.max(0, myLivesRemaining));
+            payload.put("opponentsJson", buildOpponentsSummaryJson());
             AppPrefs.setPendingRoomMatchResult(this, payload.toString());
         } catch (Exception ignored) {
         }
@@ -2956,11 +3055,14 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 object.put("photo", opponent.photo);
                 object.put("score", opponent.gameScore);
                 object.put("correctAnswers", opponent.totalCorrectAnswers);
+                object.put("answeredCount", opponent.totalCorrectAnswers);
                 object.put("sets", opponent.sets);
                 object.put("bot", opponent.bot);
                 object.put("left", opponent.left);
                 object.put("intelligence", opponent.intelligence);
                 object.put("teamId", opponent.teamId);
+                object.put("eliminated", opponent.eliminated);
+                object.put("livesRemaining", Math.max(0, opponent.livesRemaining));
                 array.put(object);
             }
         } catch (Exception ignored) {
@@ -2981,11 +3083,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private boolean checkScoresMulti() {
-        if ((currentQuestion != 4) && (currentQuestion != 9) && (currentQuestion != 14)) {
+        if (!isRoundBoundaryQuestion(currentQuestion)) {
             return false;
         }
 
-        String setNumLabelResolved = (currentQuestion == 4 ? "الأولى" : (currentQuestion == 9 ? "الثانية" : "الثالثة"));
+        String setNumLabelResolved = getRoundLabelForQuestion(currentQuestion);
 
         if (isTeamBattleMode() && myTeam != null && !myTeam.isEmpty()) {
             // Award the round win to every member of the winning team
@@ -3070,17 +3172,17 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     private int checkEndOfGameMulti() {
         String leaderIdResolved = getMatchLeaderId();
-        int setNumResolved = (currentQuestion == 4 ? 1 : (currentQuestion == 9 ? 2 : 3));
         int leaderSetsResolved = getSetsForPlayer(leaderIdResolved);
+        boolean finalRoundResolved = currentQuestion == getFinalCompetitiveQuestionIndex();
 
-        // إنهاء مبكر: إذا فاز أحد بعدد الجولات المطلوبة قبل نهاية آخر سؤال
-        boolean earlyEnd = (currentQuestion != 14 && leaderSetsResolved >= getSeriesTarget());
-        if (currentQuestion != 14 && !earlyEnd) {
+        // إنهاء مبكر: إذا فاز أحد بعدد الجولات المطلوبة قبل نهاية آخر جولة
+        boolean earlyEnd = !finalRoundResolved && leaderSetsResolved >= getSeriesTarget();
+        if (!finalRoundResolved && !earlyEnd) {
             return -2;
         }
 
         // تعادل: انتهت كل الجولات لكن لم يصل أحد للهدف → الفاصل النقاط الكلية
-        boolean tiedOnSets = (currentQuestion == 14 && leaderSetsResolved < getSeriesTarget());
+        boolean tiedOnSets = finalRoundResolved && leaderSetsResolved < getSeriesTarget();
 
         int resolvedResult;
         if (myID.equals(leaderIdResolved)) {
@@ -4151,6 +4253,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             case 18: return "الثامن عشر";
             case 19: return "التاسع عشر";
             case 20: return "العشرون";
+            case 21: return "الحادي والعشرون";
+            case 22: return "الثاني والعشرون";
+            case 23: return "الثالث والعشرون";
+            case 24: return "الرابع والعشرون";
+            case 25: return "الخامس والعشرون";
             default: return "رقم " + n;
         }
     }

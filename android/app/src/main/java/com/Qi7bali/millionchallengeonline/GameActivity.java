@@ -1902,7 +1902,14 @@ public class GameActivity extends AppCompatActivity {
         }
 
         updateScoreAndLevel();
-        PlayerProgress.onOnlineMatchFinished(GameActivity.this, false, setMe);
+        PlayerProgress.onOnlineMatchFinished(
+                GameActivity.this,
+                false,
+                setMe,
+                "elimination",
+                false,
+                null
+        );
         PlayerStats.recordGameEnd(GameActivity.this, false, gameScoreMe * 1000);
         detachOpponentStatusListener();
         detachOpponentRoundListener();

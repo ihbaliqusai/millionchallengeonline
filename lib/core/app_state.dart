@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../services/auth_service.dart';
 import '../services/native_bridge_service.dart';
+import 'trophy_league.dart';
 
 class AppState extends ChangeNotifier {
   AppState({
@@ -33,33 +34,33 @@ class AppState extends ChangeNotifier {
   bool _claimingStreak = false;
 
   static const List<Map<String, int>> _kStreakRewards = [
-    {'coins': 100,  'gems': 0},
-    {'coins': 150,  'gems': 0},
-    {'coins': 200,  'gems': 1},
-    {'coins': 250,  'gems': 0},
-    {'coins': 300,  'gems': 1},
-    {'coins': 400,  'gems': 2},
-    {'coins': 500,  'gems': 3},
-    {'coins': 300,  'gems': 1},
-    {'coins': 350,  'gems': 1},
-    {'coins': 400,  'gems': 2},
-    {'coins': 450,  'gems': 2},
-    {'coins': 500,  'gems': 3},
-    {'coins': 600,  'gems': 3},
-    {'coins': 800,  'gems': 5},
-    {'coins': 400,  'gems': 2},
-    {'coins': 450,  'gems': 2},
-    {'coins': 500,  'gems': 3},
-    {'coins': 550,  'gems': 3},
-    {'coins': 600,  'gems': 4},
-    {'coins': 700,  'gems': 4},
+    {'coins': 100, 'gems': 0},
+    {'coins': 150, 'gems': 0},
+    {'coins': 200, 'gems': 1},
+    {'coins': 250, 'gems': 0},
+    {'coins': 300, 'gems': 1},
+    {'coins': 400, 'gems': 2},
+    {'coins': 500, 'gems': 3},
+    {'coins': 300, 'gems': 1},
+    {'coins': 350, 'gems': 1},
+    {'coins': 400, 'gems': 2},
+    {'coins': 450, 'gems': 2},
+    {'coins': 500, 'gems': 3},
+    {'coins': 600, 'gems': 3},
+    {'coins': 800, 'gems': 5},
+    {'coins': 400, 'gems': 2},
+    {'coins': 450, 'gems': 2},
+    {'coins': 500, 'gems': 3},
+    {'coins': 550, 'gems': 3},
+    {'coins': 600, 'gems': 4},
+    {'coins': 700, 'gems': 4},
     {'coins': 1000, 'gems': 7},
-    {'coins': 600,  'gems': 3},
-    {'coins': 650,  'gems': 4},
-    {'coins': 700,  'gems': 4},
-    {'coins': 750,  'gems': 5},
-    {'coins': 800,  'gems': 5},
-    {'coins': 900,  'gems': 6},
+    {'coins': 600, 'gems': 3},
+    {'coins': 650, 'gems': 4},
+    {'coins': 700, 'gems': 4},
+    {'coins': 750, 'gems': 5},
+    {'coins': 800, 'gems': 5},
+    {'coins': 900, 'gems': 6},
     {'coins': 1000, 'gems': 7},
     {'coins': 1200, 'gems': 8},
     {'coins': 2000, 'gems': 15},
@@ -79,7 +80,8 @@ class AppState extends ChangeNotifier {
     }
 
     final day = streakDay > 0 ? streakDay : 1;
-    final reward = _kStreakRewards[(day - 1).clamp(0, _kStreakRewards.length - 1)];
+    final reward =
+        _kStreakRewards[(day - 1).clamp(0, _kStreakRewards.length - 1)];
     final rewardCoins = reward['coins'] ?? 0;
     final rewardGems = reward['gems'] ?? 0;
 
@@ -118,8 +120,8 @@ class AppState extends ChangeNotifier {
   int xpInCurrentLevel = 0;
   int xpNeededForLevel = 100;
   int _lastKnownGamesPlayed = -1;
-  int _lastKnownWins        = -1;
-  bool _checkingXp          = false;
+  int _lastKnownWins = -1;
+  bool _checkingXp = false;
 
   static int _computeLevel(int totalXp) {
     int lv = 1;
@@ -148,8 +150,9 @@ class AppState extends ChangeNotifier {
       final doc = await _firestore.collection('users').doc(uid).get();
       final data = doc.data() ?? {};
       xp = (data['xp'] as num?)?.toInt() ?? 0;
-      _lastKnownGamesPlayed = (data['lastKnownGamesPlayed'] as num?)?.toInt() ?? -1;
-      _lastKnownWins        = (data['lastKnownWins']        as num?)?.toInt() ?? -1;
+      _lastKnownGamesPlayed =
+          (data['lastKnownGamesPlayed'] as num?)?.toInt() ?? -1;
+      _lastKnownWins = (data['lastKnownWins'] as num?)?.toInt() ?? -1;
       level = _computeLevel(xp);
       xpInCurrentLevel = _computeXpInLevel(xp);
       xpNeededForLevel = level * 100;
@@ -165,13 +168,15 @@ class AppState extends ChangeNotifier {
         final lastClaim = lastClaimTs.toDate();
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        final lastDay = DateTime(lastClaim.year, lastClaim.month, lastClaim.day);
+        final lastDay =
+            DateTime(lastClaim.year, lastClaim.month, lastClaim.day);
         final diff = today.difference(lastDay).inDays;
         if (diff == 0) {
           streakDay = savedStreakDay.clamp(1, 30);
           claimedToday = true;
         } else if (diff == 1) {
-          streakDay = savedStreakDay >= 30 ? 1 : (savedStreakDay + 1).clamp(1, 30);
+          streakDay =
+              savedStreakDay >= 30 ? 1 : (savedStreakDay + 1).clamp(1, 30);
           claimedToday = false;
         } else {
           // Streak broken — reset to day 1
@@ -179,62 +184,55 @@ class AppState extends ChangeNotifier {
           claimedToday = false;
         }
       }
-
       notifyListeners();
-      // After Firestore data is ready, check for new games immediately
-      unawaited(checkAndAwardXpForGames());
     } catch (e) {
       // Firestore read failed (offline/network). Retain defaults and notify
       // so UI shows day 1 rather than an endless spinner.
       streakDay = streakDay > 0 ? streakDay : 1;
       notifyListeners();
     }
+    unawaited(checkAndAwardXpForGames());
   }
-
-  // XP constants — keep in sync with PlayerProgress.java
-  static const int xpPerWin  = 100;
-  static const int xpPerLoss = 30;
 
   Future<void> checkAndAwardXpForGames() async {
     if (_checkingXp) return;
     _checkingXp = true;
     final uid = user?.uid;
-    if (uid == null) { _checkingXp = false; return; }
+    if (uid == null) {
+      _checkingXp = false;
+      return;
+    }
     try {
       final stats = await _nativeBridgeService.getPlayerStats();
-      final gamesPlayed   = stats['gamesPlayed']   ?? 0;
-      final wins          = stats['wins']           ?? 0;
-      final totalEarnings = stats['totalEarnings']  ?? 0;
+      final gamesPlayed = stats['gamesPlayed'] ?? 0;
+      final wins = stats['wins'] ?? 0;
+      final nativeXp = stats['xp'] ?? xp;
+      final nativeLevel = stats['level'] ?? _computeLevel(nativeXp);
+      final computedTrophies = TrophyProgression.computeTrophies(stats);
+      final statsChanged =
+          gamesPlayed != _lastKnownGamesPlayed || wins != _lastKnownWins;
+      final xpChanged = xp != nativeXp;
+      final levelChanged = level != nativeLevel;
+      final trophiesChanged = trophies != computedTrophies;
 
-      // First run: just snapshot, no XP awarded yet
-      if (_lastKnownGamesPlayed < 0) {
-        _lastKnownGamesPlayed = gamesPlayed;
-        _lastKnownWins        = wins;
-        await _firestore.collection('users').doc(uid).set(
-          {'lastKnownGamesPlayed': _lastKnownGamesPlayed, 'lastKnownWins': _lastKnownWins},
-          SetOptions(merge: true),
-        );
-        return;
+      _lastKnownGamesPlayed = gamesPlayed;
+      _lastKnownWins = wins;
+      xp = nativeXp;
+      level = nativeLevel;
+      xpInCurrentLevel = _computeXpInLevel(nativeXp);
+      xpNeededForLevel = level * 100;
+      trophies = computedTrophies;
+
+      if (xpChanged || levelChanged || trophiesChanged) {
+        notifyListeners();
       }
 
-      final newGames = gamesPlayed - _lastKnownGamesPlayed;
-      if (newGames > 0) {
-        final newWins   = (wins - _lastKnownWins).clamp(0, newGames);
-        final newLosses = newGames - newWins;
-        final earned    = newWins * xpPerWin + newLosses * xpPerLoss;
-
-        xp += earned;
-        _lastKnownGamesPlayed = gamesPlayed;
-        _lastKnownWins        = wins;
-        level             = _computeLevel(xp);
-        xpInCurrentLevel  = _computeXpInLevel(xp);
-        xpNeededForLevel  = level * 100;
-        notifyListeners();
+      if (statsChanged || xpChanged || levelChanged || trophiesChanged) {
         await _firestore.collection('users').doc(uid).set(
           {
             'xp': xp,
             'level': level,
-            'trophies': totalEarnings ~/ 1000,
+            'trophies': trophies,
             'lastKnownGamesPlayed': gamesPlayed,
             'lastKnownWins': wins,
           },
@@ -261,7 +259,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> signIn(String email, String password) async {
-    await _runBusy(() => _authService.signInWithEmail(email: email, password: password));
+    await _runBusy(
+        () => _authService.signInWithEmail(email: email, password: password));
   }
 
   Future<void> register(String email, String password, String username) async {

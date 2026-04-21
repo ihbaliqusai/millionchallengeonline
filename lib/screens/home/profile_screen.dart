@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import '../../core/player_rank.dart';
+import '../../core/trophy_league.dart';
 import '../../services/native_bridge_service.dart';
 
 Future<void> _showEditUsernameDialog(BuildContext context) async {
@@ -22,7 +23,8 @@ Future<void> _showEditUsernameDialog(BuildContext context) async {
           SizedBox(width: 8),
           Text(
             'تغيير الاسم',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
+            style: TextStyle(
+                color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
           ),
         ],
       ),
@@ -46,10 +48,12 @@ Future<void> _showEditUsernameDialog(BuildContext context) async {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFFACC15),
             foregroundColor: const Color(0xFF1F2937),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           onPressed: () => Navigator.pop(ctx, true),
-          child: const Text('حفظ', style: TextStyle(fontWeight: FontWeight.w900)),
+          child:
+              const Text('حفظ', style: TextStyle(fontWeight: FontWeight.w900)),
         ),
       ],
     ),
@@ -92,7 +96,8 @@ class _League {
   final int min;
   final int? max; // null = no cap (top league)
 
-  const _League(this.name, this.nameAr, this.color, this.icon, this.min, this.max);
+  const _League(
+      this.name, this.nameAr, this.color, this.icon, this.min, this.max);
 
   bool contains(int trophies) =>
       trophies >= min && (max == null || trophies <= max!);
@@ -109,13 +114,18 @@ class _League {
 }
 
 const List<_League> _leagues = [
-  _League('Rookie',  'مبتدئ',   Color(0xFF94A3B8), Icons.star_outline_rounded,                  0,    99),
-  _League('Bronze',  'برونز',   Color(0xFFCD7F32), Icons.shield_rounded,                       100,   299),
-  _League('Silver',  'فضة',     Color(0xFFB0C4DE), Icons.shield_rounded,                       300,   599),
-  _League('Gold',    'ذهب',     Color(0xFFFACC15), Icons.military_tech_rounded,                600,   999),
-  _League('Diamond', 'ماسي',    Color(0xFF38BDF8), Icons.diamond_rounded,                     1000,  1999),
-  _League('Master',  'ماستر',   Color(0xFFA855F7), Icons.workspace_premium_rounded,            2000,  3499),
-  _League('Legend',  'أسطورة',  Color(0xFFEF4444), Icons.local_fire_department_rounded,        3500,  null),
+  _League(
+      'Rookie', 'مبتدئ', Color(0xFF94A3B8), Icons.star_outline_rounded, 0, 149),
+  _League('Bronze', 'برونز', Color(0xFFCD7F32), Icons.shield_rounded, 150, 399),
+  _League('Silver', 'فضة', Color(0xFFCBD5E1), Icons.shield_rounded, 400, 799),
+  _League(
+      'Gold', 'ذهب', Color(0xFFFACC15), Icons.military_tech_rounded, 800, 1399),
+  _League('Diamond', 'دايموند', Color(0xFF38BDF8), Icons.diamond_rounded, 1400,
+      2299),
+  _League('Master', 'ماستر', Color(0xFF8B5CF6), Icons.workspace_premium_rounded,
+      2300, 3499),
+  _League('Legend', 'أسطورة', Color(0xFFEF4444),
+      Icons.local_fire_department_rounded, 3500, null),
 ];
 
 _League _leagueFor(int trophies) =>
@@ -143,9 +153,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadStats() async {
     try {
-      final stats = await context.read<NativeBridgeService>().getPlayerStats();
+      final appState = context.read<AppState>();
+      final nativeBridge = context.read<NativeBridgeService>();
+      await appState.checkAndAwardXpForGames();
+      final stats = await nativeBridge.getPlayerStats();
       if (!mounted) return;
-      setState(() { _stats = stats; _loading = false; });
+      setState(() {
+        _stats = stats;
+        _loading = false;
+      });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -153,29 +169,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final appState  = context.watch<AppState>();
-    final user      = appState.user;
-    final username  = (user?.displayName ?? user?.email?.split('@').first ?? 'Player').trim();
-    final uid       = user?.uid ?? '';
-    final level     = appState.level;
+    final appState = context.watch<AppState>();
+    final user = appState.user;
+    final username =
+        (user?.displayName ?? user?.email?.split('@').first ?? 'Player').trim();
+    final uid = user?.uid ?? '';
+    final level = appState.level;
 
     final totalMatches = _stats['gamesPlayed'] ?? 0;
-    final wins         = _stats['wins']        ?? 0;
-    final rawLosses    = totalMatches - wins;
-    final losses       = rawLosses < 0 ? 0 : rawLosses;
-    final winRate      = totalMatches > 0 ? (wins / totalMatches * 100).round() : 0;
-    final winStreak    = _stats['winStreak']   ?? 0;
-    final bestStreak   = _stats['bestStreak']  ?? 0;
+    final wins = _stats['wins'] ?? 0;
+    final rawLosses = totalMatches - wins;
+    final losses = rawLosses < 0 ? 0 : rawLosses;
+    final winRate = totalMatches > 0 ? (wins / totalMatches * 100).round() : 0;
+    final winStreak = _stats['winStreak'] ?? 0;
+    final bestStreak = _stats['bestWinStreak'] ?? 0;
 
     // ── Trophy formula: total earnings ÷ 1000 (كل 1000 ريال = كأس) ──────────
-    final totalEarnings = _stats['totalEarnings'] ?? 0;
-    final trophies = (totalEarnings ~/ 1000).clamp(0, 999999);
+    final trophies = appState.trophies;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0D1B4B),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFACC15)))
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFFFACC15)))
             : SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -191,7 +208,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 12),
                           _sectionLabel('PROFILE'),
                           const SizedBox(height: 8),
-                          _buildProfileCard(username, level, trophies, user?.photoURL),
+                          _buildProfileCard(
+                              username, level, trophies, user?.photoURL),
                           const SizedBox(height: 12),
                           _sectionLabel('ACCOUNT'),
                           const SizedBox(height: 8),
@@ -211,12 +229,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 8),
                           _buildBattleRecord(
                             totalMatches: totalMatches,
-                            wins:         wins,
-                            losses:       losses,
-                            winRate:      winRate,
-                            winStreak:    winStreak,
-                            bestStreak:   bestStreak,
-                            trophies:     trophies,
+                            wins: wins,
+                            losses: losses,
+                            winRate: winRate,
+                            winStreak: winStreak,
+                            bestStreak: bestStreak,
+                            trophies: trophies,
                           ),
                         ],
                       ),
@@ -274,12 +292,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ── Profile Card ─────────────────────────────────────────────────────────────
 
-  Widget _buildProfileCard(String username, int level, int trophies, String? photoUrl) {
-    final rank     = PlayerRank.titleForLevel(level);
-    final rankClr  = PlayerRank.colorForLevel(level);
-    final league   = _leagueFor(trophies);
-    final nextIdx  = _leagues.indexOf(league) + 1;
-    final hasNext  = nextIdx < _leagues.length;
+  Widget _buildProfileCard(
+      String username, int level, int trophies, String? photoUrl) {
+    final rank = PlayerRank.titleForLevel(level);
+    final rankClr = PlayerRank.colorForLevel(level);
+    final league = _leagueFor(trophies);
+    final nextIdx = _leagues.indexOf(league) + 1;
+    final hasNext = nextIdx < _leagues.length;
     final progress = league.progress(trophies);
 
     return Container(
@@ -296,7 +315,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               GestureDetector(
                 onTap: () => _showEditUsernameDialog(context),
-                child: Icon(Icons.edit_rounded, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+                child: Icon(Icons.edit_rounded,
+                    size: 14, color: Colors.white.withValues(alpha: 0.5)),
               ),
             ],
           ),
@@ -314,7 +334,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: ClipOval(
                   child: photoUrl?.isNotEmpty == true
                       ? Image.network(photoUrl!, fit: BoxFit.cover)
-                      : const Icon(Icons.person_rounded, size: 28, color: Colors.white),
+                      : const Icon(Icons.person_rounded,
+                          size: 28, color: Colors.white),
                 ),
               ),
               const SizedBox(width: 10),
@@ -324,7 +345,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Text(
                       username,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white),
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
@@ -332,7 +356,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         Icon(Icons.circle, size: 8, color: rankClr),
                         const SizedBox(width: 4),
-                        Text(rank, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: rankClr)),
+                        Text(rank,
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: rankClr)),
                       ],
                     ),
                   ],
@@ -349,7 +377,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(width: 6),
               Text(
                 '$trophies',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: league.color),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: league.color),
               ),
               const SizedBox(width: 6),
               Container(
@@ -357,11 +388,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: league.color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: league.color.withValues(alpha: 0.4)),
+                  border:
+                      Border.all(color: league.color.withValues(alpha: 0.4)),
                 ),
                 child: Text(
                   league.nameAr,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: league.color),
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: league.color),
                 ),
               ),
             ],
@@ -383,7 +418,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             hasNext
                 ? '${league.trophiesLeft(trophies)} كأس للدوري التالي'
                 : 'أعلى دوري!',
-            style: TextStyle(fontSize: 9, color: Colors.white.withValues(alpha: 0.45)),
+            style: TextStyle(
+                fontSize: 9, color: Colors.white.withValues(alpha: 0.45)),
           ),
 
           // Avatar showcase row (decorative)
@@ -434,23 +470,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFEC4899).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
+              border: Border.all(
+                  color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
             ),
-            child: const Icon(Icons.link_rounded, color: Color(0xFFEC4899), size: 14),
+            child: const Icon(Icons.link_rounded,
+                color: Color(0xFFEC4899), size: 14),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('LINKED!', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF22C55E))),
-                Text('ID: $shortId', style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                const Text('LINKED!',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF22C55E))),
+                Text('ID: $shortId',
+                    style: const TextStyle(fontSize: 9, color: Colors.white54)),
               ],
             ),
           ),
           GestureDetector(
             onTap: () => Clipboard.setData(ClipboardData(text: uid)),
-            child: const Icon(Icons.copy_rounded, size: 14, color: Colors.white38),
+            child:
+                const Icon(Icons.copy_rounded, size: 14, color: Colors.white38),
           ),
         ],
       ),
@@ -477,23 +521,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Column(
         children: [
-          _battleRow(Icons.sports_esports_rounded, const Color(0xFF38BDF8), 'TOTAL BATTLES', '$totalMatches'),
+          _battleRow(Icons.sports_esports_rounded, const Color(0xFF38BDF8),
+              'TOTAL BATTLES', '$totalMatches'),
           const Divider(color: Colors.white12, height: 16),
           Row(
             children: [
-              Expanded(child: _battleTile(Icons.emoji_events_rounded, const Color(0xFFFACC15), 'WINS',   '$wins')),
+              Expanded(
+                  child: _battleTile(Icons.emoji_events_rounded,
+                      const Color(0xFFFACC15), 'WINS', '$wins')),
               const SizedBox(width: 8),
-              Expanded(child: _battleTile(Icons.mood_bad_rounded,     const Color(0xFFEF4444), 'LOSSES', '$losses')),
+              Expanded(
+                  child: _battleTile(Icons.mood_bad_rounded,
+                      const Color(0xFFEF4444), 'LOSSES', '$losses')),
             ],
           ),
           const SizedBox(height: 6),
-          _battleRow(Icons.shield_rounded,                    const Color(0xFF22C55E), 'WIN RATE',    '$winRate%'),
-          _battleRow(Icons.local_fire_department_rounded,     const Color(0xFFF97316), 'WIN STREAK',  '$winStreak'),
-          _battleRow(Icons.military_tech_rounded,             const Color(0xFFFACC15), 'BEST STREAK', '$bestStreak'),
+          _battleRow(Icons.shield_rounded, const Color(0xFF22C55E), 'WIN RATE',
+              '$winRate%'),
+          _battleRow(Icons.local_fire_department_rounded,
+              const Color(0xFFF97316), 'WIN STREAK', '$winStreak'),
+          _battleRow(Icons.military_tech_rounded, const Color(0xFFFACC15),
+              'BEST WIN STREAK', '$bestStreak'),
           const Divider(color: Colors.white12, height: 16),
           // Trophy change per game
           _trophyChangeRow(),
-          _battleRow(Icons.emoji_events_rounded, const Color(0xFFFACC15), 'TROPHIES', '$trophies'),
+          _battleRow(Icons.emoji_events_rounded, const Color(0xFFFACC15),
+              'TROPHIES', '$trophies'),
         ],
       ),
     );
@@ -504,9 +557,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          const Icon(Icons.monetization_on_rounded, color: Color(0xFFFACC15), size: 16),
+          const Icon(Icons.monetization_on_rounded,
+              color: Color(0xFFFACC15), size: 16),
           const SizedBox(width: 8),
-          const Text('أساس الكؤوس', style: TextStyle(fontSize: 11, color: Colors.white54, fontWeight: FontWeight.w700)),
+          const Text('أساس الكؤوس',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white54,
+                  fontWeight: FontWeight.w700)),
           const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -514,7 +572,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: const Color(0xFFFACC15).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(5),
             ),
-            child: const Text('أرباح الألعاب', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFFFACC15))),
+            child: const Text(
+              TrophyProgression.trophyBasisLabelAr,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFFFACC15)),
+            ),
           ),
         ],
       ),
@@ -528,9 +592,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.white54, fontWeight: FontWeight.w700)),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.white54,
+                  fontWeight: FontWeight.w700)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white)),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white)),
         ],
       ),
     );
@@ -551,8 +623,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w700)),
-              Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 9,
+                      color: color.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w700)),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white)),
             ],
           ),
         ],
@@ -563,10 +643,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ── Trophy League Card ────────────────────────────────────────────────────────
 
   Widget _buildTrophyLeagueCard(int trophies) {
-    final league  = _leagueFor(trophies);
-    final lIdx    = _leagues.indexOf(league);
+    final league = _leagueFor(trophies);
+    final lIdx = _leagues.indexOf(league);
     final hasNext = lIdx + 1 < _leagues.length;
-    final next    = hasNext ? _leagues[lIdx + 1] : null;
+    final next = hasNext ? _leagues[lIdx + 1] : null;
     final progress = league.progress(trophies);
 
     return Container(
@@ -600,13 +680,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 6),
                 Text(
                   league.nameAr,
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: league.color),
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: league.color),
                 ),
                 Text(
                   league.max == null
                       ? '${league.min}+ كأس'
                       : '${league.min} – ${league.max} كأس',
-                  style: TextStyle(fontSize: 10, color: league.color.withValues(alpha: 0.7)),
+                  style: TextStyle(
+                      fontSize: 10, color: league.color.withValues(alpha: 0.7)),
                 ),
                 const SizedBox(height: 10),
                 Padding(
@@ -626,7 +710,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   next != null
                       ? '${league.trophiesLeft(trophies)} كأس للـ ${next.nameAr}'
                       : 'أعلى دوري! 🏆',
-                  style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
+                  style: TextStyle(
+                      fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
                 ),
               ],
             ),
@@ -654,8 +739,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Row(
                 children: [
                   Icon(l.icon,
-                      color: achieved ? l.color : Colors.white24,
-                      size: 18),
+                      color: achieved ? l.color : Colors.white24, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -683,20 +767,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   if (isCurrent)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: l.color.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
                         'الآن',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: l.color),
+                        style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: l.color),
                       ),
                     )
                   else if (achieved)
-                    Icon(Icons.check_circle_rounded, color: l.color.withValues(alpha: 0.7), size: 16)
+                    Icon(Icons.check_circle_rounded,
+                        color: l.color.withValues(alpha: 0.7), size: 16)
                   else
-                    const Icon(Icons.lock_rounded, color: Colors.white24, size: 14),
+                    const Icon(Icons.lock_rounded,
+                        color: Colors.white24, size: 14),
                 ],
               ),
             );

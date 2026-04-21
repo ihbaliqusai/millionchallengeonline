@@ -3,6 +3,7 @@ package net.androidgaming.millionaire2024;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
@@ -41,11 +42,17 @@ public class ResultActivity extends AppCompatActivity {
         int opponentScore = getIntent().getIntExtra("opponentScore", 0);
         int mySets = getIntent().getIntExtra("mySets", 0);
         int opponentSets = getIntent().getIntExtra("opponentSets", 0);
+        int myCorrectAnswers = getIntent().getIntExtra("myCorrectAnswers", 0);
+        int myLivesRemaining = getIntent().getIntExtra("myLivesRemaining", 0);
+        int seriesTarget = getIntent().getIntExtra("seriesTarget", 0);
+        int roundDurationSeconds = getIntent().getIntExtra("roundDurationSeconds", 0);
         boolean opponentLeft = getIntent().getBooleanExtra("opponentLeft", false);
         boolean didWin = getIntent().getBooleanExtra("didWin", false);
+        boolean myEliminated = getIntent().getBooleanExtra("myEliminated", false);
         String winnerName = getIntent().getStringExtra("winnerName");
         String opponentsJson = getIntent().getStringExtra("opponentsJson");
         String matchMode = getIntent().getStringExtra("matchMode");
+        String roomId = getIntent().getStringExtra("roomId");
         String myTeam = getIntent().getStringExtra("myTeam");
         String winnerTeamId = getIntent().getStringExtra("winnerTeamId");
         int teamAScore = getIntent().getIntExtra("teamAScore", 0);
@@ -59,20 +66,16 @@ public class ResultActivity extends AppCompatActivity {
         TextView txtMyScore = findViewById(R.id.txtMyScore);
         TextView txtOpponentName = findViewById(R.id.txtOpponentName);
         TextView txtOpponentScore = findViewById(R.id.txtOpponentScore);
+        TextView txtModeTitle = findViewById(R.id.txtModeTitle);
+        TextView txtModeSubtitle = findViewById(R.id.txtModeSubtitle);
         TextView txtResult = findViewById(R.id.txtResult);
         TextView txtScore = findViewById(R.id.txtScore);
+        TextView txtResultDetails = findViewById(R.id.txtResultDetails);
         TextView txtMySets = findViewById(R.id.txtMySets);
         TextView txtOpponentSets = findViewById(R.id.txtOpponentSets);
         LinearLayout llyOpponentsSummary = findViewById(R.id.llyOpponentsSummary);
 
-        JSONArray opponents = new JSONArray();
-        try {
-            if (opponentsJson != null && !opponentsJson.trim().isEmpty()) {
-                opponents = new JSONArray(opponentsJson);
-            }
-        } catch (Exception ignored) {
-        }
-
+        JSONArray opponents = parseOpponents(opponentsJson);
         JSONObject primaryOpponent = selectPrimaryOpponent(opponents, isTeamBattle, myTeam);
         if (primaryOpponent != null) {
             opponentName = primaryOpponent.optString("name", opponentName);
@@ -89,11 +92,11 @@ public class ResultActivity extends AppCompatActivity {
         txtOpponentName.setText(opponentName);
         txtOpponentScore.setText(String.valueOf(opponentScore));
         txtOpponentSets.setText(String.valueOf(opponentSets));
+        txtModeTitle.setText(resolveModeTitle(matchMode));
+        txtModeSubtitle.setText(resolveModeSubtitle(matchMode, seriesTarget, roundDurationSeconds));
 
         if (isTeamBattle) {
-            txtMyName.setText(
-                    myName + "  |  Team " + safeTeamLabel(myTeam)
-            );
+            txtMyName.setText(myName + "  |  Team " + safeTeamLabel(myTeam));
             if (primaryOpponent != null) {
                 txtOpponentName.setText(
                         primaryOpponent.optString("name", opponentName)
@@ -108,62 +111,73 @@ public class ResultActivity extends AppCompatActivity {
             txtOpponentSets.setVisibility(View.GONE);
         }
 
-        PlayerProgress.onOnlineMatchFinished(this, didWin || opponentLeft, mySets);
+        final String completionKey = (roomId == null || roomId.trim().isEmpty())
+                ? null
+                : roomId.trim() + "|" + (matchMode == null ? "battle" : matchMode);
+        PlayerProgress.onOnlineMatchFinished(
+                this,
+                didWin || opponentLeft,
+                mySets,
+                matchMode,
+                true,
+                completionKey
+        );
         PlayerStats.recordGameEnd(this, didWin || opponentLeft, myScore * 1000);
 
-        if (opponentLeft) {
-            txtResult.setText("الخصم غادر المباراة");
-            txtScore.setText("رصيدك الجديد: " + myNewScore);
-        } else if (isTeamBattle) {
-            if (winnerTeamId == null || winnerTeamId.trim().isEmpty()) {
-                txtResult.setText("انتهت مباراة الفرق بتعادل");
-            } else {
-                txtResult.setText("الفريق " + winnerTeamId + " فاز بالمباراة");
-            }
-            txtScore.setText(
-                    "Team A: " + teamAScore
-                            + "  |  Team B: " + teamBScore
-                            + "  |  فريقك: " + safeTeamLabel(myTeam)
-            );
-        } else if (didWin) {
-            txtResult.setText("مبروك، لقد فزت بالمباراة");
-            txtScore.setText("رصيدك الجديد: " + myNewScore);
-        } else {
-            txtResult.setText("للأسف لقد خسرت المباراة");
-            String resolvedWinner = winnerName == null || winnerName.trim().isEmpty()
-                    ? opponentName
-                    : winnerName;
-            txtScore.setText("الفائز: " + resolvedWinner);
-        }
+        final String resolvedWinner = winnerName == null || winnerName.trim().isEmpty()
+                ? opponentName
+                : winnerName;
+
+        txtResult.setText(resolveResultHeadline(matchMode, didWin, opponentLeft, myEliminated, winnerTeamId));
+        txtScore.setText(resolvePerformanceLine(
+                matchMode,
+                myScore,
+                myCorrectAnswers,
+                mySets,
+                opponentSets,
+                myLivesRemaining,
+                myEliminated,
+                myTeam,
+                roundDurationSeconds
+        ));
+        txtResultDetails.setText(resolveResultDetails(
+                matchMode,
+                didWin,
+                opponentLeft,
+                myNewScore,
+                resolvedWinner,
+                winnerTeamId,
+                teamAScore,
+                teamBScore,
+                myTeam,
+                seriesTarget
+        ));
 
         final boolean anySetsNonZero = hasAnySets(opponents, mySets);
-        if (isTeamBattle) {
-            llyOpponentsSummary.addView(buildSummaryTextView(
-                    myName + "  |  Team " + safeTeamLabel(myTeam) + "  |  النقاط: " + myScore
-            ));
-        }
+        llyOpponentsSummary.addView(buildSummaryTextView(
+                buildSelfSummary(
+                        matchMode,
+                        myName,
+                        myScore,
+                        myCorrectAnswers,
+                        mySets,
+                        myTeam,
+                        myEliminated,
+                        myLivesRemaining,
+                        anySetsNonZero
+                ),
+                true
+        ));
 
         for (int i = 0; i < opponents.length(); i++) {
             JSONObject opponent = opponents.optJSONObject(i);
             if (opponent == null) {
                 continue;
             }
-            StringBuilder builder = new StringBuilder();
-            builder.append(opponent.optString("name", "لاعب"));
-            if (isTeamBattle) {
-                builder.append("  |  Team ").append(safeTeamLabel(opponent.optString("teamId", "")));
-            }
-            if (anySetsNonZero) {
-                builder.append("  |  الجولات: ").append(opponent.optInt("sets", 0));
-            }
-            int score = opponent.optInt("score", 0);
-            int correct = opponent.optInt("correctAnswers", score / 10);
-            builder.append("  |  ").append(correct).append(" إجابة صحيحة");
-            builder.append("  |  النقاط: ").append(score);
-            if (opponent.optBoolean("bot", false)) {
-                builder.append("  |  ذكاء: ").append(opponent.optInt("intelligence", 0)).append('%');
-            }
-            llyOpponentsSummary.addView(buildSummaryTextView(builder.toString()));
+            llyOpponentsSummary.addView(buildSummaryTextView(
+                    buildOpponentSummary(matchMode, opponent, anySetsNonZero),
+                    false
+            ));
         }
 
         findViewById(R.id.btnNewGame).setOnClickListener(new View.OnClickListener() {
@@ -186,6 +200,16 @@ public class ResultActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+    }
+
+    private JSONArray parseOpponents(String opponentsJson) {
+        try {
+            if (opponentsJson != null && !opponentsJson.trim().isEmpty()) {
+                return new JSONArray(opponentsJson);
+            }
+        } catch (Exception ignored) {
+        }
+        return new JSONArray();
     }
 
     private JSONObject selectPrimaryOpponent(
@@ -229,17 +253,235 @@ public class ResultActivity extends AppCompatActivity {
         return false;
     }
 
-    private TextView buildSummaryTextView(String text) {
+    private TextView buildSummaryTextView(String text, boolean emphasize) {
         TextView summary = new TextView(this);
         summary.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
-        summary.setTextColor(getResources().getColor(android.R.color.white));
-        summary.setTextSize(18);
-        summary.setPadding(16, 8, 16, 8);
+        summary.setTextColor(getResources().getColor(emphasize
+                ? android.R.color.holo_blue_light
+                : android.R.color.white));
+        summary.setTextSize(emphasize ? 19 : 18);
+        summary.setTypeface(summary.getTypeface(), emphasize ? Typeface.BOLD : Typeface.NORMAL);
+        summary.setPadding(16, emphasize ? 12 : 8, 16, 8);
         summary.setText(text);
         return summary;
+    }
+
+    private String resolveModeTitle(String matchMode) {
+        if ("series".equals(matchMode)) {
+            return "طور السلسلة";
+        }
+        if ("team_battle".equals(matchMode)) {
+            return "طور المعركة الجماعية";
+        }
+        if ("blitz".equals(matchMode)) {
+            return "طور Blitz";
+        }
+        if ("elimination".equals(matchMode)) {
+            return "طور الإقصاء";
+        }
+        if ("survival".equals(matchMode)) {
+            return "طور البقاء";
+        }
+        return "طور المواجهة";
+    }
+
+    private String resolveModeSubtitle(String matchMode, int seriesTarget, int roundDurationSeconds) {
+        if ("series".equals(matchMode) && seriesTarget > 0) {
+            return "أول لاعب يصل إلى " + seriesTarget + " جولات يحسم السلسلة";
+        }
+        if ("team_battle".equals(matchMode)) {
+            return "إجمالي نقاط الفريق هو الذي يحسم المباراة";
+        }
+        if ("blitz".equals(matchMode) && roundDurationSeconds > 0) {
+            return "أجب بأسرع ما يمكن خلال " + roundDurationSeconds + " ثانية";
+        }
+        if ("elimination".equals(matchMode)) {
+            return "خطأ واحد قد يخرج اللاعب من المنافسة";
+        }
+        if ("survival".equals(matchMode)) {
+            return "ثلاث أرواح فقط.. وآخر لاعب صامد يفوز";
+        }
+        return "أفضل أداء عبر الجولات هو الذي يصنع الفارق";
+    }
+
+    private String resolveResultHeadline(
+            String matchMode,
+            boolean didWin,
+            boolean opponentLeft,
+            boolean myEliminated,
+            String winnerTeamId
+    ) {
+        if (opponentLeft) {
+            return "الخصم غادر المباراة";
+        }
+        if ("team_battle".equals(matchMode)) {
+            if (winnerTeamId == null || winnerTeamId.trim().isEmpty()) {
+                return "انتهت معركة الفرق بالتعادل";
+            }
+            return "الفريق " + winnerTeamId + " حسم المواجهة";
+        }
+        if ("blitz".equals(matchMode)) {
+            return didWin ? "أنهيت Blitz في الصدارة" : "انتهت جولة Blitz";
+        }
+        if ("elimination".equals(matchMode)) {
+            if (didWin) {
+                return "نجوت حتى النهاية وتصدرت الإقصاء";
+            }
+            return myEliminated ? "تم إقصاؤك من المنافسة" : "انتهت مباراة الإقصاء";
+        }
+        if ("survival".equals(matchMode)) {
+            if (didWin) {
+                return "كنت آخر لاعب صامد";
+            }
+            return myEliminated ? "نفدت أرواحك في طور البقاء" : "انتهت جولة البقاء";
+        }
+        if ("series".equals(matchMode)) {
+            return didWin ? "حسمت السلسلة لصالحك" : "انتهت السلسلة";
+        }
+        return didWin ? "مبروك، لقد فزت بالمباراة" : "للأسف، لقد خسرت المباراة";
+    }
+
+    private String resolvePerformanceLine(
+            String matchMode,
+            int myScore,
+            int myCorrectAnswers,
+            int mySets,
+            int opponentSets,
+            int myLivesRemaining,
+            boolean myEliminated,
+            String myTeam,
+            int roundDurationSeconds
+    ) {
+        if ("team_battle".equals(matchMode)) {
+            return "نقاطك: " + myScore + "  |  فريقك: " + safeTeamLabel(myTeam);
+        }
+        if ("blitz".equals(matchMode)) {
+            String suffix = roundDurationSeconds > 0 ? "  |  الزمن: " + roundDurationSeconds + "ث" : "";
+            return "إجاباتك الصحيحة: " + myCorrectAnswers + "  |  نقاطك: " + myScore + suffix;
+        }
+        if ("survival".equals(matchMode)) {
+            String status = myEliminated ? "خارج" : ("الأرواح: " + Math.max(0, myLivesRemaining));
+            return status + "  |  الصحيح: " + myCorrectAnswers + "  |  النقاط: " + myScore;
+        }
+        if ("elimination".equals(matchMode)) {
+            return (myEliminated ? "الحالة: خرجت" : "الحالة: نجوت")
+                    + "  |  الصحيح: " + myCorrectAnswers
+                    + "  |  النقاط: " + myScore;
+        }
+        if (mySets > 0 || opponentSets > 0) {
+            return "الجولات: " + mySets + " - " + opponentSets
+                    + "  |  الصحيح: " + myCorrectAnswers
+                    + "  |  النقاط: " + myScore;
+        }
+        return "إجاباتك الصحيحة: " + myCorrectAnswers + "  |  النقاط: " + myScore;
+    }
+
+    private String resolveResultDetails(
+            String matchMode,
+            boolean didWin,
+            boolean opponentLeft,
+            int myNewScore,
+            String resolvedWinner,
+            String winnerTeamId,
+            int teamAScore,
+            int teamBScore,
+            String myTeam,
+            int seriesTarget
+    ) {
+        if (opponentLeft) {
+            return "تم احتساب الفوز لك. رصيدك الجديد: " + myNewScore;
+        }
+        if ("team_battle".equals(matchMode)) {
+            String winnerLine = (winnerTeamId == null || winnerTeamId.trim().isEmpty())
+                    ? "لا يوجد فريق فائز"
+                    : "الفريق الفائز: " + winnerTeamId;
+            return winnerLine
+                    + "  |  Team A: " + teamAScore
+                    + "  |  Team B: " + teamBScore
+                    + "  |  فريقك: " + safeTeamLabel(myTeam);
+        }
+        if (didWin) {
+            if ("series".equals(matchMode) && seriesTarget > 0) {
+                return "أنهيت السلسلة بنجاح. رصيدك الجديد: " + myNewScore;
+            }
+            return "رصيدك الجديد: " + myNewScore;
+        }
+        return "الفائز: " + resolvedWinner;
+    }
+
+    private String buildSelfSummary(
+            String matchMode,
+            String myName,
+            int myScore,
+            int myCorrectAnswers,
+            int mySets,
+            String myTeam,
+            boolean myEliminated,
+            int myLivesRemaining,
+            boolean anySetsNonZero
+    ) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(myName == null || myName.trim().isEmpty() ? "أنت" : myName);
+        if ("team_battle".equals(matchMode)) {
+            builder.append("  |  Team ").append(safeTeamLabel(myTeam));
+        }
+        appendModeState(builder, matchMode, myEliminated, myLivesRemaining, mySets, anySetsNonZero);
+        builder.append("  |  الصحيح: ").append(myCorrectAnswers);
+        builder.append("  |  النقاط: ").append(myScore);
+        return builder.toString();
+    }
+
+    private String buildOpponentSummary(String matchMode, JSONObject opponent, boolean anySetsNonZero) {
+        StringBuilder builder = new StringBuilder();
+        builder.append(opponent.optString("name", "لاعب"));
+        if ("team_battle".equals(matchMode)) {
+            builder.append("  |  Team ").append(safeTeamLabel(opponent.optString("teamId", "")));
+        }
+        appendModeState(
+                builder,
+                matchMode,
+                opponent.optBoolean("eliminated", false),
+                opponent.optInt("livesRemaining", 0),
+                opponent.optInt("sets", 0),
+                anySetsNonZero
+        );
+        int score = opponent.optInt("score", 0);
+        int correct = opponent.optInt(
+                "correctAnswers",
+                opponent.optInt("answeredCount", score / 10)
+        );
+        builder.append("  |  الصحيح: ").append(correct);
+        builder.append("  |  النقاط: ").append(score);
+        if (opponent.optBoolean("bot", false)) {
+            builder.append("  |  ذكاء: ").append(opponent.optInt("intelligence", 0)).append('%');
+        }
+        return builder.toString();
+    }
+
+    private void appendModeState(
+            StringBuilder builder,
+            String matchMode,
+            boolean eliminated,
+            int livesRemaining,
+            int sets,
+            boolean anySetsNonZero
+    ) {
+        if ("survival".equals(matchMode)) {
+            builder.append("  |  ");
+            builder.append(eliminated ? "خارج" : ("الأرواح: " + Math.max(0, livesRemaining)));
+            return;
+        }
+        if ("elimination".equals(matchMode)) {
+            builder.append("  |  ");
+            builder.append(eliminated ? "خارج" : "مستمر");
+            return;
+        }
+        if (anySetsNonZero) {
+            builder.append("  |  الجولات: ").append(sets);
+        }
     }
 
     private String safeTeamLabel(String teamId) {

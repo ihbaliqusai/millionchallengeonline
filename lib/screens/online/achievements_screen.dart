@@ -25,6 +25,7 @@ class _AchDef {
   final String descAr;
   final IconData icon;
   final Color color;
+
   /// Key in the data map to read progress (e.g. 'gamesPlayed', 'wins').
   final String? progressKey;
   final int? progressTarget;
@@ -473,6 +474,58 @@ const _kCategories = [
     ],
   ),
   _Category(
+    titleAr: 'أطوار احترافية',
+    icon: Icons.auto_graph_rounded,
+    color: Color(0xFFF97316),
+    items: [
+      _AchDef(
+        key: 'ACH_BLITZ_FINISH_5',
+        titleAr: 'سريع وحاسم',
+        descAr: 'أكمل 5 مباريات Blitz للنهاية',
+        icon: Icons.flash_on_rounded,
+        color: Color(0xFFF97316),
+        progressKey: 'blitzFinishes',
+        progressTarget: 5,
+      ),
+      _AchDef(
+        key: 'ACH_ELIMINATION_WIN_3',
+        titleAr: 'ملك الإقصاء',
+        descAr: 'افز 3 مرات في طور الإقصاء',
+        icon: Icons.gpp_good_rounded,
+        color: Color(0xFFEF4444),
+        progressKey: 'eliminationWins',
+        progressTarget: 3,
+      ),
+      _AchDef(
+        key: 'ACH_SURVIVAL_WIN_3',
+        titleAr: 'آخر الصامدين',
+        descAr: 'افز 3 مرات في طور البقاء',
+        icon: Icons.favorite_rounded,
+        color: Color(0xFF4ADE80),
+        progressKey: 'survivalWins',
+        progressTarget: 3,
+      ),
+      _AchDef(
+        key: 'ACH_SERIES_WIN_3',
+        titleAr: 'سيد السلاسل',
+        descAr: 'احسم 3 سلاسل كاملة لصالحك',
+        icon: Icons.stacked_line_chart_rounded,
+        color: Color(0xFF38BDF8),
+        progressKey: 'seriesWins',
+        progressTarget: 3,
+      ),
+      _AchDef(
+        key: 'ACH_TEAM_BATTLE_WIN_5',
+        titleAr: 'قائد الفريق',
+        descAr: 'افز 5 مرات في طور Team Battle',
+        icon: Icons.groups_rounded,
+        color: Color(0xFFA78BFA),
+        progressKey: 'teamBattleWins',
+        progressTarget: 5,
+      ),
+    ],
+  ),
+  _Category(
     titleAr: 'إنجازات خاصة',
     icon: Icons.auto_awesome_rounded,
     color: Color(0xFFFBBF24),
@@ -517,11 +570,17 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
 
   Future<void> _loadAchievements() async {
     try {
-      final data =
-          await context.read<NativeBridgeService>().getAchievements();
-      if (mounted) setState(() { _data = data; _loading = false; });
+      final data = await context.read<NativeBridgeService>().getAchievements();
+      if (mounted) {
+        setState(() {
+          _data = data;
+          _loading = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -536,8 +595,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     return _AchStatus.locked;
   }
 
-  int _current(_AchDef a) =>
-      (_data[a.progressKey ?? ''] as num?)?.toInt() ?? 0;
+  int _current(_AchDef a) => (_data[a.progressKey ?? ''] as num?)?.toInt() ?? 0;
 
   // Summary counts
   int get _doneCount =>
@@ -553,8 +611,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       .where((a) => _status(a) == _AchStatus.locked)
       .length;
 
-  int get _totalCount =>
-      _kCategories.fold(0, (s, c) => s + c.items.length);
+  int get _totalCount => _kCategories.fold(0, (s, c) => s + c.items.length);
 
   @override
   Widget build(BuildContext context) {
@@ -574,8 +631,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
             Expanded(
               child: _loading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                          color: Color(0xFFFACC15)))
+                      child:
+                          CircularProgressIndicator(color: Color(0xFFFACC15)))
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(14, 6, 14, 20),
                       itemCount: _kCategories.length,
@@ -587,9 +644,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                             if (ci > 0) const SizedBox(height: 14),
                             _CategoryHeader(cat: cat),
                             const SizedBox(height: 8),
-                            for (int ai = 0;
-                                ai < cat.items.length;
-                                ai++) ...[
+                            for (int ai = 0; ai < cat.items.length; ai++) ...[
                               if (ai > 0) const SizedBox(height: 7),
                               _AchievementCard(
                                 def: cat.items[ai],
@@ -641,8 +696,7 @@ class _Header extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF1E3A8A).withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
               child: const Icon(Icons.arrow_back_rounded,
                   color: Colors.white, size: 20),
@@ -816,8 +870,8 @@ class _AchievementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLocked   = status == _AchStatus.locked;
-    final isDone     = status == _AchStatus.done;
+    final isLocked = status == _AchStatus.locked;
+    final isDone = status == _AchStatus.done;
     final isProgress = status == _AchStatus.progress;
 
     final iconColor = isLocked
@@ -888,15 +942,15 @@ class _AchievementCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFACC15).withValues(alpha: 0.12),
+                          color:
+                              const Color(0xFFFACC15).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.monetization_on_rounded,
-                                size: 10,
-                                color: Color(0xFFFACC15)),
+                                size: 10, color: Color(0xFFFACC15)),
                             SizedBox(width: 2),
                             Text(
                               '250',
@@ -916,12 +970,11 @@ class _AchievementCard extends StatelessWidget {
                   def.descAr,
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.white
-                        .withValues(alpha: isLocked ? 0.22 : 0.5),
+                    color:
+                        Colors.white.withValues(alpha: isLocked ? 0.22 : 0.5),
                   ),
                 ),
-                if (isProgress &&
-                    def.progressTarget != null) ...[
+                if (isProgress && def.progressTarget != null) ...[
                   const SizedBox(height: 7),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(3),

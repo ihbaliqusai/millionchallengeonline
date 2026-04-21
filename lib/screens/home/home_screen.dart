@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../models/room.dart';
 import '../../core/player_rank.dart';
+import '../../core/trophy_league.dart';
 import 'store_screen.dart';
 import 'leaderboard_screen.dart';
 import 'daily_streak_screen.dart';
@@ -88,6 +90,14 @@ class _HomeScreenState extends State<HomeScreen>
       final matchMode = (payload['matchMode'] ?? '').toString().trim();
       final score = (payload['score'] as num?)?.toInt() ?? 0;
       final answeredCount = (payload['answeredCount'] as num?)?.toInt() ?? 0;
+      final winnerId = (payload['winnerId'] ?? '').toString().trim();
+      final mySets = (payload['mySets'] as num?)?.toInt() ?? 0;
+      final myLivesRemaining =
+          (payload['myLivesRemaining'] as num?)?.toInt() ?? 0;
+      final myEliminated = payload['myEliminated'] == true;
+      final opponents = _decodeOpponentsPayload(
+        (payload['opponentsJson'] ?? '').toString(),
+      );
       if (roomId.isEmpty || matchMode.isEmpty) return;
 
       switch (matchMode) {
@@ -112,6 +122,31 @@ class _HomeScreenState extends State<HomeScreen>
             await roomService.processTeamBattleResult(roomId: roomId);
           }
           break;
+        case Room.modeSeries:
+          await roomService.finalizeSeriesMatchFromNative(
+            roomId: roomId,
+            userId: userId,
+            score: score,
+            answeredCount: answeredCount,
+            roundWins: mySets,
+            winnerId: winnerId,
+            opponents: opponents,
+          );
+          break;
+        case Room.modeElimination:
+        case Room.modeSurvival:
+          await roomService.finalizeRoundBasedMatchFromNative(
+            roomId: roomId,
+            userId: userId,
+            matchMode: matchMode,
+            score: score,
+            answeredCount: answeredCount,
+            winnerId: winnerId,
+            myEliminated: myEliminated,
+            myLivesRemaining: myLivesRemaining,
+            opponents: opponents,
+          );
+          break;
         default:
           break;
       }
@@ -120,6 +155,29 @@ class _HomeScreenState extends State<HomeScreen>
     } finally {
       _syncingPendingRoomMatchResult = false;
     }
+  }
+
+  List<Map<String, dynamic>> _decodeOpponentsPayload(String opponentsJson) {
+    final opponents = <Map<String, dynamic>>[];
+    if (opponentsJson.trim().isEmpty) {
+      return opponents;
+    }
+
+    final decoded = jsonDecode(opponentsJson);
+    if (decoded is! List) {
+      return opponents;
+    }
+
+    for (final item in decoded) {
+      if (item is Map) {
+        opponents.add(
+          item.map(
+            (key, value) => MapEntry(key.toString(), value),
+          ),
+        );
+      }
+    }
+    return opponents;
   }
 
   @override
@@ -1206,13 +1264,14 @@ class _PlayerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rankTitle = PlayerRank.titleForLevel(appState.level);
     final rankColor = PlayerRank.colorForLevel(appState.level);
+    final league = TrophyProgression.leagueFor(appState.trophies);
 
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
       ),
       child: Container(
-        width: 160,
+        width: 188,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.65),
@@ -1262,6 +1321,23 @@ class _PlayerCard extends StatelessWidget {
                           fontSize: 11,
                           color: rankColor,
                           fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(league.icon, size: 12, color: league.color),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${appState.trophies} ${league.name}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: league.color,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ],

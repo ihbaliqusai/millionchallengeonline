@@ -29,7 +29,7 @@ android {
     defaultConfig {
         applicationId 'net.androidgaming.millionaire2024'
         // Firebase Auth 24.x requires Android 6.0 / API 23 or newer.
-        minSdkVersion flutter.minSdkVersion
+        minSdkVersion 23
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutter.versionCode
         versionName flutter.versionName

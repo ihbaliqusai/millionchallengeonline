@@ -20,6 +20,6 @@ public class SeriesGameActivity extends BaseGameActivity {
     @Override
     protected int getSeriesTarget() {
         int target = getIntent().getIntExtra("seriesTarget", 2);
-        return Math.max(1, target);
+        return Math.min(3, Math.max(2, target));
     }
 }
