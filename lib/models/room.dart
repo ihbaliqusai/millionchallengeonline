@@ -56,7 +56,7 @@ class RoomPlayer {
         currentAnswer: map['currentAnswer'] as String?,
         lives: _readLives(map, defaultLives: defaultLives),
         roundWins: (map['roundWins'] as num?)?.toInt() ?? 0,
-        teamId: map['teamId'] as String?,
+        teamId: Room.normalizeTeamId(map['teamId'] as String?),
       );
 
   Map<String, dynamic> toMap() => <String, dynamic>{
@@ -69,7 +69,7 @@ class RoomPlayer {
         if (currentAnswer != null) 'currentAnswer': currentAnswer,
         if (lives > 0 || eliminated) 'lives': lives,
         if (roundWins > 0) 'roundWins': roundWins,
-        if (teamId != null) 'teamId': teamId,
+        if (teamId != null) 'teamId': Room.normalizeTeamId(teamId),
       };
 
   RoomPlayer copyWith({
@@ -92,7 +92,7 @@ class RoomPlayer {
       currentAnswer: currentAnswer ?? this.currentAnswer,
       lives: lives ?? this.lives,
       roundWins: roundWins ?? this.roundWins,
-      teamId: teamId ?? this.teamId,
+      teamId: Room.normalizeTeamId(teamId ?? this.teamId),
     );
   }
 
@@ -125,6 +125,9 @@ class Room {
   static const String modeSurvival = 'survival';
   static const String modeSeries = 'series';
   static const String modeTeamBattle = 'team_battle';
+  static const String teamA = 'A';
+  static const String teamB = 'B';
+  static const List<String> teamIds = <String>[teamA, teamB];
 
   static const String phaseLobby = 'lobby';
   static const String phasePlaying = 'playing';
@@ -323,7 +326,7 @@ class Room {
           );
         } else if (rawPlayer is Map) {
           final normalizedPlayer = rawPlayer.map(
-              (key, value) => MapEntry(key.toString(), value),
+            (key, value) => MapEntry(key.toString(), value),
           );
           parsedPlayers[entry.key] = RoomPlayer.fromMap(
             normalizedPlayer,
@@ -369,9 +372,12 @@ class Room {
   List<String> get playerIds => players.keys.toList(growable: false);
 
   bool get isRoundBasedMode =>
-      mode == modeElimination ||
-      mode == modeSurvival ||
-      mode == modeSeries;
+      mode == modeElimination || mode == modeSurvival || mode == modeSeries;
+
+  bool get isDirectScoreMode =>
+      mode == modeBattle || mode == modeBlitz || mode == modeTeamBattle;
+
+  bool get isTeamBattle => mode == modeTeamBattle;
 
   int get aliveCount => players.values.where((p) => !p.eliminated).length;
 
@@ -380,9 +386,74 @@ class Room {
 
   static bool isBotUserId(String userId) => userId.startsWith(botIdPrefix);
 
+  int get teamBattleTeamCapacity =>
+      maxPlayers >= 2 && maxPlayers.isEven ? maxPlayers ~/ 2 : 0;
+
+  int teamSize(String teamId) => players.values
+      .where((player) => player.teamId == normalizeTeamId(teamId))
+      .length;
+
+  int teamScore(String teamId) => players.values
+      .where((player) => player.teamId == normalizeTeamId(teamId))
+      .fold(0, (totalScore, player) => totalScore + player.score);
+
+  Map<String, int> get teamSizes => <String, int>{
+        teamA: teamSize(teamA),
+        teamB: teamSize(teamB),
+      };
+
+  Map<String, int> get teamScores => <String, int>{
+        teamA: teamScore(teamA),
+        teamB: teamScore(teamB),
+      };
+
+  List<MapEntry<String, RoomPlayer>> teamEntries(String teamId) =>
+      players.entries
+          .where((entry) => entry.value.teamId == normalizeTeamId(teamId))
+          .toList(growable: false);
+
+  String? get teamBattleBalanceIssue {
+    if (!isTeamBattle) return null;
+    if (maxPlayers < 2) {
+      return 'Team Battle requires at least 2 slots.';
+    }
+    if (maxPlayers.isOdd) {
+      return 'Team Battle requires an even room size.';
+    }
+    if (playerCount > maxPlayers) {
+      return 'Room has more players than available slots.';
+    }
+    final capacity = teamBattleTeamCapacity;
+    for (final player in players.values) {
+      if (!teamIds.contains(player.teamId)) {
+        return 'Every player must be assigned to Team A or Team B.';
+      }
+    }
+    if (teamSize(teamA) > capacity || teamSize(teamB) > capacity) {
+      return 'One team has too many players for this room size.';
+    }
+    return null;
+  }
+
+  bool get canStartTeamBattleFromLobby => teamBattleBalanceIssue == null;
+
+  bool get isTeamBattleDraw =>
+      isTeamBattle &&
+      phase == phaseFinished &&
+      winnerTeamId == null &&
+      teamScore(teamA) == teamScore(teamB);
+
   static RoomBotProfile botProfile(String userId) {
     final seed = _stableHash(userId);
     return _botProfiles[seed % _botProfiles.length];
+  }
+
+  static String? normalizeTeamId(String? value) {
+    final normalized = value?.trim().toUpperCase();
+    if (normalized == teamA || normalized == teamB) {
+      return normalized;
+    }
+    return null;
   }
 
   static String botDisplayName(String userId) {

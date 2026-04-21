@@ -5,4 +5,9 @@ public class BattleGameActivity extends BaseGameActivity {
     protected int getLayoutResId() {
         return R.layout.activity_game_battle;
     }
+
+    @Override
+    protected String getMatchModeId() {
+        return "battle";
+    }
 }

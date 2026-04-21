@@ -5,7 +5,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    tools:context=".GameActivity"
+    tools:context=".TeamBattleGameActivity"
     android:orientation="vertical"
     >
 
@@ -21,6 +21,18 @@
             android:scaleType="centerCrop"
             android:src="@drawable/bg_game2"
             android:contentDescription="@string/todo5" />
+
+        <View
+            android:layout_width="220dp"
+            android:layout_height="match_parent"
+            android:layout_alignParentStart="true"
+            android:background="@drawable/bg_team_battle_glow_left" />
+
+        <View
+            android:layout_width="220dp"
+            android:layout_height="match_parent"
+            android:layout_alignParentEnd="true"
+            android:background="@drawable/bg_team_battle_glow_right" />
 
         <!-- LIGHTS -->
         <ImageView
@@ -686,7 +698,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:layout_marginLeft="10dp"
-            android:background="@drawable/score_panel"
+            android:background="@drawable/bg_team_battle_score_panel"
             android:orientation="vertical"
             android:visibility="invisible"
             >
@@ -696,7 +708,7 @@
                 android:id="@+id/llyScoreHeader"
                 android:layout_width="match_parent"
                 android:layout_height="28dp"
-                android:background="@drawable/score_header"
+                android:background="@drawable/bg_team_battle_score_header"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingLeft="6dp"
@@ -743,6 +755,36 @@
                     android:textColor="@color/panelStroke"
                     android:textSize="11sp"
                     />
+            </LinearLayout>
+
+            <!-- Team section header (team battle only, shown via Java) -->
+            <LinearLayout
+                android:id="@+id/llyMyTeamHeader"
+                android:layout_width="match_parent"
+                android:layout_height="20dp"
+                android:background="#1A3B82F6"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingLeft="8dp"
+                android:paddingRight="8dp"
+                android:visibility="gone">
+
+                <View
+                    android:id="@+id/viewMyTeamBar"
+                    android:layout_width="3dp"
+                    android:layout_height="12dp"
+                    android:layout_marginRight="5dp"
+                    android:background="#FF3B82F6" />
+
+                <TextView
+                    android:id="@+id/txtMyTeamHeader"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/baloo"
+                    android:text="TEAM A"
+                    android:textColor="#FF3B82F6"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <!-- Me row -->
@@ -838,6 +880,113 @@
                 android:orientation="vertical"
                 android:paddingBottom="4dp"
                 />
+
+            <!-- Team totals — shown at the bottom of the score panel -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginLeft="8dp"
+                android:layout_marginRight="8dp"
+                android:background="#336FBADC"
+                />
+
+            <LinearLayout
+                android:id="@+id/llyTeamBattleHero"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:paddingLeft="8dp"
+                android:paddingTop="6dp"
+                android:paddingRight="8dp"
+                android:paddingBottom="6dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:id="@+id/cardTeamA"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_team_battle_team_a_card"
+                        android:elevation="2dp"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:paddingTop="5dp"
+                        android:paddingBottom="5dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/baloo"
+                            android:text="TEAM A"
+                            android:textColor="#E0F2FE"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtTeamAHeroScore"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:fontFamily="@font/baloo"
+                            android:text="0"
+                            android:textColor="#FFFFFF"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:layout_marginLeft="4dp"
+                        android:layout_marginRight="4dp"
+                        android:background="@drawable/bg_team_battle_vs_chip"
+                        android:fontFamily="@font/baloo"
+                        android:gravity="center"
+                        android:text="VS"
+                        android:textColor="#111827"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/cardTeamB"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_team_battle_team_b_card"
+                        android:elevation="2dp"
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:paddingTop="5dp"
+                        android:paddingBottom="5dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/baloo"
+                            android:text="TEAM B"
+                            android:textColor="#FFE4E6"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtTeamBHeroScore"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:fontFamily="@font/baloo"
+                            android:text="0"
+                            android:textColor="#FFFFFF"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
 
         </LinearLayout>
 
@@ -1057,10 +1206,15 @@
             android:id="@+id/llyPlayer1"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_alignParentLeft="true"
+            android:layout_marginTop="280dp"
             android:orientation="vertical"
-            android:layout_toRightOf="@id/rlyProgressbar"
-            android:layout_marginTop="10dp"
             android:layout_marginLeft="20dp"
+            android:background="@drawable/bg_team_battle_panel_blue"
+            android:paddingLeft="12dp"
+            android:paddingTop="10dp"
+            android:paddingRight="12dp"
+            android:paddingBottom="10dp"
             android:visibility="invisible"
             >
             <de.hdodenhof.circleimageview.CircleImageView
@@ -1080,15 +1234,21 @@
                 android:fontFamily="@font/baloo"
                 />
         </LinearLayout>
+
         <HorizontalScrollView
             android:id="@+id/scrollOpponents"
-            android:layout_width="220dp"
+            android:layout_width="240dp"
             android:layout_height="wrap_content"
-            android:layout_toLeftOf="@id/rlyProgressbar"
-            android:layout_marginTop="10dp"
+            android:layout_alignParentLeft="true"
+            android:layout_marginTop="280dp"
             android:layout_marginRight="12dp"
+            android:background="@drawable/bg_team_battle_panel_red"
             android:fillViewport="false"
             android:overScrollMode="never"
+            android:paddingLeft="10dp"
+            android:paddingTop="10dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="10dp"
             android:scrollbars="none"
             android:visibility="invisible">
 
@@ -1108,75 +1268,6 @@
             android:background="#4D000000"
             android:visibility="invisible"
             android:contentDescription="@string/todo26" />
-
-        <!-- TEAM SCORES -->
-        <LinearLayout
-            android:id="@+id/llyTeamScores"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentBottom="true"
-            android:layout_centerHorizontal="true"
-            android:layout_marginBottom="8dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:background="#AA000000"
-            android:paddingLeft="12dp"
-            android:paddingRight="12dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            >
-            <!-- Team A -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="A"
-                android:textColor="#FF3B82F6"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:fontFamily="@font/baloo"
-                />
-            <TextView
-                android:id="@+id/txtTeamAScore"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:textColor="#FF3B82F6"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:fontFamily="@font/baloo"
-                android:layout_marginLeft="4dp"
-                />
-            <!-- VS -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text=" vs "
-                android:textColor="#FFAAAAAA"
-                android:textSize="12sp"
-                android:fontFamily="@font/baloo"
-                />
-            <!-- Team B -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="B"
-                android:textColor="#FFEF4444"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:fontFamily="@font/baloo"
-                />
-            <TextView
-                android:id="@+id/txtTeamBScore"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="0"
-                android:textColor="#FFEF4444"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:fontFamily="@font/baloo"
-                android:layout_marginLeft="4dp"
-                />
-        </LinearLayout>
 
     </RelativeLayout>
 

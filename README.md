@@ -81,7 +81,25 @@ This project keeps the original Android millionaire quiz gameplay and adds a new
 - `blitz`: timed score race.
 - `survival`: each player starts with 3 lives, correct answers give +1 score, wrong answers remove 1 life, and eliminated players stay out.
 - `series`: best-of-N round flow.
-- `team_battle`: team-vs-team score aggregation.
+- `team_battle`: team-vs-team score aggregation with individual score tracking.
+
+### Team Battle room flow
+- Phase order: `lobby` -> `playing` -> `finished`
+- Team Battle is intended for `2`-player and `4`-player rooms:
+  - `2` players = `1v1`
+  - `4` players = `2v2`
+- Players are assigned to `Team A` or `Team B`.
+- In the lobby, players can switch teams before the room starts.
+- The room service keeps teams balanced and rejects invalid distributions where one team exceeds its capacity.
+- If the host starts early, any open seats are filled with bots and assigned to the team that restores balance.
+- Each player finishes their own normal run and stores:
+  - `score`
+  - `answeredCount`
+  - `completedAt`
+  - `teamId`
+- Team totals are computed from the sum of each member's individual score.
+- When all human players have submitted, any pending bots are finalized, team totals are compared, and the room moves to `finished`.
+- Ties are deterministic draws: the room keeps `winnerTeamId` empty when Team A and Team B finish on the same total.
 
 ### Survival room flow
 - Phase order: `lobby` -> `playing_round` -> `round_over` -> `finished`
@@ -102,18 +120,29 @@ The room document stores:
 - per-player room state: `score`, `ready`, `answeredCount`, `completedAt`, `currentAnswer`, `lives`, `eliminated`, `roundWins`, and `teamId`
 - `winnerId` / `winnerTeamId`
 
+For Team Battle, the important Firestore fields are:
+- `mode: 'team_battle'`
+- `phase: 'lobby' | 'playing' | 'finished'`
+- `players.{uid}.teamId`
+- `players.{uid}.score`
+- `players.{uid}.answeredCount`
+- `players.{uid}.completedAt`
+- `winnerTeamId`
+
 ## Important notes
 
 - The original native Android millionaire game is still launched from Flutter using the existing `millionaire/native` method channel.
 - The new online mode is implemented in Flutter to avoid breaking the original gameplay codebase.
 - Open public matchmaking still behaves like a lightweight direct match flow, while room mode supports more than two players.
 - Survival bots use the same room-state rules as human players and can lose lives or be eliminated.
+- Team Battle results are still played in the native bridge, but the final per-player scores are synced back into the Firestore room document when the player returns to Flutter.
 - If you want stronger anti-cheat guarantees later, move score validation and round progression into Firebase Cloud Functions.
 
 ## Known limitations
 
 - The room layer keeps multiplayer room state in Cloud Firestore, while the existing native gameplay layer still uses its legacy bridge/data flow.
 - There is no Cloud Functions authority layer yet, so room validation still runs on the client.
+- Team Battle is tuned around balanced `1v1` and `2v2` rooms; larger uneven team formats are intentionally not supported.
 
 ## Recommended next improvements
 

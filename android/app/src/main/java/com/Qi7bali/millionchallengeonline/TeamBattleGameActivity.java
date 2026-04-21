@@ -1,20 +1,25 @@
 package net.androidgaming.millionaire2024;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.TextView;
 
-/**
- * TeamBattle — فريقان (A مقابل B)، المجموع الكلي لنقاط الفريق يحدد الفائز.
- * يُعاد تعريف منطق نهاية المباراة لجمع نقاط كل فريق ومقارنتهما.
- */
 public class TeamBattleGameActivity extends BaseGameActivity {
 
-    private TextView txtTeamAScore;
-    private TextView txtTeamBScore;
+    private TextView txtTeamAHeroScore;
+    private TextView txtTeamBHeroScore;
+    private View cardTeamA;
+    private View cardTeamB;
 
     @Override
     protected int getLayoutResId() {
         return R.layout.activity_game_team_battle;
+    }
+
+    @Override
+    protected String getMatchModeId() {
+        return "team_battle";
     }
 
     @Override
@@ -25,65 +30,104 @@ public class TeamBattleGameActivity extends BaseGameActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        txtTeamAScore = findViewById(R.id.txtTeamAScore);
-        txtTeamBScore = findViewById(R.id.txtTeamBScore);
+        txtTeamAHeroScore = findViewById(R.id.txtTeamAHeroScore);
+        txtTeamBHeroScore = findViewById(R.id.txtTeamBHeroScore);
+        cardTeamA = findViewById(R.id.cardTeamA);
+        cardTeamB = findViewById(R.id.cardTeamB);
+        applyTeamIdentityVisuals();
         updateTeamScores();
     }
 
-    // ── حساب مجموع نقاط كل فريق ─────────────────────────────────────────────
+    private void applyTeamIdentityVisuals() {
+        final boolean iAmA = "A".equals(myTeam);
 
-    /** نقاط فريقي: مجموع نقاط اللاعبين في نفس الفريق (أنا + زملائي). */
+        if (cardTeamA != null && cardTeamB != null) {
+            cardTeamA.setAlpha(iAmA ? 1f : 0.78f);
+            cardTeamB.setAlpha(iAmA ? 0.78f : 1f);
+            cardTeamA.setScaleX(iAmA ? 1.04f : 1f);
+            cardTeamA.setScaleY(iAmA ? 1.04f : 1f);
+            cardTeamB.setScaleX(iAmA ? 1f : 1.04f);
+            cardTeamB.setScaleY(iAmA ? 1f : 1.04f);
+        }
+    }
+
     protected int getMyTeamScore() {
         int total = gameScoreMe;
-        for (MatchOpponent op : getOpponentsList()) {
-            if (myTeam != null && myTeam.equals(op.teamId)) {
-                total += op.gameScore;
+        for (MatchOpponent opponent : getOpponentsList()) {
+            if (myTeam != null && myTeam.equals(opponent.teamId)) {
+                total += opponent.gameScore;
             }
         }
         return total;
     }
 
-    /** نقاط الفريق المنافس. */
     protected int getEnemyTeamScore() {
         int total = 0;
-        for (MatchOpponent op : getOpponentsList()) {
-            if (myTeam == null || !myTeam.equals(op.teamId)) {
-                total += op.gameScore;
+        for (MatchOpponent opponent : getOpponentsList()) {
+            if (myTeam == null || !myTeam.equals(opponent.teamId)) {
+                total += opponent.gameScore;
             }
         }
         return total;
     }
 
-    /** تحديث عرض نقاط الفريقين في الشاشة. */
     protected void updateTeamScores() {
-        if (txtTeamAScore == null || txtTeamBScore == null) return;
         final boolean iAmA = "A".equals(myTeam);
-        final int myScore   = getMyTeamScore();
-        final int eneScore  = getEnemyTeamScore();
+        final int myScore = getMyTeamScore();
+        final int enemyScore = getEnemyTeamScore();
         runOnUiThread(() -> {
-            if (iAmA) {
-                txtTeamAScore.setText(String.valueOf(myScore));
-                txtTeamBScore.setText(String.valueOf(eneScore));
-            } else {
-                txtTeamBScore.setText(String.valueOf(myScore));
-                txtTeamAScore.setText(String.valueOf(eneScore));
+            if (txtTeamAHeroScore != null) {
+                txtTeamAHeroScore.setText(String.valueOf(iAmA ? myScore : enemyScore));
+            }
+            if (txtTeamBHeroScore != null) {
+                txtTeamBHeroScore.setText(String.valueOf(iAmA ? enemyScore : myScore));
             }
         });
     }
-
-    // ── تحديث نقاط الفريق بعد كل جولة ──────────────────────────────────────
 
     @Override
     protected void onRoundMetricsApplied() {
         updateTeamScores();
     }
 
-    // ── منطق الفوز: نلعب جميع الجولات، الأعلى نقاطاً يفوز ──────────────────
+    private int getScoreForTeam(String teamId) {
+        int total = teamId != null && teamId.equals(myTeam) ? gameScoreMe : 0;
+        for (MatchOpponent opponent : getOpponentsList()) {
+            if (teamId != null && teamId.equals(opponent.teamId)) {
+                total += opponent.gameScore;
+            }
+        }
+        return total;
+    }
+
+    @Override
+    protected OnlineResultState buildOnlineResultState() {
+        final int teamAScore = getScoreForTeam("A");
+        final int teamBScore = getScoreForTeam("B");
+        final String winnerTeamId = teamAScore > teamBScore
+                ? "A"
+                : (teamBScore > teamAScore ? "B" : "");
+        final boolean didWin = !winnerTeamId.isEmpty() && winnerTeamId.equals(myTeam);
+        final String winnerName = winnerTeamId.isEmpty() ? "" : ("Team " + winnerTeamId);
+        final int opponentBestScore = "A".equals(myTeam) ? teamBScore : teamAScore;
+        return new OnlineResultState(didWin, winnerName, opponentBestScore);
+    }
+
+    @Override
+    protected void applyModeSpecificResultIntent(Intent intent, OnlineResultState resultState) {
+        final int teamAScore = getScoreForTeam("A");
+        final int teamBScore = getScoreForTeam("B");
+        final String winnerTeamId = teamAScore > teamBScore
+                ? "A"
+                : (teamBScore > teamAScore ? "B" : "");
+        intent.putExtra("isTeamBattle", true);
+        intent.putExtra("teamAScore", teamAScore);
+        intent.putExtra("teamBScore", teamBScore);
+        intent.putExtra("winnerTeamId", winnerTeamId);
+    }
 
     @Override
     protected int getSeriesTarget() {
-        // seriesTarget = 99 → لن يُحقَّق أبداً بـ 3 جولات فقط
-        // ∴ تنتهي المباراة دائماً بعد السؤال 14 بمقارنة مجموع النقاط الكلية
         return 99;
     }
 }

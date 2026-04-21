@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -130,7 +130,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), behavior: SnackBarBehavior.floating),
+        SnackBar(
+            content: Text(e.toString()), behavior: SnackBarBehavior.floating),
       );
     }
   }
@@ -156,7 +157,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(e.toString()), behavior: SnackBarBehavior.floating),
+        SnackBar(
+            content: Text(e.toString()), behavior: SnackBarBehavior.floating),
       );
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -196,7 +198,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(e.toString()), behavior: SnackBarBehavior.floating),
+        SnackBar(
+            content: Text(e.toString()), behavior: SnackBarBehavior.floating),
       );
     } finally {
       if (mounted) setState(() => _starting = false);
@@ -224,8 +227,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   }) async {
     final profileService = context.read<ProfileService>();
     final nativeBridgeService = context.read<NativeBridgeService>();
-    final opponentIds =
-        room.playerIds.where((id) => id != currentUserId).toList(growable: false);
+    final opponentIds = room.playerIds
+        .where((id) => id != currentUserId)
+        .toList(growable: false);
     final opponents = <Map<String, dynamic>>[];
 
     for (final opponentId in opponentIds) {
@@ -248,7 +252,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       if (_needsProfileHydration(opponentProfile)) {
         try {
           final fetched = await profileService.fetchProfile(opponentId);
-          if (_hasMoreProfileData(current: opponentProfile, candidate: fetched)) {
+          if (_hasMoreProfileData(
+              current: opponentProfile, candidate: fetched)) {
             opponentProfile = fetched;
           }
         } catch (_) {}
@@ -279,6 +284,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
 
     if (!mounted) return;
     await nativeBridgeService.launchLegacyRoomMatch(
+      roomId: room.id,
       opponents: opponents,
       meOwner: currentUserId == room.hostId,
       matchMode: matchMode,
@@ -311,7 +317,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
           context: context,
           builder: (context) => Dialog(
             backgroundColor: const Color(0xFF152055),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -339,7 +346,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                   Text(
                     'You will be removed from the waiting room.',
                     style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 14),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
@@ -442,7 +450,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
 
                   // Room closed
                   if (room == null) {
-                    return _ClosedState(onBack: () => Navigator.of(context).pop());
+                    return _ClosedState(
+                        onBack: () => Navigator.of(context).pop());
                   }
 
                   if (!room.containsPlayer(currentUserId)) {
@@ -458,8 +467,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                     stream:
                         context.read<ProfileService>().watchProfiles(playerIds),
                     builder: (context, profileSnapshot) {
-                      final profiles =
-                          profileSnapshot.data ?? const <String, PlayerProfile>{};
+                      final profiles = profileSnapshot.data ??
+                          const <String, PlayerProfile>{};
                       final sortedIds = room.playerIds
                         ..sort((a, b) {
                           if (a == room.hostId) return -1;
@@ -473,20 +482,22 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                           currentUserId == room.hostId;
 
                       // Round-based modes re-launch native for every new round.
-                      const roundBasedModes = {'elimination', 'survival', 'series'};
+                      const roundBasedModes = {
+                        'elimination',
+                        'survival',
+                        'series'
+                      };
                       final isRoundBased = roundBasedModes.contains(room.mode);
-                      final shouldLaunch = room.started && (
-                        (!isRoundBased && !_navigatedToGame) ||
-                        (isRoundBased &&
-                          room.phase == 'playing_round' &&
-                          room.startedAt != null &&
-                          room.startedAt != _lastLaunchedRoundAt)
-                      );
+                      final shouldLaunch = room.started &&
+                          ((!isRoundBased && !_navigatedToGame) ||
+                              (isRoundBased &&
+                                  room.phase == 'playing_round' &&
+                                  room.startedAt != null &&
+                                  room.startedAt != _lastLaunchedRoundAt));
                       if (shouldLaunch) {
                         _navigatedToGame = true;
                         _lastLaunchedRoundAt = room.startedAt;
-                        WidgetsBinding.instance
-                            .addPostFrameCallback((_) async {
+                        WidgetsBinding.instance.addPostFrameCallback((_) async {
                           if (!mounted) return;
                           await _launchNativeMatchIfPossible(
                             room: room,
@@ -563,8 +574,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                   );
                                 }
                                 return Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      14, 0, 14, 14),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(14, 0, 14, 14),
                                   child: Row(
                                     children: [
                                       Expanded(flex: 6, child: playersPanel),
@@ -611,9 +622,13 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     if (candidate == null) return false;
     if (current == null) return true;
     if (current.username.trim().isEmpty &&
-        candidate.username.trim().isNotEmpty) { return true; }
+        candidate.username.trim().isNotEmpty) {
+      return true;
+    }
     if ((current.photoUrl ?? '').trim().isEmpty &&
-        (candidate.photoUrl ?? '').trim().isNotEmpty) { return true; }
+        (candidate.photoUrl ?? '').trim().isNotEmpty) {
+      return true;
+    }
     return false;
   }
 }
@@ -682,8 +697,9 @@ class _LobbyHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final modeColor = _roomModeColor(room.mode);
     final phaseColor = _roomPhaseColor(room.phase);
-    final aliveCount =
-        room.mode == Room.modeSurvival ? room.survivalAliveCount : room.aliveCount;
+    final aliveCount = room.mode == Room.modeSurvival
+        ? room.survivalAliveCount
+        : room.aliveCount;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -834,9 +850,7 @@ class _PlayersPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTeamBattle = room.mode == 'team_battle';
-    final totalSlots = room.maxPlayers;
-    final emptyCount = totalSlots - sortedIds.length;
+    final isTeamBattle = room.mode == Room.modeTeamBattle;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -848,21 +862,28 @@ class _PlayersPanel extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-            color: const Color(0xFF7C3AED).withValues(alpha: 0.4), width: 1.5),
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+          width: 1.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.groups_rounded, color: Color(0xFFA78BFA), size: 18),
+              const Icon(
+                Icons.groups_rounded,
+                color: Color(0xFFA78BFA),
+                size: 18,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Players',
                 style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
               ),
               if (isTeamBattle) ...[
                 const Spacer(),
@@ -871,48 +892,324 @@ class _PlayersPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          if (isTeamBattle) _buildTeamBattleOverview(),
+          if (isTeamBattle) const SizedBox(height: 12),
           Expanded(
-            child: ListView(
-              children: [
-                ...sortedIds.map((id) {
-                  final player = room.players[id]!;
-                  final profile = profiles[id];
-                  final isBot = Room.isBotUserId(id);
-                  final botProfile = isBot ? Room.botProfile(id) : null;
-                  final isMe = id == currentUserId;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _PlayerTile(
-                      isHost: id == room.hostId,
-                      isCurrentUser: isMe,
-                      isBot: isBot,
-                      username: isBot
-                          ? botProfile!.displayName
-                          : profile?.username ??
-                              _RoomLobbyScreenState._fallbackName(id),
-                      photoUrl: profile?.photoUrl,
-                      botSeed: botProfile?.avatarSeed ?? 0,
-                      botIntelligence: botProfile?.intelligence,
-                      ready: player.ready,
-                      roomStarted: room.started,
-                      mode: room.mode,
-                      phase: room.phase,
-                      score: player.score,
-                      lives: player.lives,
-                      eliminated: player.eliminated,
-                      teamId: isTeamBattle ? player.teamId : null,
-                      canSwitchTeam: isTeamBattle && isMe && !room.started,
-                      roomId: room.id,
-                      userId: id,
+            child: isTeamBattle
+                ? _buildTeamBattleRoster()
+                : ListView(
+                    children: [
+                      ...sortedIds.map(_buildPlayerTile),
+                      ...List.generate(
+                        math.max(0, room.maxPlayers - sortedIds.length),
+                        (i) => const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: _EmptySlot(),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeamBattleOverview() {
+    final teamSizes = room.teamSizes;
+    final teamScores = room.teamScores;
+    final balanceIssue = room.teamBattleBalanceIssue;
+    final isDraw = room.isTeamBattleDraw;
+    final subtitle = balanceIssue ??
+        (room.phase == Room.phaseFinished
+            ? (room.winnerTeamId != null
+                ? 'Team ${room.winnerTeamId} wins on total score.'
+                : 'The teams finished level on points.')
+            : room.playerCount < room.maxPlayers
+                ? 'Open seats will be filled with balanced bots when the host starts.'
+                : 'Teams are locked in and ready to play.');
+
+    final accentColor = balanceIssue != null
+        ? const Color(0xFFEF4444)
+        : room.winnerTeamId == Room.teamA
+            ? const Color(0xFF3B82F6)
+            : room.winnerTeamId == Room.teamB
+                ? const Color(0xFFEF4444)
+                : isDraw
+                    ? const Color(0xFFFACC15)
+                    : const Color(0xFF10B981);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: accentColor.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.flag_rounded, color: accentColor, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                room.phase == Room.phaseFinished
+                    ? (room.winnerTeamId != null
+                        ? 'Winning Team: ${room.winnerTeamId}'
+                        : 'Final Result: Draw')
+                    : 'Team Balance Status',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TeamOverviewChip(
+                teamId: Room.teamA,
+                score: teamScores[Room.teamA] ?? 0,
+                sizeLabel:
+                    '${teamSizes[Room.teamA] ?? 0}/${room.teamBattleTeamCapacity}',
+              ),
+              _TeamOverviewChip(
+                teamId: Room.teamB,
+                score: teamScores[Room.teamB] ?? 0,
+                sizeLabel:
+                    '${teamSizes[Room.teamB] ?? 0}/${room.teamBattleTeamCapacity}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeamBattleRoster() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked = constraints.maxWidth < 860;
+        final teamASection = _buildTeamSection(Room.teamA);
+        final teamBSection = _buildTeamSection(Room.teamB);
+        if (stacked) {
+          return ListView(
+            children: [
+              teamASection,
+              const SizedBox(height: 12),
+              teamBSection,
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: teamASection),
+            const SizedBox(width: 12),
+            Expanded(child: teamBSection),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTeamSection(String teamId) {
+    final isA = teamId == Room.teamA;
+    final color = isA ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
+    final teamPlayerIds = sortedIds
+        .where((id) => room.players[id]?.teamId == teamId)
+        .toList(growable: false);
+    final emptyCount =
+        math.max(0, room.teamBattleTeamCapacity - teamPlayerIds.length);
+    final isWinningTeam = room.phase == Room.phaseFinished &&
+        room.winnerTeamId != null &&
+        room.winnerTeamId == teamId;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withValues(alpha: isWinningTeam ? 0.6 : 0.3),
+          width: isWinningTeam ? 1.6 : 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.groups_2_rounded,
+                  color: color,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Team $teamId',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              if (isWinningTeam)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFACC15).withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: const Color(0xFFFACC15).withValues(alpha: 0.42),
                     ),
-                  );
-                }),
-                // Empty slots
-                ...List.generate(emptyCount, (i) => const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: _EmptySlot(),
-                )),
-              ],
+                  ),
+                  child: const Text(
+                    'Winner',
+                    style: TextStyle(
+                      color: Color(0xFFFACC15),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MiniChip(
+                label: 'Total ${room.teamScore(teamId)}',
+                color: color,
+              ),
+              _MiniChip(
+                label:
+                    'Roster ${room.teamSize(teamId)}/${room.teamBattleTeamCapacity}',
+                color: Colors.white,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...teamPlayerIds.map(_buildPlayerTile),
+          ...List.generate(
+            emptyCount,
+            (i) => const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: _EmptySlot(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayerTile(String id) {
+    final player = room.players[id]!;
+    final profile = profiles[id];
+    final isBot = Room.isBotUserId(id);
+    final botProfile = isBot ? Room.botProfile(id) : null;
+    final isMe = id == currentUserId;
+    final canSwitchTeam = room.mode == Room.modeTeamBattle &&
+        !room.started &&
+        !isBot &&
+        (isMe || currentUserId == room.hostId);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: _PlayerTile(
+        isHost: id == room.hostId,
+        isCurrentUser: isMe,
+        isBot: isBot,
+        username: isBot
+            ? botProfile!.displayName
+            : profile?.username ?? _RoomLobbyScreenState._fallbackName(id),
+        photoUrl: profile?.photoUrl,
+        botSeed: botProfile?.avatarSeed ?? 0,
+        botIntelligence: botProfile?.intelligence,
+        ready: player.ready,
+        roomStarted: room.started,
+        mode: room.mode,
+        phase: room.phase,
+        score: player.score,
+        lives: player.lives,
+        eliminated: player.eliminated,
+        teamId: room.mode == Room.modeTeamBattle ? player.teamId : null,
+        canSwitchTeam: canSwitchTeam,
+        roomId: room.id,
+        userId: id,
+      ),
+    );
+  }
+}
+
+class _TeamOverviewChip extends StatelessWidget {
+  const _TeamOverviewChip({
+    required this.teamId,
+    required this.score,
+    required this.sizeLabel,
+  });
+
+  final String teamId;
+  final int score;
+  final String sizeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final isA = teamId == Room.teamA;
+    final color = isA ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.32)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Team $teamId',
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w900,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$score pts  |  $sizeLabel',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
             ),
           ),
         ],
@@ -930,17 +1227,27 @@ class _TeamLegend extends StatelessWidget {
       children: [
         _teamDot(const Color(0xFF3B82F6)),
         const SizedBox(width: 2),
-        const Text('A', style: TextStyle(color: Color(0xFF3B82F6), fontSize: 11, fontWeight: FontWeight.w800)),
+        const Text('A',
+            style: TextStyle(
+                color: Color(0xFF3B82F6),
+                fontSize: 11,
+                fontWeight: FontWeight.w800)),
         const SizedBox(width: 10),
         _teamDot(const Color(0xFFEF4444)),
         const SizedBox(width: 2),
-        const Text('B', style: TextStyle(color: Color(0xFFEF4444), fontSize: 11, fontWeight: FontWeight.w800)),
+        const Text('B',
+            style: TextStyle(
+                color: Color(0xFFEF4444),
+                fontSize: 11,
+                fontWeight: FontWeight.w800)),
       ],
     );
   }
 
-  Widget _teamDot(Color color) =>
-      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
+  Widget _teamDot(Color color) => Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle));
 }
 
 class _PlayerTile extends StatelessWidget {
@@ -990,6 +1297,8 @@ class _PlayerTile extends StatelessWidget {
     final showsLives = mode == Room.modeSurvival;
     final showsEliminationState =
         mode == Room.modeSurvival || mode == Room.modeElimination;
+    final activeStatusLabel =
+        phase == Room.phaseFinished ? 'Finished' : 'Playing';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1007,8 +1316,7 @@ class _PlayerTile extends StatelessWidget {
       child: Row(
         children: [
           // Avatar
-          _Avatar(
-              isBot: isBot, photoUrl: photoUrl, seed: botSeed, size: 42),
+          _Avatar(isBot: isBot, photoUrl: photoUrl, seed: botSeed, size: 42),
           const SizedBox(width: 10),
           // Name + badges
           Expanded(
@@ -1035,7 +1343,8 @@ class _PlayerTile extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFACC15).withValues(alpha: 0.18),
+                          color:
+                              const Color(0xFFFACC15).withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
@@ -1093,11 +1402,21 @@ class _PlayerTile extends StatelessWidget {
             const SizedBox(width: 8),
             canSwitchTeam
                 ? GestureDetector(
-                    onTap: () {
-                      context.read<RoomService>().switchTeam(
-                            roomId: roomId!,
-                            userId: userId!,
-                          );
+                    onTap: () async {
+                      try {
+                        await context.read<RoomService>().switchTeam(
+                              roomId: roomId!,
+                              userId: userId!,
+                            );
+                      } catch (error) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(error.toString()),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
                     },
                     child: _TeamBadge(teamId: teamId!, tappable: true),
                   )
@@ -1148,7 +1467,9 @@ class _PlayerTile extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  ready ? 'Ready' : 'Waiting',
+                  showReadyState
+                      ? (ready ? 'Ready' : 'Waiting')
+                      : (eliminated ? 'Out' : activeStatusLabel),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -1577,13 +1898,18 @@ class _ControlsPanelBody extends StatelessWidget {
     final isRoundOver = room.phase == Room.phaseRoundOver;
     final isFinished = room.phase == Room.phaseFinished;
     final isSurvival = room.mode == Room.modeSurvival;
-    final aliveCount =
-        isSurvival ? room.survivalAliveCount : room.aliveCount;
+    final isTeamBattle = room.mode == Room.modeTeamBattle;
+    final aliveCount = isSurvival ? room.survivalAliveCount : room.aliveCount;
     final currentPlayerEliminated = currentPlayer?.eliminated == true ||
         (isSurvival && (currentPlayer?.lives ?? 0) <= 0);
     final winnerName = room.winnerId == null
         ? null
         : _roomPlayerName(playerId: room.winnerId!, profiles: profiles);
+    final teamBalanceIssue = isTeamBattle ? room.teamBattleBalanceIssue : null;
+    final teamAScore = room.teamScore(Room.teamA);
+    final teamBScore = room.teamScore(Room.teamB);
+    final canStartNow =
+        isHost && !starting && (!isTeamBattle || teamBalanceIssue == null);
 
     final statusTitle = switch (room.phase) {
       Room.phasePlayingRound => room.isRoundBasedMode
@@ -1591,27 +1917,38 @@ class _ControlsPanelBody extends StatelessWidget {
           : '${_roomModeLabel(room.mode)} in progress',
       Room.phaseRoundOver => 'Round ${room.roundNumber} complete',
       Room.phaseFinished => 'Match finished',
+      Room.phasePlaying when isTeamBattle => 'Team Battle live',
       Room.phasePlaying => '${_roomModeLabel(room.mode)} in progress',
       _ => '${_roomModeLabel(room.mode)} lobby',
     };
 
     final statusBody = switch (room.phase) {
+      Room.phaseLobby when isTeamBattle && teamBalanceIssue != null =>
+        teamBalanceIssue,
+      Room.phaseLobby when isTeamBattle && room.playerCount < room.maxPlayers =>
+        'Teams are valid. The host can start now, and open seats will be filled with balanced bots.',
+      Room.phaseLobby when isTeamBattle =>
+        'Teams are balanced and ready. Players can still switch sides until the match begins.',
       Room.phasePlayingRound when isSurvival && currentPlayerEliminated =>
         'You are eliminated. Waiting for the surviving players to finish this round.',
       Room.phasePlayingRound when isSurvival =>
         '$aliveCount players are still alive in Survival.',
-      Room.phasePlayingRound =>
-        'Waiting for the current round to finish.',
+      Room.phasePlayingRound => 'Waiting for the current round to finish.',
+      Room.phasePlaying
+          when isTeamBattle && currentPlayer?.completedAt != null =>
+        'Your score is locked in. Waiting for the remaining players so the team totals can be finalized.',
+      Room.phasePlaying when isTeamBattle =>
+        'Players are finishing their individual runs. Team totals update from the sum of every player score.',
       Room.phaseRoundOver when isHost =>
         'More than one player survived. Start the next round when you are ready.',
-      Room.phaseRoundOver =>
-        'Waiting for $hostName to start the next round.',
-      Room.phaseFinished when winnerName != null =>
-        'Winner: $winnerName',
-      Room.phaseFinished =>
-        'The room is finished.',
-      _ =>
-        'Host can start early or fill the remaining seats with bots.',
+      Room.phaseRoundOver => 'Waiting for $hostName to start the next round.',
+      Room.phaseFinished when isTeamBattle && room.winnerTeamId != null =>
+        'Team ${room.winnerTeamId} wins $teamAScore-$teamBScore on total score.',
+      Room.phaseFinished when isTeamBattle =>
+        'The teams finished level at $teamAScore-$teamBScore, so the match ends in a draw.',
+      Room.phaseFinished when winnerName != null => 'Winner: $winnerName',
+      Room.phaseFinished => 'The room is finished.',
+      _ => 'Host can start early or fill the remaining seats with bots.',
     };
 
     return Column(
@@ -1738,10 +2075,45 @@ class _ControlsPanelBody extends StatelessWidget {
             colors: const [Color(0xFFF8D34C), Color(0xFFF59E0B)],
             borderColor: const Color(0xFFFFF3A3),
             textColor: const Color(0xFF1F2937),
-            enabled: isHost && !starting,
-            onTap: isHost && !starting ? onStartRoom : null,
+            enabled: canStartNow,
+            onTap: canStartNow ? onStartRoom : null,
           ),
           const SizedBox(height: 8),
+          if (isTeamBattle && teamBalanceIssue != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7F1D1D).withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFF87171).withValues(alpha: 0.28),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: Color(0xFFFCA5A5),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      teamBalanceIssue,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           if (!isHost)
             Container(
               width: double.infinity,
@@ -1845,6 +2217,16 @@ class _ControlsPanelBody extends StatelessWidget {
                         label: 'Round ${room.roundNumber}',
                         color: const Color(0xFF38BDF8),
                       ),
+                    if (isTeamBattle)
+                      _MiniChip(
+                        label: 'Team A $teamAScore',
+                        color: const Color(0xFF3B82F6),
+                      ),
+                    if (isTeamBattle)
+                      _MiniChip(
+                        label: 'Team B $teamBScore',
+                        color: const Color(0xFFEF4444),
+                      ),
                     if (isSurvival)
                       _MiniChip(
                         label: 'Alive $aliveCount',
@@ -1926,7 +2308,7 @@ class _ControlsPanelBody extends StatelessWidget {
                     Room.modeSeries =>
                       'Series mode: the first player to reach the required round wins takes the series.',
                     Room.modeTeamBattle =>
-                      'Team mode: Team A vs Team B, and total score decides the winner.',
+                      'Team Battle: every player keeps an individual score, team totals decide the winner, and equal totals finish as a draw. Team switches are only allowed before the match starts.',
                     Room.modeBlitz =>
                       'Blitz mode: answer as many questions as possible before time runs out.',
                     _ =>
@@ -2086,8 +2468,8 @@ class _Avatar extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: LinearGradient(colors: colors),
       ),
-      child: Icon(Icons.smart_toy_rounded,
-          color: Colors.white, size: size * 0.45),
+      child:
+          Icon(Icons.smart_toy_rounded, color: Colors.white, size: size * 0.45),
     );
   }
 }
@@ -2108,8 +2490,8 @@ class _MiniChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(
-            fontSize: 10, fontWeight: FontWeight.w800, color: color),
+        style:
+            TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color),
       ),
     );
   }

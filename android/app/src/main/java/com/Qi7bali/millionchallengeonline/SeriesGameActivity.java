@@ -7,6 +7,11 @@ public class SeriesGameActivity extends BaseGameActivity {
         return R.layout.activity_game_series;
     }
 
+    @Override
+    protected String getMatchModeId() {
+        return "series";
+    }
+
     /**
      * يقرأ seriesTarget من الـ Intent المُرسل من Flutter.
      * 2 = أفضل من 3 (أول من يفوز بجولتين)

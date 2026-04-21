@@ -5,4 +5,14 @@ public class EliminationGameActivity extends BaseGameActivity {
     protected int getLayoutResId() {
         return R.layout.activity_game_elimination;
     }
+
+    @Override
+    protected String getMatchModeId() {
+        return "elimination";
+    }
+
+    @Override
+    protected boolean usesEliminationRoundFlow() {
+        return true;
+    }
 }

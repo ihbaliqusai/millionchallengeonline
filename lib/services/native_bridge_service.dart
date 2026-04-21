@@ -12,6 +12,7 @@ class NativeBridgeService {
   Future<void> launchLegacyRoomMatch({
     required List<Map<String, dynamic>> opponents,
     required bool meOwner,
+    required String roomId,
     String matchMode = 'battle',
     int seriesTarget = 2,
     int roundDurationSeconds = 30,
@@ -33,6 +34,7 @@ class NativeBridgeService {
         .toList(growable: false);
 
     await _channel.invokeMethod('launchRoomMatch', <String, dynamic>{
+      'roomId': roomId,
       'opponentsJson': jsonEncode(safeOpponents),
       'meOwner': meOwner,
       'matchMode': matchMode,
@@ -40,6 +42,25 @@ class NativeBridgeService {
       'roundDurationSeconds': roundDurationSeconds,
       'myTeam': myTeam,
     });
+  }
+
+  Future<Map<String, dynamic>?> consumePendingRoomMatchResult() async {
+    final payload =
+        await _channel.invokeMethod<String>('consumePendingRoomMatchResult');
+    if (payload == null || payload.trim().isEmpty) {
+      return null;
+    }
+
+    final decoded = jsonDecode(payload);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    if (decoded is Map) {
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    }
+    return null;
   }
 
   Future<void> syncLegacyUser({
@@ -84,7 +105,8 @@ class NativeBridgeService {
 
   /// يُعيد إحصائيات اللاعب الحقيقية من PlayerStats
   Future<Map<String, int>> getPlayerStats() async {
-    final result = await _channel.invokeMapMethod<String, dynamic>('getPlayerStats');
+    final result =
+        await _channel.invokeMapMethod<String, dynamic>('getPlayerStats');
     if (result == null) return {};
     return result.map((k, v) => MapEntry(k, (v as num).toInt()));
   }
@@ -92,13 +114,15 @@ class NativeBridgeService {
   /// يُعيد حالة جميع الإنجازات + عدادات التقدم الحالية.
   /// المفاتيح البوليانية هي مفاتيح الإنجازات (ACH_*)، والمفاتيح الرقمية هي إحصاءات اللاعب.
   Future<Map<String, dynamic>> getAchievements() async {
-    final result = await _channel.invokeMapMethod<String, dynamic>('getAchievements');
+    final result =
+        await _channel.invokeMapMethod<String, dynamic>('getAchievements');
     return result ?? {};
   }
 
   /// يُعيد {'coins': int, 'gems': int} من SharedPreferences الـ native
   Future<Map<String, int>> getUserCurrency() async {
-    final result = await _channel.invokeMapMethod<String, int>('getUserCurrency');
+    final result =
+        await _channel.invokeMapMethod<String, int>('getUserCurrency');
     return result ?? {'coins': 0, 'gems': 0};
   }
 
@@ -119,10 +143,11 @@ class NativeBridgeService {
 
   /// يُعيد قيم الإعدادات المحفوظة من Android SharedPreferences
   Future<Map<String, bool>> getSettings() async {
-    final result = await _channel.invokeMapMethod<String, dynamic>('getSettings');
+    final result =
+        await _channel.invokeMapMethod<String, dynamic>('getSettings');
     return {
-      'sfx':    result?['sfx']    as bool? ?? true,
-      'music':  result?['music']  as bool? ?? true,
+      'sfx': result?['sfx'] as bool? ?? true,
+      'music': result?['music'] as bool? ?? true,
       'haptic': result?['haptic'] as bool? ?? true,
     };
   }
@@ -150,7 +175,8 @@ class NativeBridgeService {
 
   /// يُعيد كميات وسائل المساعدة المخزّنة {'inv5050', 'invAudience', 'invCall'}
   Future<Map<String, int>> getInventory() async {
-    final result = await _channel.invokeMapMethod<String, dynamic>('getInventory');
+    final result =
+        await _channel.invokeMapMethod<String, dynamic>('getInventory');
     if (result == null) return {};
     return result.map((k, v) => MapEntry(k, (v as num).toInt()));
   }
@@ -165,7 +191,8 @@ class NativeBridgeService {
   }
 
   /// يشتري عملات (كوينز) بخصم جواهر من الرصيد المحلي.
-  Future<bool> buyCurrency({required int coinAmount, required int gemCost}) async {
+  Future<bool> buyCurrency(
+      {required int coinAmount, required int gemCost}) async {
     final result = await _channel.invokeMethod<bool>(
       'buyCurrency',
       {'coinAmount': coinAmount, 'gemCost': gemCost},

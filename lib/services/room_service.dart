@@ -7,6 +7,7 @@ import '../models/room.dart';
 
 class RoomService {
   static const Duration roomExpiry = Duration(minutes: 20);
+  static const int _defaultDirectScoreQuestionCount = 15;
 
   RoomService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -83,6 +84,7 @@ class RoomService {
     int seriesTarget = 2,
   }) =>
       _guard(() async {
+        _validateCreateRoomOptions(mode: mode, maxPlayers: maxPlayers);
         await purgeStaleRooms(force: true);
         final doc = _rooms.doc();
         await doc.set(<String, dynamic>{
@@ -92,7 +94,11 @@ class RoomService {
           'phase': Room.phaseLobby,
           'started': false,
           'players': <String, dynamic>{
-            hostId: const RoomPlayer(score: 0, ready: true).toMap(),
+            hostId: RoomPlayer(
+              score: 0,
+              ready: true,
+              teamId: mode == Room.modeTeamBattle ? Room.teamA : null,
+            ).toMap(),
           },
           'createdAt': FieldValue.serverTimestamp(),
           if (mode == Room.modeBlitz)
@@ -132,8 +138,15 @@ class RoomService {
             throw StateError('This room is already full.');
           }
 
+          final joiningPlayer = RoomPlayer(
+            score: 0,
+            ready: true,
+            teamId: room.mode == Room.modeTeamBattle
+                ? _assignLobbyTeamId(room.players, room.maxPlayers)
+                : null,
+          );
           final updates = <String, dynamic>{
-            'players.$userId': const RoomPlayer(score: 0, ready: true).toMap(),
+            'players.$userId': joiningPlayer.toMap(),
           };
 
           final nextPlayerCount = room.playerCount + 1;
@@ -145,18 +158,34 @@ class RoomService {
           };
           if (nextPlayerCount >= room.maxPlayers &&
               !hostStartModes.contains(room.mode)) {
-            updates['started'] = true;
-            updates['startedAt'] = FieldValue.serverTimestamp();
-            updates['phase'] = Room.phasePlaying;
-            updates['winnerId'] = FieldValue.delete();
-            updates['winnerTeamId'] = FieldValue.delete();
+            if (room.mode == Room.modeTeamBattle) {
+              final previewPlayers = Map<String, RoomPlayer>.from(room.players)
+                ..[userId] = joiningPlayer;
+              try {
+                updates.addAll(
+                  _buildTeamBattleStartUpdates(
+                    room: room,
+                    lobbyPlayers: previewPlayers,
+                  ),
+                );
+              } on StateError {
+                // Leave the room in lobby so players can rebalance teams manually.
+              }
+            } else {
+              updates['started'] = true;
+              updates['startedAt'] = FieldValue.serverTimestamp();
+              updates['phase'] = Room.phasePlaying;
+              updates['winnerId'] = FieldValue.delete();
+              updates['winnerTeamId'] = FieldValue.delete();
 
-            for (final playerId in <String>[...room.playerIds, userId]) {
-              updates['players.$playerId.ready'] = false;
-              updates['players.$playerId.answeredCount'] = 0;
-              updates['players.$playerId.completedAt'] = FieldValue.delete();
-              updates['players.$playerId.currentAnswer'] = FieldValue.delete();
-              updates['players.$playerId.score'] = 0;
+              for (final playerId in <String>[...room.playerIds, userId]) {
+                updates['players.$playerId.ready'] = false;
+                updates['players.$playerId.answeredCount'] = 0;
+                updates['players.$playerId.completedAt'] = FieldValue.delete();
+                updates['players.$playerId.currentAnswer'] =
+                    FieldValue.delete();
+                updates['players.$playerId.score'] = 0;
+              }
             }
           }
 
@@ -278,25 +307,12 @@ class RoomService {
               updates['players.$playerId.currentAnswer'] = FieldValue.delete();
             }
           } else if (room.mode == Room.modeTeamBattle) {
-            // Assign alternating team IDs then start like battle.
-            updates['phase'] = Room.phasePlaying;
-            final allPlayerIds = [...existingPlayerIds];
-            final missingPlayers = room.maxPlayers - room.playerCount;
-            for (var slot = 0; slot < missingPlayers; slot++) {
-              final botId = _buildBotId(room.id, slot + 1);
-              allPlayerIds.add(botId);
-              updates['players.$botId'] =
-                  const RoomPlayer(score: 0, ready: false).toMap();
-            }
-            for (var i = 0; i < allPlayerIds.length; i++) {
-              final pid = allPlayerIds[i];
-              updates['players.$pid.teamId'] = i.isEven ? 'A' : 'B';
-              updates['players.$pid.ready'] = false;
-              updates['players.$pid.score'] = 0;
-              updates['players.$pid.answeredCount'] = 0;
-              updates['players.$pid.completedAt'] = FieldValue.delete();
-              updates['players.$pid.currentAnswer'] = FieldValue.delete();
-            }
+            updates.addAll(
+              _buildTeamBattleStartUpdates(
+                room: room,
+                lobbyPlayers: room.players,
+              ),
+            );
           } else {
             // battle / blitz: fill missing slots with bots and start immediately.
             updates['phase'] = Room.phasePlaying;
@@ -395,8 +411,7 @@ class RoomService {
 
   /// Seeds bot scores, resolves the winner, and marks the blitz room finished.
   /// Idempotent: no-ops if already finished or timer has not expired yet.
-  Future<void> finalizeBlitzRoom({required String roomId}) =>
-      _guard(() async {
+  Future<void> finalizeBlitzRoom({required String roomId}) => _guard(() async {
         final ref = _rooms.doc(roomId);
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
@@ -419,7 +434,8 @@ class RoomService {
             );
             updates['players.$botId.score'] = botScore;
             updates['players.$botId.answeredCount'] = botScore;
-            updates['players.$botId.completedAt'] = FieldValue.serverTimestamp();
+            updates['players.$botId.completedAt'] =
+                FieldValue.serverTimestamp();
           }
 
           // Build the effective players map with bot scores applied.
@@ -464,6 +480,9 @@ class RoomService {
           if (!room.containsPlayer(userId)) {
             throw StateError('You are no longer in this room.');
           }
+          if (room.phase == Room.phaseFinished) {
+            return;
+          }
 
           final current = room.players[userId]!;
           if (current.completedAt != null &&
@@ -472,11 +491,30 @@ class RoomService {
             return;
           }
 
-          transaction.update(ref, <String, dynamic>{
+          final updates = <String, dynamic>{
             'players.$userId.score': score,
             'players.$userId.answeredCount': answeredCount,
             'players.$userId.completedAt': FieldValue.serverTimestamp(),
-          });
+          };
+
+          final effectivePlayers = Map<String, RoomPlayer>.from(room.players)
+            ..[userId] = current.copyWith(
+              score: score,
+              answeredCount: answeredCount,
+              completedAt: DateTime.now(),
+            );
+
+          if (room.mode == Room.modeBattle ||
+              room.mode == Room.modeTeamBattle) {
+            _maybeFinalizeDirectScoreRoom(
+              room: room,
+              players: effectivePlayers,
+              updates: updates,
+              totalQuestions: _defaultDirectScoreQuestionCount,
+            );
+          }
+
+          transaction.update(ref, updates);
         });
       });
 
@@ -492,9 +530,8 @@ class RoomService {
           final room = Room.fromSnapshot(snapshot);
           if (room.phase != Room.phasePlayingRound) return;
 
-          final activePlayers = room.players.entries
-              .where((e) => !e.value.eliminated)
-              .toList();
+          final activePlayers =
+              room.players.entries.where((e) => !e.value.eliminated).toList();
 
           if (activePlayers.isEmpty) {
             transaction.update(ref, {'phase': Room.phaseFinished});
@@ -569,7 +606,8 @@ class RoomService {
               updates['players.${entry.key}.score'] = 0;
               updates['players.${entry.key}.answeredCount'] = 0;
               updates['players.${entry.key}.completedAt'] = FieldValue.delete();
-              updates['players.${entry.key}.currentAnswer'] = FieldValue.delete();
+              updates['players.${entry.key}.currentAnswer'] =
+                  FieldValue.delete();
             }
           }
 
@@ -751,7 +789,8 @@ class RoomService {
             if (_isActiveSurvivalPlayer(entry.value)) {
               updates['players.${entry.key}.answeredCount'] = 0;
               updates['players.${entry.key}.completedAt'] = FieldValue.delete();
-              updates['players.${entry.key}.currentAnswer'] = FieldValue.delete();
+              updates['players.${entry.key}.currentAnswer'] =
+                  FieldValue.delete();
               playersAfter[entry.key] = _clearedRoundPlayer(
                 entry.value,
                 resetScore: false,
@@ -786,8 +825,7 @@ class RoomService {
 
   /// Determines the round winner, increments their roundWins, and either
   /// declares a series winner or moves to 'round_over' for the next round.
-  Future<void> processSeriesRound({required String roomId}) =>
-      _guard(() async {
+  Future<void> processSeriesRound({required String roomId}) => _guard(() async {
         final ref = _rooms.doc(roomId);
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
@@ -878,29 +916,23 @@ class RoomService {
           if (!snapshot.exists) return;
 
           final room = Room.fromSnapshot(snapshot);
-          if (room.phase == Room.phaseFinished) return;
-
-          final allSubmitted =
-              room.players.values.every((p) => p.completedAt != null);
-          if (!allSubmitted) return;
-
-          var scoreA = 0;
-          var scoreB = 0;
-          for (final player in room.players.values) {
-            if (player.teamId == 'A') {
-              scoreA += player.score;
-            } else if (player.teamId == 'B') {
-              scoreB += player.score;
-            }
+          if (room.mode != Room.modeTeamBattle ||
+              room.phase == Room.phaseFinished) {
+            return;
           }
 
-          final winnerTeam =
-              scoreA > scoreB ? 'A' : scoreB > scoreA ? 'B' : null;
+          final updates = <String, dynamic>{};
+          final effectivePlayers = Map<String, RoomPlayer>.from(room.players);
+          _maybeFinalizeDirectScoreRoom(
+            room: room,
+            players: effectivePlayers,
+            updates: updates,
+            totalQuestions: _defaultDirectScoreQuestionCount,
+          );
 
-          final updates = <String, dynamic>{'phase': Room.phaseFinished};
-          if (winnerTeam != null) updates['winnerTeamId'] = winnerTeam;
-
-          transaction.update(ref, updates);
+          if (updates.isNotEmpty) {
+            transaction.update(ref, updates);
+          }
         });
       });
 
@@ -972,13 +1004,38 @@ class RoomService {
   }) =>
       _guard(() async {
         final ref = _rooms.doc(roomId);
-        final snapshot = await ref.get();
-        if (!snapshot.exists) return;
-        final room = Room.fromSnapshot(snapshot);
-        if (room.started) return;
-        final currentTeam = room.players[userId]?.teamId ?? 'A';
-        final newTeam = currentTeam == 'A' ? 'B' : 'A';
-        await ref.update({'players.$userId.teamId': newTeam});
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) return;
+          final room = Room.fromSnapshot(snapshot);
+          if (room.mode != Room.modeTeamBattle) return;
+          if (room.started || room.phase != Room.phaseLobby) {
+            throw StateError(
+                'Teams can only be changed before the match starts.');
+          }
+
+          final player = room.players[userId];
+          if (player == null) {
+            throw StateError('This player is no longer in the room.');
+          }
+
+          final capacity = _teamCapacityForRoom(room.maxPlayers);
+          final currentTeam = Room.normalizeTeamId(player.teamId) ?? Room.teamA;
+          final newTeam = currentTeam == Room.teamA ? Room.teamB : Room.teamA;
+          final counts = room.teamSizes;
+          counts[currentTeam] = (counts[currentTeam] ?? 0) - 1;
+          counts[newTeam] = (counts[newTeam] ?? 0) + 1;
+
+          if ((counts[newTeam] ?? 0) > capacity) {
+            throw StateError(
+              'That move would give Team $newTeam too many players.',
+            );
+          }
+
+          transaction.update(ref, <String, dynamic>{
+            'players.$userId.teamId': newTeam,
+          });
+        });
       });
 
   Future<void> leaveRoom({
@@ -1103,7 +1160,8 @@ class RoomService {
     required Map<String, dynamic> updates,
   }) {
     for (final entry in players.entries.toList(growable: false)) {
-      if (!Room.isBotUserId(entry.key) || !_isActiveSurvivalPlayer(entry.value)) {
+      if (!Room.isBotUserId(entry.key) ||
+          !_isActiveSurvivalPlayer(entry.value)) {
         continue;
       }
       if (_hasSubmittedRound(entry.value)) {
@@ -1134,7 +1192,8 @@ class RoomService {
   static bool _allActiveSurvivalPlayersSubmitted(
     Map<String, RoomPlayer> players,
   ) {
-    final activePlayers = players.values.where(_isActiveSurvivalPlayer).toList();
+    final activePlayers =
+        players.values.where(_isActiveSurvivalPlayer).toList();
     if (activePlayers.isEmpty) {
       return true;
     }
@@ -1257,5 +1316,234 @@ class RoomService {
       hash = ((hash << 5) + hash) ^ unit;
     }
     return hash & 0x7fffffff;
+  }
+
+  static void _validateCreateRoomOptions({
+    required String mode,
+    required int maxPlayers,
+  }) {
+    if (mode != Room.modeTeamBattle) return;
+    if (maxPlayers < 2) {
+      throw StateError('Team Battle rooms need at least 2 players.');
+    }
+    if (maxPlayers.isOdd) {
+      throw StateError('Team Battle rooms require an even player count.');
+    }
+  }
+
+  static int _teamCapacityForRoom(int maxPlayers) {
+    if (maxPlayers < 2 || maxPlayers.isOdd) {
+      throw StateError('Team Battle rooms require an even player count.');
+    }
+    return maxPlayers ~/ 2;
+  }
+
+  static String _assignLobbyTeamId(
+    Map<String, RoomPlayer> players,
+    int maxPlayers,
+  ) {
+    final capacity = _teamCapacityForRoom(maxPlayers);
+    final counts = <String, int>{
+      Room.teamA: 0,
+      Room.teamB: 0,
+    };
+
+    for (final player in players.values) {
+      final teamId = Room.normalizeTeamId(player.teamId);
+      if (teamId != null) {
+        counts[teamId] = (counts[teamId] ?? 0) + 1;
+      }
+    }
+
+    return _pickBalancedTeam(counts, capacity: capacity);
+  }
+
+  static String _pickBalancedTeam(
+    Map<String, int> counts, {
+    required int capacity,
+  }) {
+    final countA = counts[Room.teamA] ?? 0;
+    final countB = counts[Room.teamB] ?? 0;
+    final canJoinA = countA < capacity;
+    final canJoinB = countB < capacity;
+
+    if (!canJoinA && !canJoinB) {
+      throw StateError('Both teams are already full.');
+    }
+    if (canJoinA && !canJoinB) {
+      return Room.teamA;
+    }
+    if (canJoinB && !canJoinA) {
+      return Room.teamB;
+    }
+    return countA <= countB ? Room.teamA : Room.teamB;
+  }
+
+  Map<String, dynamic> _buildTeamBattleStartUpdates({
+    required Room room,
+    required Map<String, RoomPlayer> lobbyPlayers,
+  }) {
+    final capacity = _teamCapacityForRoom(room.maxPlayers);
+    final missingPlayers = room.maxPlayers - lobbyPlayers.length;
+    if (missingPlayers < 0) {
+      throw StateError('This room has more players than available slots.');
+    }
+
+    final teamAssignments = <String, String>{};
+    final teamCounts = <String, int>{
+      Room.teamA: 0,
+      Room.teamB: 0,
+    };
+    final unassignedPlayerIds = <String>[];
+
+    for (final entry in lobbyPlayers.entries) {
+      final teamId = Room.normalizeTeamId(entry.value.teamId);
+      if (teamId == null) {
+        unassignedPlayerIds.add(entry.key);
+        continue;
+      }
+      teamAssignments[entry.key] = teamId;
+      teamCounts[teamId] = (teamCounts[teamId] ?? 0) + 1;
+    }
+
+    if ((teamCounts[Room.teamA] ?? 0) > capacity ||
+        (teamCounts[Room.teamB] ?? 0) > capacity) {
+      throw StateError(
+        'One team has too many players for a ${room.maxPlayers}-slot Team Battle.',
+      );
+    }
+
+    final sortedUnassignedIds = [...unassignedPlayerIds]..sort();
+    for (final playerId in sortedUnassignedIds) {
+      final teamId = _pickBalancedTeam(teamCounts, capacity: capacity);
+      teamAssignments[playerId] = teamId;
+      teamCounts[teamId] = (teamCounts[teamId] ?? 0) + 1;
+    }
+
+    final updates = <String, dynamic>{
+      'started': true,
+      'startedAt': FieldValue.serverTimestamp(),
+      'phase': Room.phasePlaying,
+      'winnerId': FieldValue.delete(),
+      'winnerTeamId': FieldValue.delete(),
+    };
+
+    var nextBotSlot = 1;
+    while (teamAssignments.length < room.maxPlayers) {
+      final botId = _buildBotId(room.id, nextBotSlot++);
+      final teamId = _pickBalancedTeam(teamCounts, capacity: capacity);
+      teamAssignments[botId] = teamId;
+      teamCounts[teamId] = (teamCounts[teamId] ?? 0) + 1;
+      updates['players.$botId'] = RoomPlayer(
+        score: 0,
+        ready: false,
+        teamId: teamId,
+      ).toMap();
+    }
+
+    if ((teamCounts[Room.teamA] ?? 0) != capacity ||
+        (teamCounts[Room.teamB] ?? 0) != capacity) {
+      throw StateError(
+        'Teams must be balanced before Team Battle can start.',
+      );
+    }
+
+    for (final playerId in teamAssignments.keys) {
+      final teamId = teamAssignments[playerId]!;
+      updates['players.$playerId.teamId'] = teamId;
+      updates['players.$playerId.ready'] = false;
+      updates['players.$playerId.score'] = 0;
+      updates['players.$playerId.answeredCount'] = 0;
+      updates['players.$playerId.completedAt'] = FieldValue.delete();
+      updates['players.$playerId.currentAnswer'] = FieldValue.delete();
+    }
+
+    return updates;
+  }
+
+  static bool _allHumanPlayersCompleted(Map<String, RoomPlayer> players) {
+    final humanPlayers = players.entries
+        .where((entry) => !Room.isBotUserId(entry.key))
+        .toList(growable: false);
+    if (humanPlayers.isEmpty) {
+      return false;
+    }
+    return humanPlayers.every((entry) => entry.value.completedAt != null);
+  }
+
+  static void _seedPendingDirectScoreBots({
+    required String roomId,
+    required Map<String, RoomPlayer> players,
+    required Map<String, dynamic> updates,
+    required int totalQuestions,
+  }) {
+    for (final entry in players.entries.toList(growable: false)) {
+      if (!Room.isBotUserId(entry.key) || entry.value.completedAt != null) {
+        continue;
+      }
+      final botScore = _buildBotScore(roomId, entry.key, totalQuestions);
+      players[entry.key] = entry.value.copyWith(
+        score: botScore,
+        answeredCount: totalQuestions,
+        completedAt: DateTime.now(),
+      );
+      updates['players.${entry.key}.score'] = botScore;
+      updates['players.${entry.key}.answeredCount'] = totalQuestions;
+      updates['players.${entry.key}.completedAt'] =
+          FieldValue.serverTimestamp();
+    }
+  }
+
+  static void _maybeFinalizeDirectScoreRoom({
+    required Room room,
+    required Map<String, RoomPlayer> players,
+    required Map<String, dynamic> updates,
+    required int totalQuestions,
+  }) {
+    if (!_allHumanPlayersCompleted(players)) {
+      return;
+    }
+
+    _seedPendingDirectScoreBots(
+      roomId: room.id,
+      players: players,
+      updates: updates,
+      totalQuestions: totalQuestions,
+    );
+
+    if (!players.values.every((player) => player.completedAt != null)) {
+      return;
+    }
+
+    updates['phase'] = Room.phaseFinished;
+
+    if (room.mode == Room.modeTeamBattle) {
+      final scoreA = players.values
+          .where((player) => player.teamId == Room.teamA)
+          .fold(0, (totalScore, player) => totalScore + player.score);
+      final scoreB = players.values
+          .where((player) => player.teamId == Room.teamB)
+          .fold(0, (totalScore, player) => totalScore + player.score);
+      final winnerTeam = scoreA > scoreB
+          ? Room.teamA
+          : scoreB > scoreA
+              ? Room.teamB
+              : null;
+      updates['winnerId'] = FieldValue.delete();
+      if (winnerTeam == null) {
+        updates['winnerTeamId'] = FieldValue.delete();
+      } else {
+        updates['winnerTeamId'] = winnerTeam;
+      }
+      return;
+    }
+
+    final winnerId = _computeBlitzWinner(players);
+    if (winnerId == null) {
+      updates['winnerId'] = FieldValue.delete();
+    } else {
+      updates['winnerId'] = winnerId;
+    }
+    updates['winnerTeamId'] = FieldValue.delete();
   }
 }

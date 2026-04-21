@@ -68,8 +68,14 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     protected abstract int getLayoutResId();
 
+    /** معرف الطور الذي تمثله الـ Activity الحالية. */
+    protected String getMatchModeId() { return "battle"; }
+
     /** عدد الجولات المطلوبة للفوز — يُعاد تعريفه في SeriesGameActivity */
     protected int getSeriesTarget() { return 2; }
+
+    /** هل هذا الطور يستخدم منطق الجولات/الإقصاء المشترك. */
+    protected boolean usesEliminationRoundFlow() { return false; }
 
     /** هل الطور هو Survival (3 أرواح) — يُعاد تعريفه في SurvivalGameActivity */
     protected boolean isSurvivalMode() { return false; }
@@ -86,8 +92,36 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     /** هل الطور هو TeamBattle — يُعاد تعريفه في TeamBattleGameActivity */
     protected boolean isTeamBattleMode() { return false; }
 
+    /** هل عمود المنتصف في لوحة النقاط يعرض حالة/أرواح بدل عدد الجولات. */
+    protected boolean usesStatusScoreCells() { return usesEliminationRoundFlow(); }
+
     /** يُعيد قائمة الخصوم للقراءة (للاستخدام في الأطوار الفرعية) */
     protected java.util.List<MatchOpponent> getOpponentsList() { return opponents; }
+
+    protected static class OnlineResultState {
+        boolean didWin;
+        String winnerName;
+        int opponentBestScore;
+
+        OnlineResultState(boolean didWin, String winnerName, int opponentBestScore) {
+            this.didWin = didWin;
+            this.winnerName = winnerName;
+            this.opponentBestScore = opponentBestScore;
+        }
+    }
+
+    /** يبني نتيجة الطور الحالية قبل فتح شاشة النتائج، ويمكن للـ subclass تعديلها. */
+    protected OnlineResultState buildOnlineResultState() {
+        String leaderId = getMatchLeaderId();
+        return new OnlineResultState(
+                myID.equals(leaderId),
+                getPlayerDisplayName(leaderId),
+                getHighestOpponentScore()
+        );
+    }
+
+    /** يضيف أي extras خاصة بالطور إلى شاشة النتائج. */
+    protected void applyModeSpecificResultIntent(Intent intent, OnlineResultState resultState) {}
 
     private static final int ANSWER_KEY_RIGHT = 1;
     private static final int ANSWER_KEY_WRONG_1 = 2;
@@ -196,6 +230,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             imgAnswer3Player1, imgAnswer3Player2, imgAnswer4Player1, imgAnswer4Player2;
     RelativeLayout rlySelected, rlyRight, rlyDialog, rlyVotes, rlyCall, rlyProgress;
     LinearLayout rlyScore;
+    LinearLayout llyTeamBattleHero;
     LinearLayout llyQA, llySteps, llySolde, llyPlayer1, llyPlayer2;
     Typewriter txtDialog, txtCallAnswer;
     Button btnDialogYes, btnDialogNo, btnGetMoney;
@@ -216,7 +251,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     Data dataAnswer;
     InterstitialAd mInterstitialAd;
     String myID, opponentID, myName, opponentName, myPhoto, opponentPhoto,
-            currentDialog, gameID, myTeam;
+            currentDialog, gameID, myTeam, roomId, roomMatchMode;
     int myLevel = 1, opponentLevel = 1, myScore = 0, opponentScore = 0,
             currentQuestion, currentStep, PROGRESS_VALUE, T_LIGHTS = 0,
             setMe = 0, setOpponent = 0,
@@ -313,11 +348,13 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         SOUND_ON = AppPrefs.isSoundEnabled(this);
 
         String modeExtra = getIntent().getStringExtra("mode");
-        String matchModeExtra = getIntent().getStringExtra("matchMode");
+        String matchModeExtra = safeString(getIntent().getStringExtra("matchMode"));
         modeOnline = "online".equals(modeExtra);
-        eliminationMode = "elimination".equals(matchModeExtra);
+        eliminationMode = usesEliminationRoundFlow();
         meOwner = getIntent().getBooleanExtra("meOwner", true);
         myTeam = safeString(getIntent().getStringExtra("myTeam"));
+        roomId = safeString(getIntent().getStringExtra("roomId"));
+        roomMatchMode = matchModeExtra.isEmpty() ? getMatchModeId() : matchModeExtra;
 
 
         findViewById(android.R.id.content).post(new Runnable() {
@@ -347,6 +384,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 scoreMeRow = findViewById(R.id.llyScoreMe);
 
                 rlyScore = findViewById(R.id.rlyScore);
+                llyTeamBattleHero = findViewById(R.id.llyTeamBattleHero);
                 labScore = findViewById(R.id.labScore);
                 labSets = findViewById(R.id.labSets);
                 labScoreGame = findViewById(R.id.labScoreGame);
@@ -939,17 +977,48 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
         clearOpponentAnswerThumbs();
 
-        for (MatchOpponent opponent : opponents) {
-            if (llyOpponents != null) {
-                llyOpponents.addView(createOpponentTopCard(opponent));
+        if (isTeamBattleMode()) {
+            setupTeamBattleScoreHeader();
+        }
+
+        if (isTeamBattleMode() && llyOpponentScores != null) {
+            java.util.List<MatchOpponent> myTeamOpp = new java.util.ArrayList<>();
+            java.util.List<MatchOpponent> enemyOpp = new java.util.ArrayList<>();
+            for (MatchOpponent opp : opponents) {
+                if (myTeam != null && myTeam.equals(opp.teamId)) myTeamOpp.add(opp);
+                else enemyOpp.add(opp);
             }
-            if (llyOpponentScores != null) {
-                llyOpponentScores.addView(createOpponentScoreRow(opponent));
+            for (MatchOpponent opp : myTeamOpp) {
+                llyOpponentScores.addView(createOpponentScoreRow(opp));
             }
-            for (LinearLayout container : opponentAnswerContainers) {
-                CircleImageView thumbView = createAnswerThumbView(container.getChildCount() > 0);
-                container.addView(thumbView);
-                opponent.answerThumbViews.add(thumbView);
+            if (!enemyOpp.isEmpty()) {
+                String enemyTeamId = "A".equals(myTeam) ? "B" : "A";
+                llyOpponentScores.addView(createTeamSectionDivider("TEAM " + enemyTeamId, false));
+            }
+            for (MatchOpponent opp : enemyOpp) {
+                llyOpponentScores.addView(createOpponentScoreRow(opp));
+            }
+            for (MatchOpponent opponent : opponents) {
+                if (llyOpponents != null) llyOpponents.addView(createOpponentTopCard(opponent));
+                for (LinearLayout container : opponentAnswerContainers) {
+                    CircleImageView thumbView = createAnswerThumbView(container.getChildCount() > 0);
+                    container.addView(thumbView);
+                    opponent.answerThumbViews.add(thumbView);
+                }
+            }
+        } else {
+            for (MatchOpponent opponent : opponents) {
+                if (llyOpponents != null) {
+                    llyOpponents.addView(createOpponentTopCard(opponent));
+                }
+                if (llyOpponentScores != null) {
+                    llyOpponentScores.addView(createOpponentScoreRow(opponent));
+                }
+                for (LinearLayout container : opponentAnswerContainers) {
+                    CircleImageView thumbView = createAnswerThumbView(container.getChildCount() > 0);
+                    container.addView(thumbView);
+                    opponent.answerThumbViews.add(thumbView);
+                }
             }
         }
 
@@ -1100,10 +1169,6 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                     TypedValue.COMPLEX_UNIT_SP
             );
         }
-    }
-
-    private boolean usesStatusScoreCells() {
-        return eliminationMode || isSurvivalMode();
     }
 
     private CharSequence buildLivesLabel(int livesRemaining) {
@@ -1276,7 +1341,12 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         imageParams.setMargins(0, dp(1), 0, dp(1));
         imageView.setLayoutParams(imageParams);
         imageView.setBorderWidth(dp(scoreboardAvatarBorderDp));
-        imageView.setBorderColor(getResources().getColor(R.color.player2));
+        if (isTeamBattleMode()) {
+            int borderColor = "A".equals(opponent.teamId) ? 0xFF3B82F6 : 0xFFEF4444;
+            imageView.setBorderColor(borderColor);
+        } else {
+            imageView.setBorderColor(getResources().getColor(R.color.player2));
+        }
         Data.setImageSource(this, imageView, opponent.photo);
 
         TextView nameLabel = new TextView(this);
@@ -1309,6 +1379,54 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         row.addView(setsView);
         row.addView(gameView);
         return row;
+    }
+
+    private void setupTeamBattleScoreHeader() {
+        android.view.View headerLayout = findViewById(R.id.llyMyTeamHeader);
+        android.widget.TextView headerText = findViewById(R.id.txtMyTeamHeader);
+        android.view.View headerBar = findViewById(R.id.viewMyTeamBar);
+        if (headerLayout == null) return;
+        headerLayout.setVisibility(android.view.View.VISIBLE);
+        boolean isA = "A".equals(myTeam);
+        int color = isA ? 0xFF3B82F6 : 0xFFEF4444;
+        int bgColor = isA ? 0x1A3B82F6 : 0x1AEF4444;
+        headerLayout.setBackgroundColor(bgColor);
+        if (headerBar != null) headerBar.setBackgroundColor(color);
+        if (headerText != null) {
+            headerText.setTextColor(color);
+            headerText.setText("TEAM " + (myTeam != null ? myTeam : "?"));
+        }
+    }
+
+    private android.view.View createTeamSectionDivider(String label, boolean isTeamA) {
+        LinearLayout divider = new LinearLayout(this);
+        divider.setOrientation(LinearLayout.HORIZONTAL);
+        divider.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        divider.setPadding(dp(8), 0, dp(8), 0);
+        int height = Math.max(18, scoreboardHeaderHeightDp - 4);
+        divider.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(height)));
+        int color = isTeamA ? 0xFF3B82F6 : 0xFFEF4444;
+        int bgColor = isTeamA ? 0x1A3B82F6 : 0x1AEF4444;
+        divider.setBackgroundColor(bgColor);
+
+        android.view.View bar = new android.view.View(this);
+        LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(dp(3), dp(12));
+        barParams.setMargins(0, 0, dp(5), 0);
+        bar.setLayoutParams(barParams);
+        bar.setBackgroundColor(color);
+
+        android.widget.TextView txt = new android.widget.TextView(this);
+        txt.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        txt.setTextColor(color);
+        txt.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 9f);
+        txt.setTypeface(null, android.graphics.Typeface.BOLD);
+        txt.setText(label);
+
+        divider.addView(bar);
+        divider.addView(txt);
+        return divider;
     }
 
     private TextView createScoreCell() {
@@ -2521,12 +2639,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         detachOpponentStatusListener();
         detachOpponentRoundListener();
         detachQuestionSyncListener();
-        String leaderId = getMatchLeaderId();
+        OnlineResultState resultState = buildOnlineResultState();
         Intent intent = new Intent(BaseGameActivity.this, ResultActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         intent.putExtra("myScore", gameScoreMe);
         intent.putExtra("myNewScore", myScore);
-        intent.putExtra("opponentScore", getHighestOpponentScore());
         intent.putExtra("mySets", setMe);
         intent.putExtra("opponentSets", getLeaderSets());
         intent.putExtra("myName", myName);
@@ -2534,9 +2651,15 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         intent.putExtra("opponentName", opponentName);
         intent.putExtra("opponentPhoto", opponentPhoto);
         intent.putExtra("opponentLeft", opponentLeft);
-        intent.putExtra("didWin", myID.equals(leaderId));
-        intent.putExtra("winnerName", getPlayerDisplayName(leaderId));
+        intent.putExtra("roomId", roomId);
+        intent.putExtra("matchMode", roomMatchMode);
+        intent.putExtra("myTeam", myTeam);
+        applyModeSpecificResultIntent(intent, resultState);
+        intent.putExtra("opponentScore", resultState.opponentBestScore);
+        intent.putExtra("didWin", resultState.didWin);
+        intent.putExtra("winnerName", resultState.winnerName);
         intent.putExtra("opponentsJson", buildOpponentsSummaryJson());
+        persistPendingRoomMatchResult();
         startActivity(intent);
         finish();
     }
@@ -2802,6 +2925,27 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         return bestScore;
     }
 
+    private void persistPendingRoomMatchResult() {
+        if (roomId == null || roomId.trim().isEmpty()) {
+            return;
+        }
+        if (!"battle".equals(roomMatchMode)
+                && !"team_battle".equals(roomMatchMode)
+                && !"blitz".equals(roomMatchMode)) {
+            return;
+        }
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("roomId", roomId);
+            payload.put("matchMode", roomMatchMode);
+            payload.put("score", gameScoreMe);
+            payload.put("answeredCount", Math.max(myTotalCorrectAnswers, gameScoreMe));
+            AppPrefs.setPendingRoomMatchResult(this, payload.toString());
+        } catch (Exception ignored) {
+        }
+    }
+
     private String buildOpponentsSummaryJson() {
         JSONArray array = new JSONArray();
         try {
@@ -2816,6 +2960,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 object.put("bot", opponent.bot);
                 object.put("left", opponent.left);
                 object.put("intelligence", opponent.intelligence);
+                object.put("teamId", opponent.teamId);
                 array.put(object);
             }
         } catch (Exception ignored) {
@@ -2823,9 +2968,60 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         return array.toString();
     }
 
+    private String getWinningTeamIdForSet() {
+        int teamAScore = setScoreMe * ("A".equals(myTeam) ? 1 : 0);
+        int teamBScore = setScoreMe * ("B".equals(myTeam) ? 1 : 0);
+        for (MatchOpponent opp : opponents) {
+            if ("A".equals(opp.teamId)) teamAScore += opp.roundScore;
+            else if ("B".equals(opp.teamId)) teamBScore += opp.roundScore;
+        }
+        if (teamAScore > teamBScore) return "A";
+        if (teamBScore > teamAScore) return "B";
+        return "";
+    }
+
     private boolean checkScoresMulti() {
         if ((currentQuestion != 4) && (currentQuestion != 9) && (currentQuestion != 14)) {
             return false;
+        }
+
+        String setNumLabelResolved = (currentQuestion == 4 ? "الأولى" : (currentQuestion == 9 ? "الثانية" : "الثالثة"));
+
+        if (isTeamBattleMode() && myTeam != null && !myTeam.isEmpty()) {
+            // Award the round win to every member of the winning team
+            String winningTeam = getWinningTeamIdForSet();
+            if (!winningTeam.isEmpty()) {
+                if (winningTeam.equals(myTeam)) {
+                    setMe++;
+                }
+                for (MatchOpponent opp : opponents) {
+                    if (winningTeam.equals(opp.teamId)) {
+                        opp.sets++;
+                    }
+                }
+            }
+            for (MatchOpponent opponent : opponents) {
+                opponent.roundScore = 0;
+                opponent.setCorrectAnswers = 0;
+                opponent.setAnswerTimeMs = 0L;
+            }
+            setScoreMe = 0;
+            mySetCorrectAnswers = 0;
+            mySetAnswerTimeMs = 0L;
+            txtSetsMe.setText(String.valueOf(setMe));
+            txtScoreMe.setText("0");
+            refreshOpponentPanels();
+            boolean myTeamWon = winningTeam.equals(myTeam);
+            if (myTeamWon) {
+                person.like(1000);
+                person.raiseEyeBrowsUp(1000, false, true);
+                showDialog("انتهت الجولة " + setNumLabelResolved + " وفاز فريقك!", "", 2000, 3000, R.drawable.mouth_01, false);
+            } else if (winningTeam.isEmpty()) {
+                showDialog("انتهت الجولة " + setNumLabelResolved + " بالتعادل", "", 2000, 3000, R.drawable.mouth_01, false);
+            } else {
+                showDialog("انتهت الجولة " + setNumLabelResolved + " وفاز الفريق الآخر", "", 2000, 3000, R.drawable.mouth_01, false);
+            }
+            return true;
         }
 
         String setWinnerId = getSetLeaderId();
@@ -2848,7 +3044,6 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         txtSetsMe.setText(String.valueOf(setMe));
         txtScoreMe.setText("0");
         refreshOpponentPanels();
-        String setNumLabelResolved = (currentQuestion == 4 ? "الأولى" : (currentQuestion == 9 ? "الثانية" : "الثالثة"));
         if (myID.equals(setWinnerId)) {
             person.like(1000);
             person.raiseEyeBrowsUp(1000, false, true);

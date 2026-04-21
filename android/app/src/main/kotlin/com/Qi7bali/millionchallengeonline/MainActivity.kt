@@ -78,6 +78,7 @@ class MainActivity : FlutterActivity() {
                             else          -> BattleGameActivity::class.java
                         }
                         val intent = Intent(this, activityClass).apply {
+                            putExtra("roomId", call.argument<String>("roomId") ?: "")
                             putExtra("mode", "online")
                             putExtra("opponentsJson", call.argument<String>("opponentsJson") ?: "[]")
                             putExtra("meOwner", call.argument<Boolean>("meOwner") ?: false)
@@ -89,6 +90,9 @@ class MainActivity : FlutterActivity() {
                         startActivity(intent)
                         result.success(true)
                         finish()
+                    }
+                    "consumePendingRoomMatchResult" -> {
+                        result.success(AppPrefs.consumePendingRoomMatchResult(this))
                     }
                     "syncLegacyUser" -> {
                         val uid = call.argument<String>("uid") ?: "guest_local"

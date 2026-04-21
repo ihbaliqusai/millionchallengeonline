@@ -38,6 +38,11 @@ public class BlitzGameActivity extends BaseGameActivity {
     }
 
     @Override
+    protected String getMatchModeId() {
+        return "blitz";
+    }
+
+    @Override
     protected boolean isBlitzMode() {
         return true;
     }

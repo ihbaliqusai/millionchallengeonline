@@ -23,8 +23,10 @@ public class ResultActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         supportRequestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        getWindow().setFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN
+        );
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         setContentView(R.layout.activity_result);
@@ -43,6 +45,13 @@ public class ResultActivity extends AppCompatActivity {
         boolean didWin = getIntent().getBooleanExtra("didWin", false);
         String winnerName = getIntent().getStringExtra("winnerName");
         String opponentsJson = getIntent().getStringExtra("opponentsJson");
+        String matchMode = getIntent().getStringExtra("matchMode");
+        String myTeam = getIntent().getStringExtra("myTeam");
+        String winnerTeamId = getIntent().getStringExtra("winnerTeamId");
+        int teamAScore = getIntent().getIntExtra("teamAScore", 0);
+        int teamBScore = getIntent().getIntExtra("teamBScore", 0);
+        boolean isTeamBattle = getIntent().getBooleanExtra("isTeamBattle", false)
+                || "team_battle".equals(matchMode);
 
         CircleImageView imgMe = findViewById(R.id.imgMe);
         CircleImageView imgOpponent = findViewById(R.id.imgOpponent);
@@ -64,22 +73,12 @@ public class ResultActivity extends AppCompatActivity {
         } catch (Exception ignored) {
         }
 
-        if (opponents.length() > 0) {
-            // نعرض الخصم صاحب أعلى نقاط في الأعلى (وليس فقط الأول في القائمة)
-            JSONObject primaryOpponent = opponents.optJSONObject(0);
-            for (int i = 1; i < opponents.length(); i++) {
-                JSONObject candidate = opponents.optJSONObject(i);
-                if (candidate != null && primaryOpponent != null
-                        && candidate.optInt("score", 0) > primaryOpponent.optInt("score", 0)) {
-                    primaryOpponent = candidate;
-                }
-            }
-            if (primaryOpponent != null) {
-                opponentName = primaryOpponent.optString("name", opponentName);
-                opponentPhoto = primaryOpponent.optString("photo", opponentPhoto);
-                opponentScore = primaryOpponent.optInt("score", opponentScore);
-                opponentSets = primaryOpponent.optInt("sets", opponentSets);
-            }
+        JSONObject primaryOpponent = selectPrimaryOpponent(opponents, isTeamBattle, myTeam);
+        if (primaryOpponent != null) {
+            opponentName = primaryOpponent.optString("name", opponentName);
+            opponentPhoto = primaryOpponent.optString("photo", opponentPhoto);
+            opponentScore = primaryOpponent.optInt("score", opponentScore);
+            opponentSets = primaryOpponent.optInt("sets", opponentSets);
         }
 
         Data.setImageSource(this, imgMe, myPhoto);
@@ -91,19 +90,41 @@ public class ResultActivity extends AppCompatActivity {
         txtOpponentScore.setText(String.valueOf(opponentScore));
         txtOpponentSets.setText(String.valueOf(opponentSets));
 
-        if (mySets == 0 && opponentSets == 0) {
-            txtMySets.setVisibility(android.view.View.GONE);
-            txtOpponentSets.setVisibility(android.view.View.GONE);
+        if (isTeamBattle) {
+            txtMyName.setText(
+                    myName + "  |  Team " + safeTeamLabel(myTeam)
+            );
+            if (primaryOpponent != null) {
+                txtOpponentName.setText(
+                        primaryOpponent.optString("name", opponentName)
+                                + "  |  Team "
+                                + safeTeamLabel(primaryOpponent.optString("teamId", ""))
+                );
+            }
         }
 
-        // Award XP for the online Speed Battle match
+        if (mySets == 0 && opponentSets == 0) {
+            txtMySets.setVisibility(View.GONE);
+            txtOpponentSets.setVisibility(View.GONE);
+        }
+
         PlayerProgress.onOnlineMatchFinished(this, didWin || opponentLeft, mySets);
-        // كل نقطة أون لاين = 1000 ريال حتى تتساوى مع مقياس الأوف لاين
         PlayerStats.recordGameEnd(this, didWin || opponentLeft, myScore * 1000);
 
         if (opponentLeft) {
             txtResult.setText("الخصم غادر المباراة");
             txtScore.setText("رصيدك الجديد: " + myNewScore);
+        } else if (isTeamBattle) {
+            if (winnerTeamId == null || winnerTeamId.trim().isEmpty()) {
+                txtResult.setText("انتهت مباراة الفرق بتعادل");
+            } else {
+                txtResult.setText("الفريق " + winnerTeamId + " فاز بالمباراة");
+            }
+            txtScore.setText(
+                    "Team A: " + teamAScore
+                            + "  |  Team B: " + teamBScore
+                            + "  |  فريقك: " + safeTeamLabel(myTeam)
+            );
         } else if (didWin) {
             txtResult.setText("مبروك، لقد فزت بالمباراة");
             txtScore.setText("رصيدك الجديد: " + myNewScore);
@@ -115,46 +136,34 @@ public class ResultActivity extends AppCompatActivity {
             txtScore.setText("الفائز: " + resolvedWinner);
         }
 
-        if (opponents.length() > 1) {
-            boolean anySetsNonZero = false;
-            for (int i = 0; i < opponents.length(); i++) {
-                JSONObject opp = opponents.optJSONObject(i);
-                if (opp != null && opp.optInt("sets", 0) > 0) {
-                    anySetsNonZero = true;
-                    break;
-                }
-            }
-            if (mySets > 0) anySetsNonZero = true;
+        final boolean anySetsNonZero = hasAnySets(opponents, mySets);
+        if (isTeamBattle) {
+            llyOpponentsSummary.addView(buildSummaryTextView(
+                    myName + "  |  Team " + safeTeamLabel(myTeam) + "  |  النقاط: " + myScore
+            ));
+        }
 
-            for (int i = 0; i < opponents.length(); i++) {
-                JSONObject opponent = opponents.optJSONObject(i);
-                if (opponent == null) {
-                    continue;
-                }
-                TextView summary = new TextView(this);
-                summary.setLayoutParams(new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                ));
-                summary.setTextColor(getResources().getColor(android.R.color.white));
-                summary.setTextSize(18);
-                summary.setPadding(16, 8, 16, 8);
-
-                StringBuilder builder = new StringBuilder();
-                builder.append(opponent.optString("name", "لاعب"));
-                if (anySetsNonZero) {
-                    builder.append("  |  الجولات: ").append(opponent.optInt("sets", 0));
-                }
-                int score = opponent.optInt("score", 0);
-                int correct = opponent.optInt("correctAnswers", score / 10);
-                builder.append("  |  ").append(correct).append(" إجابة صحيحة");
-                builder.append("  |  النقاط: ").append(score);
-                if (opponent.optBoolean("bot", false)) {
-                    builder.append("  |  ذكاء: ").append(opponent.optInt("intelligence", 0)).append('%');
-                }
-                summary.setText(builder.toString());
-                llyOpponentsSummary.addView(summary);
+        for (int i = 0; i < opponents.length(); i++) {
+            JSONObject opponent = opponents.optJSONObject(i);
+            if (opponent == null) {
+                continue;
             }
+            StringBuilder builder = new StringBuilder();
+            builder.append(opponent.optString("name", "لاعب"));
+            if (isTeamBattle) {
+                builder.append("  |  Team ").append(safeTeamLabel(opponent.optString("teamId", "")));
+            }
+            if (anySetsNonZero) {
+                builder.append("  |  الجولات: ").append(opponent.optInt("sets", 0));
+            }
+            int score = opponent.optInt("score", 0);
+            int correct = opponent.optInt("correctAnswers", score / 10);
+            builder.append("  |  ").append(correct).append(" إجابة صحيحة");
+            builder.append("  |  النقاط: ").append(score);
+            if (opponent.optBoolean("bot", false)) {
+                builder.append("  |  ذكاء: ").append(opponent.optInt("intelligence", 0)).append('%');
+            }
+            llyOpponentsSummary.addView(buildSummaryTextView(builder.toString()));
         }
 
         findViewById(R.id.btnNewGame).setOnClickListener(new View.OnClickListener() {
@@ -177,5 +186,63 @@ public class ResultActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+    }
+
+    private JSONObject selectPrimaryOpponent(
+            JSONArray opponents,
+            boolean isTeamBattle,
+            String myTeam
+    ) {
+        JSONObject bestOverall = null;
+        JSONObject bestEnemy = null;
+        for (int i = 0; i < opponents.length(); i++) {
+            JSONObject candidate = opponents.optJSONObject(i);
+            if (candidate == null) {
+                continue;
+            }
+            if (bestOverall == null
+                    || candidate.optInt("score", 0) > bestOverall.optInt("score", 0)) {
+                bestOverall = candidate;
+            }
+            if (isTeamBattle
+                    && myTeam != null
+                    && !myTeam.trim().isEmpty()
+                    && !myTeam.equals(candidate.optString("teamId", ""))
+                    && (bestEnemy == null
+                    || candidate.optInt("score", 0) > bestEnemy.optInt("score", 0))) {
+                bestEnemy = candidate;
+            }
+        }
+        return bestEnemy != null ? bestEnemy : bestOverall;
+    }
+
+    private boolean hasAnySets(JSONArray opponents, int mySets) {
+        if (mySets > 0) {
+            return true;
+        }
+        for (int i = 0; i < opponents.length(); i++) {
+            JSONObject opponent = opponents.optJSONObject(i);
+            if (opponent != null && opponent.optInt("sets", 0) > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private TextView buildSummaryTextView(String text) {
+        TextView summary = new TextView(this);
+        summary.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        summary.setTextColor(getResources().getColor(android.R.color.white));
+        summary.setTextSize(18);
+        summary.setPadding(16, 8, 16, 8);
+        summary.setText(text);
+        return summary;
+    }
+
+    private String safeTeamLabel(String teamId) {
+        return teamId == null || teamId.trim().isEmpty() ? "-" : teamId.trim();
     }
 }

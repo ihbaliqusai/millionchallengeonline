@@ -6,6 +6,7 @@ import 'package:millionaire_flutter_exact/screens/online/rooms_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../models/room.dart';
 import '../../core/player_rank.dart';
 import 'store_screen.dart';
 import 'leaderboard_screen.dart';
@@ -14,6 +15,7 @@ import 'profile_screen.dart';
 import '../online/settings_screen.dart';
 import '../online/stats_screen.dart';
 import '../online/achievements_screen.dart';
+import '../../services/room_service.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import '../../services/ad_service.dart';
 import '../../services/native_bridge_service.dart';
@@ -30,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final AnimationController _idleCtrl;
   late final AnimationController _glowCtrl;
   late final AnimationController _bgCtrl;
+  bool _syncingPendingRoomMatchResult = false;
 
   @override
   void initState() {
@@ -42,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen>
       // Called here because didChangeAppLifecycleState(resumed) is NOT fired
       // when the native game Activity restarts MainActivity with FLAG_ACTIVITY_CLEAR_TASK.
       context.read<AppState>().loadLevelData();
+      _consumePendingRoomMatchResult();
     });
     _idleCtrl = AnimationController(
       vsync: this,
@@ -64,6 +68,57 @@ class _HomeScreenState extends State<HomeScreen>
     if (state == AppLifecycleState.resumed) {
       context.read<AppState>().loadCurrency();
       context.read<AppState>().checkAndAwardXpForGames();
+      _consumePendingRoomMatchResult();
+    }
+  }
+
+  Future<void> _consumePendingRoomMatchResult() async {
+    if (_syncingPendingRoomMatchResult) return;
+    final userId = context.read<AppState>().user?.uid;
+    if (userId == null) return;
+    final nativeBridgeService = context.read<NativeBridgeService>();
+    final roomService = context.read<RoomService>();
+
+    _syncingPendingRoomMatchResult = true;
+    try {
+      final payload = await nativeBridgeService.consumePendingRoomMatchResult();
+      if (payload == null) return;
+
+      final roomId = (payload['roomId'] ?? '').toString().trim();
+      final matchMode = (payload['matchMode'] ?? '').toString().trim();
+      final score = (payload['score'] as num?)?.toInt() ?? 0;
+      final answeredCount = (payload['answeredCount'] as num?)?.toInt() ?? 0;
+      if (roomId.isEmpty || matchMode.isEmpty) return;
+
+      switch (matchMode) {
+        case Room.modeBlitz:
+          await roomService.submitBlitzScore(
+            roomId: roomId,
+            userId: userId,
+            score: score,
+            answeredCount: answeredCount,
+          );
+          await roomService.finalizeBlitzRoom(roomId: roomId);
+          break;
+        case Room.modeBattle:
+        case Room.modeTeamBattle:
+          await roomService.submitFinalScore(
+            roomId: roomId,
+            userId: userId,
+            score: score,
+            answeredCount: answeredCount,
+          );
+          if (matchMode == Room.modeTeamBattle) {
+            await roomService.processTeamBattleResult(roomId: roomId);
+          }
+          break;
+        default:
+          break;
+      }
+    } catch (_) {
+      // Leave room sync silent so returning from native feels seamless.
+    } finally {
+      _syncingPendingRoomMatchResult = false;
     }
   }
 
@@ -80,7 +135,8 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final user = appState.user;
-    final username = (user?.displayName ?? user?.email?.split('@').first ?? 'Player').trim();
+    final username =
+        (user?.displayName ?? user?.email?.split('@').first ?? 'Player').trim();
 
     return Scaffold(
       extendBody: true,
@@ -102,8 +158,8 @@ class _HomeScreenState extends State<HomeScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF0A1B4A).withValues(alpha:0.80),
-                      const Color(0xFF060C24).withValues(alpha:0.90),
+                      const Color(0xFF0A1B4A).withValues(alpha: 0.80),
+                      const Color(0xFF060C24).withValues(alpha: 0.90),
                     ],
                   ),
                 ),
@@ -189,7 +245,8 @@ class _TopBar extends StatelessWidget {
                   color: const Color(0xFFFACC15),
                   label: appState.coins.toString(),
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
+                    MaterialPageRoute<void>(
+                        builder: (_) => const StoreScreen()),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -198,7 +255,8 @@ class _TopBar extends StatelessWidget {
                   color: const Color(0xFF38BDF8),
                   label: appState.gems.toString(),
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
+                    MaterialPageRoute<void>(
+                        builder: (_) => const StoreScreen()),
                   ),
                 ),
               ],
@@ -288,12 +346,14 @@ class _LevelBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFACC15).withValues(alpha: 0.6), width: 1.5),
+        border: Border.all(
+            color: const Color(0xFFFACC15).withValues(alpha: 0.6), width: 1.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.emoji_events_rounded, color: Color(0xFFFACC15), size: 18),
+          const Icon(Icons.emoji_events_rounded,
+              color: Color(0xFFFACC15), size: 18),
           const SizedBox(width: 6),
           Column(
             mainAxisSize: MainAxisSize.min,
@@ -315,7 +375,8 @@ class _LevelBadge extends StatelessWidget {
                     value: progress,
                     minHeight: 6,
                     backgroundColor: Colors.white.withValues(alpha: 0.15),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFACC15)),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(Color(0xFFFACC15)),
                   ),
                 ),
               ),
@@ -346,8 +407,8 @@ class _LeftSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-          10, MediaQuery.of(context).padding.top + 8, 6, MediaQuery.of(context).padding.bottom + 8),
+      padding: EdgeInsets.fromLTRB(10, MediaQuery.of(context).padding.top + 8,
+          6, MediaQuery.of(context).padding.bottom + 8),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,7 +428,8 @@ class _LeftSidebar extends StatelessWidget {
           // Daily streak chest counter
           GestureDetector(
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const DailyStreakScreen()),
+              MaterialPageRoute<void>(
+                  builder: (_) => const DailyStreakScreen()),
             ),
             child: _ChestCounter(
               current: () {
@@ -422,9 +484,10 @@ class _SideCard extends StatelessWidget {
             width: 72,
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha:0.65),
+              color: Colors.black.withValues(alpha: 0.65),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha:0.18), width: 1.5),
+              border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.18), width: 1.5),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -480,14 +543,16 @@ class _ChestCounter extends StatelessWidget {
       width: 72,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha:0.65),
+        color: Colors.black.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha:0.18), width: 1.5),
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.18), width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.inventory_2_rounded, color: Color(0xFF38BDF8), size: 22),
+          const Icon(Icons.inventory_2_rounded,
+              color: Color(0xFF38BDF8), size: 22),
           const SizedBox(height: 4),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -495,13 +560,15 @@ class _ChestCounter extends StatelessWidget {
               value: total > 0 ? (current / total).clamp(0.0, 1.0) : 0,
               minHeight: 6,
               backgroundColor: Colors.white.withValues(alpha: 0.15),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF38BDF8)),
             ),
           ),
           const SizedBox(height: 3),
           Text(
             '$current/$total',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
+            style: const TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
           ),
         ],
       ),
@@ -638,7 +705,8 @@ class _CenterArena extends StatelessWidget {
                     label: 'Battle',
                     gold: true,
                     onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(builder: (_) => const RoomsScreen()),
+                      MaterialPageRoute<void>(
+                          builder: (_) => const RoomsScreen()),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -680,9 +748,9 @@ class _RankingButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha:0.6),
+          color: Colors.black.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha:0.2)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
@@ -691,7 +759,10 @@ class _RankingButton extends StatelessWidget {
             SizedBox(width: 6),
             Text(
               'RANKING',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5),
             ),
           ],
         ),
@@ -725,8 +796,10 @@ class _BattleButtonState extends State<_BattleButton> {
     final gradColors = isGold
         ? const [Color(0xFFF8D34C), Color(0xFFF59E0B)]
         : const [Color(0xFF6D28D9), Color(0xFF2563EB)];
-    final borderColor = isGold ? const Color(0xFFFFF3A3) : const Color(0xFFA5F3FC);
-    final glowColor = isGold ? const Color(0xFFF59E0B) : const Color(0xFF2563EB);
+    final borderColor =
+        isGold ? const Color(0xFFFFF3A3) : const Color(0xFFA5F3FC);
+    final glowColor =
+        isGold ? const Color(0xFFF59E0B) : const Color(0xFF2563EB);
     final textColor = isGold ? const Color(0xFF1F2937) : Colors.white;
 
     return AnimatedBuilder(
@@ -752,7 +825,7 @@ class _BattleButtonState extends State<_BattleButton> {
                 border: Border.all(color: borderColor, width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: glowColor.withValues(alpha:glow),
+                    color: glowColor.withValues(alpha: glow),
                     blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
@@ -786,7 +859,8 @@ Future<void> _showChestRewardDialog(BuildContext context, int coins, int gems) {
       title: const Text(
         '🎁 تم فتح الصندوق!',
         textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20),
+        style: TextStyle(
+            color: Colors.white, fontWeight: FontWeight.w900, fontSize: 20),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -795,11 +869,14 @@ Future<void> _showChestRewardDialog(BuildContext context, int coins, int gems) {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.monetization_on_rounded, color: Color(0xFFFACC15), size: 28),
+                const Icon(Icons.monetization_on_rounded,
+                    color: Color(0xFFFACC15), size: 28),
                 const SizedBox(width: 8),
                 Text('+$coins',
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900)),
               ],
             ),
           if (gems > 0) ...[
@@ -807,11 +884,14 @@ Future<void> _showChestRewardDialog(BuildContext context, int coins, int gems) {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.diamond_rounded, color: Color(0xFF38BDF8), size: 28),
+                const Icon(Icons.diamond_rounded,
+                    color: Color(0xFF38BDF8), size: 28),
                 const SizedBox(width: 8),
                 Text('+$gems',
                     style: const TextStyle(
-                        color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900)),
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900)),
               ],
             ),
           ],
@@ -821,7 +901,8 @@ Future<void> _showChestRewardDialog(BuildContext context, int coins, int gems) {
         TextButton(
           onPressed: () => Navigator.pop(context),
           child: const Text('رائع!',
-              style: TextStyle(color: Color(0xFFFACC15), fontWeight: FontWeight.w900)),
+              style: TextStyle(
+                  color: Color(0xFFFACC15), fontWeight: FontWeight.w900)),
         ),
       ],
     ),
@@ -869,7 +950,8 @@ class _RightSidebar extends StatelessWidget {
                 label: 'إنجازات',
                 icon: Icons.emoji_events_rounded,
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const AchievementsScreen()),
+                  MaterialPageRoute<void>(
+                      builder: (_) => const AchievementsScreen()),
                 ),
               ),
               const SizedBox(height: 4),
@@ -885,7 +967,8 @@ class _RightSidebar extends StatelessWidget {
                 label: 'إعدادات',
                 icon: Icons.settings_rounded,
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+                  MaterialPageRoute<void>(
+                      builder: (_) => const SettingsScreen()),
                 ),
               ),
             ],
@@ -943,9 +1026,10 @@ class _NavButton extends StatelessWidget {
         width: 72,
         padding: const EdgeInsets.symmetric(vertical: 7),
         decoration: BoxDecoration(
-          color: const Color(0xFF091332).withValues(alpha:0.88),
+          color: const Color(0xFF091332).withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha:0.18), width: 1.5),
+          border: Border.all(
+              color: Colors.white.withValues(alpha: 0.18), width: 1.5),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -984,7 +1068,8 @@ class _DailyChests extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFACC15).withValues(alpha: 0.4)),
+        border:
+            Border.all(color: const Color(0xFFFACC15).withValues(alpha: 0.4)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1018,7 +1103,9 @@ class _DailyChests extends StatelessWidget {
                 height: 30,
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
-                  color: isOpened ? color.withValues(alpha: 0.5) : color.withValues(alpha: 0.1),
+                  color: isOpened
+                      ? color.withValues(alpha: 0.5)
+                      : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: isOpened ? color : color.withValues(alpha: 0.3),
@@ -1128,9 +1215,9 @@ class _PlayerCard extends StatelessWidget {
         width: 160,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha:0.65),
+          color: Colors.black.withValues(alpha: 0.65),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha:0.2)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
@@ -1146,7 +1233,8 @@ class _PlayerCard extends StatelessWidget {
               child: ClipOval(
                 child: user?.photoURL?.isNotEmpty == true
                     ? Image.network(user!.photoURL!, fit: BoxFit.cover)
-                    : const Icon(Icons.person_rounded, size: 20, color: Colors.white),
+                    : const Icon(Icons.person_rounded,
+                        size: 20, color: Colors.white),
               ),
             ),
             const SizedBox(width: 8),
@@ -1182,7 +1270,8 @@ class _PlayerCard extends StatelessWidget {
               ),
             ),
             // Edit icon
-            Icon(Icons.edit_rounded, size: 14, color: Colors.white.withValues(alpha:0.5)),
+            Icon(Icons.edit_rounded,
+                size: 14, color: Colors.white.withValues(alpha: 0.5)),
           ],
         ),
       ),

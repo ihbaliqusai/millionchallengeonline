@@ -149,8 +149,7 @@ class _RoomsScreenState extends State<RoomsScreen>
                             setState(() => _maxPlayers = v),
                         onModeChanged: (v) => setState(() {
                           _mode = v;
-                          // team_battle requires an even player count.
-                          if (v == 'team_battle' && _maxPlayers.isOdd) {
+                          if (v == Room.modeTeamBattle && _maxPlayers.isOdd) {
                             _maxPlayers = _maxPlayers + 1;
                           }
                         }),
@@ -159,8 +158,7 @@ class _RoomsScreenState extends State<RoomsScreen>
                         onSeriesTargetChanged: (v) =>
                             setState(() => _seriesTarget = v),
                         onCreateRoom: _createRoom,
-                        onJoinRoom: () =>
-                            _joinRoom(_roomCodeController.text),
+                        onJoinRoom: () => _joinRoom(_roomCodeController.text),
                       );
                       final rightPanel = _LiveRoomsPanel(
                         pulseCtrl: _pulseCtrl,
@@ -168,9 +166,8 @@ class _RoomsScreenState extends State<RoomsScreen>
                           _roomCodeController.text = id;
                           _joinRoom(id);
                         },
-                        joiningRoomId: _joiningRoom
-                            ? _roomCodeController.text.trim()
-                            : '',
+                        joiningRoomId:
+                            _joiningRoom ? _roomCodeController.text.trim() : '',
                       );
 
                       if (narrow) {
@@ -230,8 +227,7 @@ class _BattleHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border:
-                    Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
               child: const Icon(Icons.arrow_back_rounded,
                   color: Colors.white, size: 20),
@@ -314,6 +310,10 @@ class _CreateJoinPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final allowedPlayerCounts = mode == Room.modeTeamBattle
+        ? const <int>[2, 4, 6, 8, 10, 12]
+        : List<int>.generate(12, (i) => i + 2);
+
     return Column(
       children: [
         // ── Create Room card ────────────────────────────────────
@@ -414,7 +414,7 @@ class _CreateJoinPanel extends StatelessWidget {
                   _ModeChip(
                     label: 'فرق',
                     icon: Icons.groups_rounded,
-                    description: '2 ضد 2 بنظام الفريق',
+                    description: 'حتى 6 ضد 6 بنظام الفريق',
                     selected: mode == 'team_battle',
                     selectedColor: const Color(0xFF8B5CF6),
                     onTap: () => onModeChanged('team_battle'),
@@ -532,38 +532,44 @@ class _CreateJoinPanel extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].map((n) {
+                children: allowedPlayerCounts.map((n) {
                   final selected = maxPlayers == n;
+                  final isTeamMode = mode == Room.modeTeamBattle;
+                  final label = isTeamMode ? '${n ~/ 2}v${n ~/ 2}' : '$n';
                   return GestureDetector(
                     onTap: () => onMaxPlayersChanged(n),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      width: 52,
+                      width: isTeamMode ? 62 : 52,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       decoration: BoxDecoration(
                         color: selected
-                            ? const Color(0xFF3B82F6)
+                            ? const Color(0xFF8B5CF6)
                             : Colors.white.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color: selected
-                              ? const Color(0xFF60A5FA)
+                              ? const Color(0xFFA78BFA)
                               : Colors.white.withValues(alpha: 0.12),
                         ),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.person_rounded,
-                              size: 16,
-                              color: selected
-                                  ? Colors.white
-                                  : const Color(0xFF64748B)),
+                          Icon(
+                            isTeamMode
+                                ? Icons.groups_rounded
+                                : Icons.person_rounded,
+                            size: 16,
+                            color: selected
+                                ? Colors.white
+                                : const Color(0xFF64748B),
+                          ),
                           const SizedBox(height: 2),
                           Text(
-                            '$n',
+                            label,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: isTeamMode ? 11 : 12,
                               fontWeight: FontWeight.w900,
                               color: selected
                                   ? Colors.white
@@ -576,6 +582,18 @@ class _CreateJoinPanel extends StatelessWidget {
                   );
                 }).toList(),
               ),
+              if (mode == Room.modeTeamBattle) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'الأماكن الفارغة تُملأ ببوتات متوازنة عند بدء المضيف مبكراً. '
+                  'الفرق: ${maxPlayers ~/ 2} ضد ${maxPlayers ~/ 2}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.white.withValues(alpha: 0.55),
+                    height: 1.35,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               _GradientButton(
                 label: creatingRoom ? 'جاري الإنشاء...' : 'إنشاء غرفة جديدة',
@@ -622,14 +640,15 @@ class _CreateJoinPanel extends StatelessWidget {
               const SizedBox(height: 16),
               TextField(
                 controller: roomCodeController,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w700),
                 decoration: InputDecoration(
                   hintText: 'أدخل كود الغرفة',
                   hintStyle: TextStyle(
                       color: Colors.white.withValues(alpha: 0.35),
                       fontSize: 14),
-                  prefixIcon:
-                      Icon(Icons.tag_rounded, color: const Color(0xFFFACC15).withValues(alpha: 0.8)),
+                  prefixIcon: Icon(Icons.tag_rounded,
+                      color: const Color(0xFFFACC15).withValues(alpha: 0.8)),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.06),
                   enabledBorder: OutlineInputBorder(
@@ -639,11 +658,11 @@ class _CreateJoinPanel extends StatelessWidget {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                        color: Color(0xFFFACC15), width: 1.5),
+                    borderSide:
+                        const BorderSide(color: Color(0xFFFACC15), width: 1.5),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 12),
@@ -711,13 +730,14 @@ class _LiveRoomsPanel extends StatelessWidget {
               AnimatedBuilder(
                 animation: pulseCtrl,
                 builder: (_, __) => Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFF14532D).withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                        color: const Color(0xFF4ADE80).withValues(
-                            alpha: 0.4 + pulseCtrl.value * 0.4)),
+                        color: const Color(0xFF4ADE80)
+                            .withValues(alpha: 0.4 + pulseCtrl.value * 0.4)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -761,7 +781,8 @@ class _LiveRoomsPanel extends StatelessWidget {
                   return _ErrorState(message: roomSnap.error.toString());
                 }
                 final rooms = roomSnap.data ?? [];
-                if (rooms.isEmpty && roomSnap.connectionState == ConnectionState.waiting) {
+                if (rooms.isEmpty &&
+                    roomSnap.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(
                       color: Color(0xFF7C3AED),
@@ -787,7 +808,8 @@ class _LiveRoomsPanel extends StatelessWidget {
                           room: room,
                           hostName: host?.username ?? _short(room.hostId),
                           isJoining: joiningRoomId == room.id,
-                          onJoin: room.isFull ? null : () => onJoinRoom(room.id),
+                          onJoin:
+                              room.isFull ? null : () => onJoinRoom(room.id),
                         );
                       },
                     );
@@ -868,7 +890,9 @@ class _RoomCard extends StatelessWidget {
               child: Text(
                 hostName.isNotEmpty ? hostName[0].toUpperCase() : '?',
                 style: const TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white),
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white),
               ),
             ),
           ),
@@ -882,7 +906,9 @@ class _RoomCard extends StatelessWidget {
                 Text(
                   hostName,
                   style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1000,7 +1026,9 @@ class _RoomCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w900,
-                  color: isFull ? Colors.white.withValues(alpha: 0.4) : const Color(0xFF1F2937),
+                  color: isFull
+                      ? Colors.white.withValues(alpha: 0.4)
+                      : const Color(0xFF1F2937),
                 ),
               ),
             ),
@@ -1035,7 +1063,8 @@ class _Card extends StatelessWidget {
           colors: gradient,
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor.withValues(alpha: 0.45), width: 1.5),
+        border:
+            Border.all(color: borderColor.withValues(alpha: 0.45), width: 1.5),
         boxShadow: [
           BoxShadow(
             color: borderColor.withValues(alpha: 0.12),

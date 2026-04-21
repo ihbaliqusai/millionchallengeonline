@@ -6,6 +6,8 @@ import android.content.SharedPreferences;
 public final class AppPrefs {
     public static final String PREF_USER = "UserInfo";
     public static final String PREF_SETTINGS = "AppSettings";
+    public static final String PREF_ROOM = "RoomBridge";
+    private static final String KEY_PENDING_ROOM_MATCH_RESULT = "pendingRoomMatchResult";
 
     private AppPrefs() {}
 
@@ -15,6 +17,10 @@ public final class AppPrefs {
 
     private static SharedPreferences settingsPrefs(Context c) {
         return c.getSharedPreferences(PREF_SETTINGS, Context.MODE_PRIVATE);
+    }
+
+    private static SharedPreferences roomPrefs(Context c) {
+        return c.getSharedPreferences(PREF_ROOM, Context.MODE_PRIVATE);
     }
 
     public static void ensureGuestUser(Context c) {
@@ -83,6 +89,17 @@ public final class AppPrefs {
     public static int getInventory5050(Context c) { return PlayerProgress.getInventory5050(c); }
     public static int getInventoryAudience(Context c) { return PlayerProgress.getInventoryAudience(c); }
     public static int getInventoryCall(Context c) { return PlayerProgress.getInventoryCall(c); }
+
+    public static void setPendingRoomMatchResult(Context c, String payload) {
+        roomPrefs(c).edit().putString(KEY_PENDING_ROOM_MATCH_RESULT, payload).apply();
+    }
+
+    public static String consumePendingRoomMatchResult(Context c) {
+        SharedPreferences prefs = roomPrefs(c);
+        String payload = prefs.getString(KEY_PENDING_ROOM_MATCH_RESULT, "");
+        prefs.edit().remove(KEY_PENDING_ROOM_MATCH_RESULT).apply();
+        return payload == null ? "" : payload;
+    }
 
     public static void resetLocalProgress(Context c) {
         PlayerStats.reset(c);

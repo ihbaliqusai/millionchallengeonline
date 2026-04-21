@@ -20,6 +20,16 @@ public class SurvivalGameActivity extends BaseGameActivity {
     }
 
     @Override
+    protected String getMatchModeId() {
+        return "survival";
+    }
+
+    @Override
+    protected boolean usesEliminationRoundFlow() {
+        return true;
+    }
+
+    @Override
     protected boolean isSurvivalMode() {
         return true;
     }
@@ -27,8 +37,6 @@ public class SurvivalGameActivity extends BaseGameActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        eliminationMode = true;
 
         life1 = findViewById(R.id.imgLife1);
         life2 = findViewById(R.id.imgLife2);
