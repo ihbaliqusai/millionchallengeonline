@@ -17,7 +17,7 @@ import android.widget.TextView;
  *
  * الفوز/الخسارة:
  *   - الفائز = اللاعب الذي أجاب على أكثر الأسئلة بشكل صحيح
- *   - البوتات لا تجيب → نقاطهم صفر دائماً
+ *   - البوتات تُحاكى عبر مؤقت كلي: Very Smart=14 إجابة | Smart=11 | Normal=6 (في 60 ثانية)
  */
 public class BlitzGameActivity extends BaseGameActivity {
 
@@ -45,6 +45,11 @@ public class BlitzGameActivity extends BaseGameActivity {
     @Override
     protected boolean shouldScheduleBotAnswers() {
         return false;
+    }
+
+    @Override
+    protected int getBlitzRoundDurationSeconds() {
+        return roundDurationSeconds;
     }
 
     @Override
@@ -136,13 +141,14 @@ public class BlitzGameActivity extends BaseGameActivity {
         if (blitzFinished) return;
         blitzFinished = true;
         cancelGlobalTimer();
-        // delay brief so any in-flight UI settles, then open result
+        cancelBlitzBotSimulation();
         new Handler().postDelayed(() -> openOnlineResultScreen(false), 300);
     }
 
     @Override
     protected void onDestroy() {
         cancelGlobalTimer();
+        cancelBlitzBotSimulation();
         super.onDestroy();
     }
 }

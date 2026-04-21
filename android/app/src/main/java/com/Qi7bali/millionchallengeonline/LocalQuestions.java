@@ -60,7 +60,7 @@ public class LocalQuestions {
             populate(questions, allQuestions0, 3);
             populate(questions, allQuestions1, 3);
             populate(questions, allQuestions2, 5);
-            populate(questions, allQuestions3, 4);
+            populate(questions, allQuestions3, 39);
         } catch (Exception ignored) {
         }
         return questions;

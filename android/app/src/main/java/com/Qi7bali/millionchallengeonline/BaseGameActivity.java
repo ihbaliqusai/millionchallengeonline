@@ -126,18 +126,22 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private static final BotProfile[] BOT_PROFILES = new BotProfile[]{
-            new BotProfile("طارق",   "drawable:avatar1",  95),
-            new BotProfile("ليلى",   "drawable:avatar2",  70),
-            new BotProfile("هدى",    "drawable:avatar3",  65),
-            new BotProfile("عمر",    "drawable:avatar4",  85),
-            new BotProfile("منى",    "drawable:avatar5",  50),
-            new BotProfile("سارة",   "drawable:avatar6",  80),
-            new BotProfile("علي",    "drawable:avatar7",  60),
-            new BotProfile("فيصل",   "drawable:avatar8",  90),
-            new BotProfile("يوسف",   "drawable:avatar9",  40),
-            new BotProfile("رنا",    "drawable:avatar10", 75),
-            new BotProfile("خالد",   "drawable:avatar11", 92),
-            new BotProfile("سالم",   "drawable:avatar12", 78)
+            // Very Smart (intel >= 88): 14 correct in 60s
+            new BotProfile("طارق",   "drawable:avatar1",  97),
+            new BotProfile("فيصل",   "drawable:avatar8",  93),
+            new BotProfile("خالد",   "drawable:avatar11", 90),
+            // Smart (intel 65-87): 11 correct in 60s
+            new BotProfile("عمر",    "drawable:avatar4",  86),
+            new BotProfile("سارة",   "drawable:avatar6",  82),
+            new BotProfile("سالم",   "drawable:avatar12", 78),
+            new BotProfile("نورة",   "drawable:avatar13", 74),
+            new BotProfile("رنا",    "drawable:avatar10", 70),
+            new BotProfile("ليلى",   "drawable:avatar2",  67),
+            // Normal (intel < 65): 6 correct in 60s
+            new BotProfile("هدى",    "drawable:avatar3",  62),
+            new BotProfile("علي",    "drawable:avatar7",  55),
+            new BotProfile("منى",    "drawable:avatar5",  47),
+            new BotProfile("يوسف",   "drawable:avatar9",  38)
     };
 
     static class MatchOpponent {
@@ -267,6 +271,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     private final ArrayList<MatchOpponent> opponents = new ArrayList<>();
     private final ArrayList<LinearLayout> opponentAnswerContainers = new ArrayList<>();
     private final HashMap<String, Runnable> pendingBotAnswerRunnables = new HashMap<>();
+    private final android.os.Handler blitzBotHandler = new android.os.Handler();
+    private final ArrayList<Runnable> blitzBotRunnables = new ArrayList<>();
+    private boolean blitzBotSimStarted = false;
     private LinearLayout llyOpponents;
     private LinearLayout llyOpponentScores;
     private LinearLayout scoreHeaderRow;
@@ -922,7 +929,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         llyPlayer1.setVisibility(View.GONE);
         View scrollOpponents = findViewById(R.id.scrollOpponents);
         if (scrollOpponents != null) {
-            scrollOpponents.setVisibility(isSurvivalMode() && !opponents.isEmpty() ? View.VISIBLE : View.GONE);
+            scrollOpponents.setVisibility(View.GONE);
         }
         if (llyOpponents != null) {
             llyOpponents.removeAllViews();
@@ -1655,7 +1662,16 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             case "3": levelPenalty = 26; break;
             default:  levelPenalty = 0;  break;
         }
-        int successChance = Math.max(20, Math.min(97, opponent.intelligence - levelPenalty));
+        // نسبة الخطأ تزداد تدريجياً مع تقدم الأسئلة لجميع البوتات
+        int questionPenalty;
+        if (currentQuestion < 5) {
+            questionPenalty = 5;
+        } else if (currentQuestion < 15) {
+            questionPenalty = 15;
+        } else {
+            questionPenalty = 20 + ((currentQuestion - 15) / 5) * 5;
+        }
+        int successChance = Math.max(20, Math.min(97, opponent.intelligence - levelPenalty - questionPenalty));
         // Mix 80% stable hash (consistent character) + 20% random (human unpredictability)
         int stablePart = Math.abs(stableHash(opponent.id + "|" + currentQuestion)) % 80;
         int randomPart = new Random().nextInt(20);
@@ -1803,10 +1819,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         initQuestion();
                         nextStep();
                         playSound(R.raw.lets_play, true, false);
-                        String currentStepAmount = getCurrentStepAmount();
                         person.moveHead(1000);
                         person.lookAside(600);
-                        showDialog("السؤال التالي قيمته\n" + currentStepAmount, "", 1000, 3000, R.drawable.mouth_02, false);
+                        showDialog("السؤال " + getArabicOrdinal(currentQuestion + 2), "", 1000, 3000, R.drawable.mouth_02, false);
                         CAN_HOME = true;
                         if (modeOnline) t++;
                         handler.postDelayed(this, 4000);
@@ -1921,7 +1936,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     /** Blitz hook: called immediately after the local player submits an answer. */
     protected void onLocalAnswerSubmitted() {}
 
-    /** Override to false in Blitz mode so bots never answer questions. */
+    /** Override to control whether bots are scheduled to answer each question. */
     protected boolean shouldScheduleBotAnswers() { return true; }
 
     /** Called when the question list is exhausted (currentQuestion >= questions.size()). */
@@ -1999,7 +2014,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
         refreshOpponentPanels();
 
-        if (currentQuestion == 14) {
+        if (currentQuestion >= questions.size() - 1) {
             String leaderId = getMatchLeaderId();
             if (myID.equals(leaderId)) {
                 person.moveShow2Hands(2000);
@@ -2054,10 +2069,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         initQuestion();
         nextStep();
         playSound(R.raw.lets_play, true, false);
-        String currentStepAmount = getCurrentStepAmount();
         person.moveHead(1000);
         person.lookAside(600);
-        showDialog("السؤال التالي قيمته\n" + currentStepAmount, "", 1000, 3000, R.drawable.mouth_02, false);
+        showDialog("السؤال " + getArabicOrdinal(currentQuestion + 2), "", 1000, 3000, R.drawable.mouth_02, false);
         CAN_HOME = true;
 
         final Handler handler = new Handler();
@@ -2500,6 +2514,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (!modeOnline) {
             return;
         }
+        cancelBlitzBotSimulation();
         if (!opponentLeft) {
             markMyGameState("finished");
         }
@@ -2623,6 +2638,81 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         pendingBotAnswerRunnables.clear();
     }
 
+    // ── Blitz bot simulation ──────────────────────────────────────────────────
+    // بدلاً من الإجابة سؤالاً بسؤال، يتراكم رصيد البوت على مؤقت الـ 60 ثانية الكلي
+    // حسب استراتيجية ثابتة: Very Smart=14 إجابة | Smart=11 | Normal=6
+
+    private void startBlitzBotSimulation() {
+        if (!isBlitzMode() || !modeOnline || blitzBotSimStarted) return;
+        blitzBotSimStarted = true;
+        for (MatchOpponent bot : opponents) {
+            if (bot.bot && !bot.eliminated) {
+                scheduleBlitzBotAnswers(bot);
+            }
+        }
+    }
+
+    private void scheduleBlitzBotAnswers(final MatchOpponent bot) {
+        int[] schedule = getBlitzBotScheduleMs(bot.intelligence);
+        final int scheduleLen = schedule.length;
+        Random rng = new Random();
+        for (int baseMs : schedule) {
+            int jitter = rng.nextInt(1001) - 500; // ±500ms طابع بشري
+            final int delayMs = Math.max(400, baseMs + jitter);
+            Runnable r = new Runnable() {
+                @Override
+                public void run() {
+                    if (EXITING) return;
+                    bot.gameScore        += ONLINE_SPEED_POINTS[0];
+                    bot.roundScore       += 1;
+                    bot.setCorrectAnswers++;
+                    bot.totalCorrectAnswers++;
+                    bot.totalAnswerTimeMs += delayMs / Math.max(1, scheduleLen);
+                    runOnUiThread(BaseGameActivity.this::refreshOpponentPanels);
+                }
+            };
+            blitzBotRunnables.add(r);
+            blitzBotHandler.postDelayed(r, delayMs);
+        }
+    }
+
+    private int[] getBlitzBotScheduleMs(int intel) {
+        // عدد الإجابات وفترة التكرار ثابتان بغض النظر عن مدة الجولة.
+        // المؤقت الكلي يلغي ما لم يُطلق منها عند نهاية الوقت.
+        if (intel >= 88) {
+            // ذكي جداً: 14 إجابة كل ~15 ث، أولها بعد 7 ث
+            return new int[]{
+                 7000,  22000,  37000,  52000,  67000,
+                82000,  97000, 112000, 127000, 142000,
+               157000, 172000, 187000, 202000
+            };
+        } else if (intel >= 65) {
+            // ذكي: 11 إجابة كل ~20 ث، أولها بعد 7 ث
+            return new int[]{
+                 7000,  27000,  47000,  67000,  87000,
+               107000, 127000, 147000, 167000, 187000,
+               207000
+            };
+        } else {
+            // عادي: 6 إجابات كل ~25 ث، أولها بعد 7 ث
+            return new int[]{
+                 7000,  32000,  57000,
+                82000, 107000, 132000
+            };
+        }
+    }
+
+    protected int getBlitzRoundDurationSeconds() { return 60; }
+
+    protected void cancelBlitzBotSimulation() {
+        for (Runnable r : blitzBotRunnables) {
+            blitzBotHandler.removeCallbacks(r);
+        }
+        blitzBotRunnables.clear();
+        blitzBotSimStarted = false;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     private void scheduleBotAnswersForCurrentQuestion() {
         cancelPendingBotAnswers();
         if (!modeOnline || currentQuestion < 0 || currentQuestion >= questions.size()) {
@@ -2721,6 +2811,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 object.put("name", opponent.name);
                 object.put("photo", opponent.photo);
                 object.put("score", opponent.gameScore);
+                object.put("correctAnswers", opponent.totalCorrectAnswers);
                 object.put("sets", opponent.sets);
                 object.put("bot", opponent.bot);
                 object.put("left", opponent.left);
@@ -3444,7 +3535,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         playSound(R.raw.lets_play, true, false);
                         person.moveHead(2000);
                         person.lookAside(2500);
-                        showDialog("السؤال الأول يقول ..", "", 1000, 2000, R.drawable.mouth_01, false);
+                        showDialog("السؤال الأول", "", 1000, 2000, R.drawable.mouth_01, false);
                         handler.postDelayed(this, 2000);
                         break;
                     case 3:
@@ -3507,6 +3598,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 if (modeOnline && shouldScheduleBotAnswers()) {
                     scheduleBotAnswersForCurrentQuestion();
                 }
+                startBlitzBotSimulation();
             }
             final int finalRandomTime = randomTime;
             cdtProgress = new CountDownTimer(50000, 100) {
@@ -3534,6 +3626,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                             //TIMER_VALUE = 10000;
                             if (modeOnline) {
                                 CAN_PLAY = false;
+                                Animations.progressZoomOut(rlyProgress);
                                 // Only submit timeout if the player hasn't already
                                 // submitted (or selected an answer awaiting confirm).
                                 // This prevents the timer from overwriting a valid
@@ -3826,15 +3919,45 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private String getCurrentStepAmount() {
+        if (currentStep >= steps.size()) return "";
         TextView txtAmount = (TextView) steps.get(currentStep).getChildAt(1);
         return txtAmount.getText().toString();
     }
 
     private void nextStep() {
-        steps.get(currentStep).setBackgroundResource(R.color.darkBlueApp);
+        if (currentStep < steps.size()) {
+            steps.get(currentStep).setBackgroundResource(R.color.darkBlueApp);
+        }
         currentStep++;
-        if(currentStep < steps.size())
+        if (currentStep < steps.size()) {
             steps.get(currentStep).setBackgroundResource(R.color.stepSelected);
+        }
+    }
+
+    private String getArabicOrdinal(int n) {
+        switch (n) {
+            case 1:  return "الأول";
+            case 2:  return "الثاني";
+            case 3:  return "الثالث";
+            case 4:  return "الرابع";
+            case 5:  return "الخامس";
+            case 6:  return "السادس";
+            case 7:  return "السابع";
+            case 8:  return "الثامن";
+            case 9:  return "التاسع";
+            case 10: return "العاشر";
+            case 11: return "الحادي عشر";
+            case 12: return "الثاني عشر";
+            case 13: return "الثالث عشر";
+            case 14: return "الرابع عشر";
+            case 15: return "الخامس عشر";
+            case 16: return "السادس عشر";
+            case 17: return "السابع عشر";
+            case 18: return "الثامن عشر";
+            case 19: return "التاسع عشر";
+            case 20: return "العشرون";
+            default: return "رقم " + n;
+        }
     }
 
     private void nextQuestion() {

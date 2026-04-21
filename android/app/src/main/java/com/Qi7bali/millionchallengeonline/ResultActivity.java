@@ -65,7 +65,15 @@ public class ResultActivity extends AppCompatActivity {
         }
 
         if (opponents.length() > 0) {
+            // نعرض الخصم صاحب أعلى نقاط في الأعلى (وليس فقط الأول في القائمة)
             JSONObject primaryOpponent = opponents.optJSONObject(0);
+            for (int i = 1; i < opponents.length(); i++) {
+                JSONObject candidate = opponents.optJSONObject(i);
+                if (candidate != null && primaryOpponent != null
+                        && candidate.optInt("score", 0) > primaryOpponent.optInt("score", 0)) {
+                    primaryOpponent = candidate;
+                }
+            }
             if (primaryOpponent != null) {
                 opponentName = primaryOpponent.optString("name", opponentName);
                 opponentPhoto = primaryOpponent.optString("photo", opponentPhoto);
@@ -137,7 +145,10 @@ public class ResultActivity extends AppCompatActivity {
                 if (anySetsNonZero) {
                     builder.append("  |  الجولات: ").append(opponent.optInt("sets", 0));
                 }
-                builder.append("  |  النقاط: ").append(opponent.optInt("score", 0));
+                int score = opponent.optInt("score", 0);
+                int correct = opponent.optInt("correctAnswers", score / 10);
+                builder.append("  |  ").append(correct).append(" إجابة صحيحة");
+                builder.append("  |  النقاط: ").append(score);
                 if (opponent.optBoolean("bot", false)) {
                     builder.append("  |  ذكاء: ").append(opponent.optInt("intelligence", 0)).append('%');
                 }
