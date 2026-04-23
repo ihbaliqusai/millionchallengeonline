@@ -190,6 +190,10 @@ class MainActivity : FlutterActivity() {
                         startActivity(intent)
                         result.success(true)
                     }
+                    "resetLocalProgress" -> {
+                        AppPrefs.resetLocalProgress(this)
+                        result.success(true)
+                    }
                     "deliverPurchase" -> {
                         val productId = call.argument<String>("productId") ?: ""
                         val deliveryKey = call.argument<String>("deliveryKey") ?: ""
@@ -331,6 +335,16 @@ class MainActivity : FlutterActivity() {
                             PlayerProgress.addInventory(this, type, quantity)
                         }
                         result.success(success)
+                    }
+                    "grantPowerUp" -> {
+                        val type     = call.argument<String>("type") ?: ""
+                        val quantity = call.argument<Int>("quantity") ?: 1
+                        if (type.isBlank() || quantity <= 0) {
+                            result.success(false)
+                        } else {
+                            PlayerProgress.addInventory(this, type, quantity)
+                            result.success(true)
+                        }
                     }
                     else -> result.notImplemented()
                 }

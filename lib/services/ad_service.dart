@@ -6,8 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AdService extends ChangeNotifier {
   // ── Test IDs (replace with real IDs before publishing) ──────────────────────
-  static const String _rewardedId =
-      'ca-app-pub-2427194500639575/4290411051';
+  static const String _rewardedId = 'ca-app-pub-2427194500639575/4290411051';
   static const String _interstitialId =
       'ca-app-pub-2427194500639575/3315194558';
 
@@ -15,10 +14,12 @@ class AdService extends ChangeNotifier {
   static const int rewardCoins = 100;
   static const int rewardGems = 5;
   static const int maxDailyWatches = 5;
+  static const int dailyPowerUpGoal = 5;
   static const Duration cooldown = Duration(hours: 1);
   static const String _prefsWatchesToday = 'ads.watchesToday';
   static const String _prefsLastWatchAt = 'ads.lastWatchAtMillis';
   static const String _prefsNextAvailableAt = 'ads.nextAvailableAtMillis';
+  static const String _prefsBonusClaimedAt = 'ads.bonusClaimedAtMillis';
 
   RewardedAd? _rewardedAd;
   InterstitialAd? _interstitialAd;
@@ -26,22 +27,45 @@ class AdService extends ChangeNotifier {
   bool _rewardedLoading = false;
   bool _interstitialLoading = false;
   SharedPreferences? _prefs;
+  bool _privacyOptionsRequired = false;
 
   int _watchesToday = 0;
   DateTime? _lastWatchDate;
   DateTime? _nextAvailableAt;
+  DateTime? _bonusClaimedAt;
 
   bool get canWatchAd {
     _resetIfNewDay();
-    if (_watchesToday >= maxDailyWatches) { return false; }
+    if (_watchesToday >= maxDailyWatches) {
+      return false;
+    }
     if (_nextAvailableAt != null &&
-        DateTime.now().isBefore(_nextAvailableAt!)) { return false; }
+        DateTime.now().isBefore(_nextAvailableAt!)) {
+      return false;
+    }
     return true;
   }
+
+  bool get privacyOptionsRequired => _privacyOptionsRequired;
 
   int get watchesLeft {
     _resetIfNewDay();
     return (maxDailyWatches - _watchesToday).clamp(0, maxDailyWatches);
+  }
+
+  int get watchesToday {
+    _resetIfNewDay();
+    return _watchesToday;
+  }
+
+  bool get hasClaimedDailyPowerUp {
+    _resetIfNewDay();
+    return _isSameDay(_bonusClaimedAt, DateTime.now());
+  }
+
+  bool get canClaimDailyPowerUp {
+    _resetIfNewDay();
+    return _watchesToday >= dailyPowerUpGoal && !hasClaimedDailyPowerUp;
   }
 
   Duration get cooldownRemaining {
@@ -50,12 +74,36 @@ class AdService extends ChangeNotifier {
     return remaining.isNegative ? Duration.zero : remaining;
   }
 
+  Future<bool> claimDailyPowerUp() async {
+    _resetIfNewDay();
+    if (!canClaimDailyPowerUp) {
+      return false;
+    }
+    _bonusClaimedAt = DateTime.now();
+    await _persistState();
+    notifyListeners();
+    return true;
+  }
+
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
     _restoreState();
     await MobileAds.instance.initialize();
-    _loadRewarded();
-    _loadInterstitial();
+    await _refreshConsent();
+    await _loadAdsIfAllowed();
+  }
+
+  Future<FormError?> showPrivacyOptionsForm() async {
+    final completer = Completer<FormError?>();
+    await ConsentForm.showPrivacyOptionsForm((FormError? error) {
+      if (!completer.isCompleted) {
+        completer.complete(error);
+      }
+    });
+    _privacyOptionsRequired = await _resolvePrivacyOptionsRequirement();
+    await _loadAdsIfAllowed();
+    notifyListeners();
+    return completer.future;
   }
 
   void _loadRewarded() {
@@ -76,6 +124,35 @@ class AdService extends ChangeNotifier {
         },
       ),
     );
+  }
+
+  Future<void> _refreshConsent() async {
+    final completer = Completer<void>();
+    ConsentInformation.instance.requestConsentInfoUpdate(
+      ConsentRequestParameters(),
+      () async {
+        await ConsentForm.loadAndShowConsentFormIfRequired((FormError? _) {});
+        _privacyOptionsRequired = await _resolvePrivacyOptionsRequirement();
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+      (FormError _) async {
+        _privacyOptionsRequired = await _resolvePrivacyOptionsRequirement();
+        if (!completer.isCompleted) {
+          completer.complete();
+        }
+      },
+    );
+    await completer.future;
+    notifyListeners();
+  }
+
+  Future<void> _loadAdsIfAllowed() async {
+    if (await ConsentInformation.instance.canRequestAds()) {
+      _loadRewarded();
+      _loadInterstitial();
+    }
   }
 
   void _loadInterstitial() {
@@ -163,6 +240,7 @@ class AdService extends ChangeNotifier {
 
   void _resetIfNewDay() {
     final now = DateTime.now();
+    var shouldPersist = false;
     if (_lastWatchDate != null) {
       final last = _lastWatchDate!;
       if (last.year != now.year ||
@@ -171,10 +249,15 @@ class AdService extends ChangeNotifier {
         final hadState = _watchesToday != 0 || _nextAvailableAt != null;
         _watchesToday = 0;
         _nextAvailableAt = null;
-        if (hadState) {
-          unawaited(_persistState());
-        }
+        shouldPersist = shouldPersist || hadState;
       }
+    }
+    if (_bonusClaimedAt != null && !_isSameDay(_bonusClaimedAt, now)) {
+      _bonusClaimedAt = null;
+      shouldPersist = true;
+    }
+    if (shouldPersist) {
+      unawaited(_persistState());
     }
   }
 
@@ -185,14 +268,18 @@ class AdService extends ChangeNotifier {
     _watchesToday = prefs.getInt(_prefsWatchesToday) ?? 0;
     final lastWatchAtMillis = prefs.getInt(_prefsLastWatchAt);
     final nextAvailableAtMillis = prefs.getInt(_prefsNextAvailableAt);
+    final bonusClaimedAtMillis = prefs.getInt(_prefsBonusClaimedAt);
 
     if (lastWatchAtMillis != null && lastWatchAtMillis > 0) {
-      _lastWatchDate =
-          DateTime.fromMillisecondsSinceEpoch(lastWatchAtMillis);
+      _lastWatchDate = DateTime.fromMillisecondsSinceEpoch(lastWatchAtMillis);
     }
     if (nextAvailableAtMillis != null && nextAvailableAtMillis > 0) {
       _nextAvailableAt =
           DateTime.fromMillisecondsSinceEpoch(nextAvailableAtMillis);
+    }
+    if (bonusClaimedAtMillis != null && bonusClaimedAtMillis > 0) {
+      _bonusClaimedAt =
+          DateTime.fromMillisecondsSinceEpoch(bonusClaimedAtMillis);
     }
 
     _resetIfNewDay();
@@ -221,6 +308,15 @@ class AdService extends ChangeNotifier {
         _nextAvailableAt!.millisecondsSinceEpoch,
       );
     }
+
+    if (_bonusClaimedAt == null) {
+      await prefs.remove(_prefsBonusClaimedAt);
+    } else {
+      await prefs.setInt(
+        _prefsBonusClaimedAt,
+        _bonusClaimedAt!.millisecondsSinceEpoch,
+      );
+    }
   }
 
   @override
@@ -228,5 +324,20 @@ class AdService extends ChangeNotifier {
     _rewardedAd?.dispose();
     _interstitialAd?.dispose();
     super.dispose();
+  }
+
+  bool _isSameDay(DateTime? left, DateTime? right) {
+    if (left == null || right == null) {
+      return false;
+    }
+    return left.year == right.year &&
+        left.month == right.month &&
+        left.day == right.day;
+  }
+
+  Future<bool> _resolvePrivacyOptionsRequirement() async {
+    final status =
+        await ConsentInformation.instance.getPrivacyOptionsRequirementStatus();
+    return status == PrivacyOptionsRequirementStatus.required;
   }
 }

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Delete Account | Million Challenge</title>
+    <meta
+      name="description"
+      content="Official account deletion instructions for Million Challenge."
+    />
+    <style>
+      :root {
+        --bg: #f7f3ea;
+        --card: #ffffff;
+        --text: #1f2937;
+        --muted: #5b6472;
+        --accent: #d97706;
+        --accent-2: #0f766e;
+        --line: rgba(15, 23, 42, 0.08);
+        --shadow: 0 24px 60px rgba(15, 23, 42, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(217, 119, 6, 0.18), transparent 28%),
+          linear-gradient(180deg, #f8f5ef 0%, #eef7f5 100%);
+      }
+
+      main {
+        width: min(900px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 40px 0 56px;
+      }
+
+      .shell {
+        background: rgba(255, 255, 255, 0.86);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        padding: 34px;
+        backdrop-filter: blur(14px);
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(30px, 5vw, 46px);
+      }
+
+      p,
+      li {
+        color: var(--muted);
+        line-height: 1.8;
+      }
+
+      .pill {
+        display: inline-block;
+        margin-bottom: 14px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: rgba(15, 118, 110, 0.1);
+        color: var(--accent-2);
+        font-weight: 700;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 24px;
+      }
+
+      .card {
+        padding: 22px;
+        border-radius: 22px;
+        background: var(--card);
+        border: 1px solid var(--line);
+      }
+
+      h2 {
+        margin-top: 0;
+        font-size: 22px;
+      }
+
+      ol,
+      ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .contact {
+        margin-top: 24px;
+        padding: 18px 20px;
+        border-radius: 18px;
+        background: rgba(217, 119, 6, 0.08);
+      }
+
+      a {
+        color: var(--accent-2);
+        font-weight: 700;
+      }
+
+      .back {
+        display: inline-flex;
+        margin-top: 24px;
+        text-decoration: none;
+      }
+
+      @media (max-width: 760px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .shell {
+          padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell">
+        <span class="pill">Million Challenge</span>
+        <h1>Account deletion instructions</h1>
+        <p>
+          You can permanently delete your Million Challenge account and its
+          associated game data in two supported ways.
+        </p>
+
+        <div class="grid">
+          <article class="card">
+            <h2>Delete from inside the app</h2>
+            <ol>
+              <li>Open Million Challenge.</li>
+              <li>Go to <strong>Settings</strong>.</li>
+              <li>Tap <strong>Delete Account</strong>.</li>
+              <li>
+                If your account uses email and password, enter your current
+                password to confirm.
+              </li>
+              <li>Confirm the deletion request.</li>
+            </ol>
+          </article>
+
+          <article class="card">
+            <h2>Delete by email request</h2>
+            <ul>
+              <li>Send your request to <strong>IhbaliQusai@gmail.com</strong>.</li>
+              <li>Use the subject line: <strong>Delete My Account</strong>.</li>
+              <li>
+                Include the email linked to the account or your in-game name to
+                help us locate the account.
+              </li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="contact">
+          <p>
+            Data deletion removes your account record, public profile,
+            matchmaking entries, invitations, and related game progress stored
+            for that account. Some local device data may also be cleared during
+            the in-app deletion flow.
+          </p>
+          <p>
+            Privacy policy:
+            <a
+              href="https://sites.google.com/view/privacypolicymillion"
+              target="_blank"
+              rel="noreferrer"
+            >
+              https://sites.google.com/view/privacypolicymillion
+            </a>
+          </p>
+        </div>
+
+        <div class="contact" style="margin-top:18px; background: rgba(15,118,110,0.07);">
+          <h2 style="margin-top:0; font-size:20px;">Request partial data deletion</h2>
+          <p>
+            You can also request deletion of specific data — such as your match
+            history or friends list — without deleting your account. To do so,
+            send an email to <strong>IhbaliQusai@gmail.com</strong> with the
+            subject line <strong>Partial Data Deletion</strong> and specify
+            which data you would like removed. We will process your request
+            within 30 days.
+          </p>
+        </div>
+
+        <a class="back" href="/">Back to support page</a>
+      </section>
+    </main>
+  </body>
+</html>

@@ -284,10 +284,6 @@ public class GameActivity extends AppCompatActivity {
             }
         });
 
-        /*mAdView = findViewById(R.id.adView);
-        AdRequest adRequest = new AdRequest.Builder().build();
-        mAdView.loadAd(adRequest);*/
-
         person = new Person((RelativeLayout) (findViewById(R.id.rlyPerson)));
         playSound(R.raw.main_theme_4, false, false);
 
@@ -3187,15 +3183,21 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void showInterstitialAd() {
-        if (mInterstitialAd != null) {
+        AppPrefs.recordInterstitialOpportunity(this);
+        if (mInterstitialAd != null && AppPrefs.canShowInterstitialNow(this)) {
             Log.d("TestAdmob", "Ad loaded");
+            AppPrefs.markInterstitialShown(this);
             mInterstitialAd.show(this);
         } else {
             Log.d("TestAdmob", "Ad not loaded");
-            Intent intent = new Intent(GameActivity.this, MainActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
+            navigateToHome();
         }
+    }
+
+    private void navigateToHome() {
+        Intent intent = new Intent(GameActivity.this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
     }
 
     private void showThumbPlayerAnswer(int player, int answer) {
@@ -3228,7 +3230,7 @@ public class GameActivity extends AppCompatActivity {
                         person.raiseEyeBrowsUp(2000, false, true);
                         person.like(2000);
                         if (modeOnline)
-                            showDialog("نبدأ الآن.. استعدا للمباراة", "", 1000, 3000, R.drawable.mouth_01, false);
+                            showDialog("نبدأ الآن.. استعدوا للمباراة", "", 1000, 3000, R.drawable.mouth_01, false);
                         else
                             showDialog("نبدأ الآن.. استعد للحصول على المليون", "", 1000, 3000, R.drawable.mouth_01, false);
                         handler.postDelayed(this, 5000);
@@ -4248,20 +4250,7 @@ public class GameActivity extends AppCompatActivity {
     public void onBackPressed() {
         confirmExit();
 
-        DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialogInterface, int i) {
-                switch (i) {
-                    case DialogInterface.BUTTON_POSITIVE:
-                        EXITING = true;
-                        finishGame();
-                        break;
-                    case DialogInterface.BUTTON_NEGATIVE:
-                        //Nothing
-                        break;
-                }
-            }
-        };
+        /*
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setMessage("هل تريد حقا الخروج من المباراة ؟")
                 .setPositiveButton("نعم", dialogClickListener)
@@ -4271,7 +4260,7 @@ public class GameActivity extends AppCompatActivity {
         stopSound(mpSound);
         if(cdtProgress != null) cdtProgress.cancel();
         showInterstitialAd();
-
+        */
     }
 
     private void initAdsIfNeeded() {
@@ -4289,9 +4278,7 @@ public class GameActivity extends AppCompatActivity {
                                 @Override
                                 public void onAdDismissedFullScreenContent() {
                                     mInterstitialAd = null;
-                                    Intent intent = new Intent(GameActivity.this, MainActivity.class);
-                                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                                    startActivity(intent);
+                                    navigateToHome();
                                 }
                             });
                         }

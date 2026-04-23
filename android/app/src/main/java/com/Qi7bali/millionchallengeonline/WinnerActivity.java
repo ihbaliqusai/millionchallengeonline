@@ -94,9 +94,7 @@ public class WinnerActivity extends AppCompatActivity {
                         @Override
                         public void onAdDismissedFullScreenContent() {
                             mInterstitialAd = null;
-                            Intent intent = new Intent(WinnerActivity.this, MainActivity.class);
-                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                            startActivity(intent);
+                            navigateToHome();
                         }
                     });
                 }
@@ -108,13 +106,19 @@ public class WinnerActivity extends AppCompatActivity {
     }
 
     private void showInterstitialAd() {
-        if (mInterstitialAd != null) {
+        AppPrefs.recordInterstitialOpportunity(this);
+        if (mInterstitialAd != null && AppPrefs.canShowInterstitialNow(this)) {
+            AppPrefs.markInterstitialShown(this);
             mInterstitialAd.show(this);
         } else {
-            Intent intent = new Intent(WinnerActivity.this, MainActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
+            navigateToHome();
         }
+    }
+
+    private void navigateToHome() {
+        Intent intent = new Intent(WinnerActivity.this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
     }
 
 

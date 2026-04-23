@@ -3,8 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
-import '../legal/privacy_policy_screen.dart';
+import '../../services/ad_service.dart';
 import '../../services/native_bridge_service.dart';
+import '../legal/privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -38,103 +39,83 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _loading = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() => _loading = false);
     }
   }
 
   Future<void> _setSfx(bool value) async {
     setState(() => _sfx = value);
     await context.read<NativeBridgeService>().setSoundEnabled(value);
-    if (_haptic) HapticFeedback.lightImpact();
+    if (_haptic) {
+      HapticFeedback.lightImpact();
+    }
   }
 
   Future<void> _setMusic(bool value) async {
     setState(() => _music = value);
     await context.read<NativeBridgeService>().setMusicEnabled(value);
-    if (_haptic) HapticFeedback.lightImpact();
+    if (_haptic) {
+      HapticFeedback.lightImpact();
+    }
   }
 
   Future<void> _setHaptic(bool value) async {
     setState(() => _haptic = value);
     await context.read<NativeBridgeService>().setHapticEnabled(value);
-    if (value) HapticFeedback.mediumImpact();
+    if (value) {
+      HapticFeedback.mediumImpact();
+    }
   }
 
   Future<void> _openNotifications() async {
-    if (_haptic) HapticFeedback.lightImpact();
+    if (_haptic) {
+      HapticFeedback.lightImpact();
+    }
     await context.read<NativeBridgeService>().openNotificationSettings();
   }
 
   void _openLanguage() {
-    if (_haptic) HapticFeedback.lightImpact();
+    if (_haptic) {
+      HapticFeedback.lightImpact();
+    }
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF152055),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(18)),
-        ),
-        title: const Text(
-          'اللغة',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-        ),
-        content: const Text(
-          'اللغة العربية محددة حالياً.\nسيتم إضافة دعم لغات أخرى في تحديث قادم.',
-          style: TextStyle(color: Colors.white70, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              'حسناً',
-              style: TextStyle(
-                  color: Color(0xFF7DD3FC), fontWeight: FontWeight.w700),
+      builder: (BuildContext ctx) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF152055),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          title: const Text(
+            'اللغة',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
+          ),
+          content: const Text(
+            'اللغة العربية مفعلة حالياً. يمكن إضافة لغات أخرى في تحديث لاحق.',
+            style: TextStyle(color: Colors.white70, height: 1.55),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text(
+                'حسناً',
+                style: TextStyle(
+                  color: Color(0xFF7DD3FC),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void openLegacyPrivacyPolicy() {
-    if (_haptic) HapticFeedback.lightImpact();
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF152055),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text(
-          'سياسة الخصوصية',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900),
-        ),
-        content: const SingleChildScrollView(
-          child: Text(
-            'نجمع فقط البيانات الضرورية لتشغيل اللعبة، '
-            'بما في ذلك اسم المستخدم وصورة الملف الشخصي وتقدم اللعبة.\n\n'
-            'يتم تخزين بياناتك بأمان عبر Firebase ولا تُباع أو تُشارك '
-            'مع أطراف ثالثة لأغراض إعلانية.\n\n'
-            'يمكنك حذف حسابك وجميع البيانات المرتبطة به في أي وقت '
-            'عن طريق التواصل معنا من خلال صفحة التطبيق في متجر التطبيقات.\n\n'
-            'باستخدامك هذا التطبيق فإنك توافق على هذه الشروط.',
-            style: TextStyle(color: Colors.white70, height: 1.5),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
-              'إغلاق',
-              style: TextStyle(
-                  color: Color(0xFF7DD3FC), fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
   void _showProfessionalPrivacyPolicy() {
-    if (_haptic) HapticFeedback.lightImpact();
+    if (_haptic) {
+      HapticFeedback.lightImpact();
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => const PrivacyPolicyScreen(),
@@ -142,86 +123,211 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _restorePurchases() async {
-    if (_haptic) HapticFeedback.lightImpact();
-    final restored =
-        await context.read<NativeBridgeService>().restorePurchases();
-    if (!mounted) return;
+  Future<void> _openAdPrivacyOptions() async {
+    if (_haptic) {
+      HapticFeedback.lightImpact();
+    }
+    final error = await context.read<AdService>().showPrivacyOptionsForm();
+    if (!mounted || error == null) {
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          restored
-              ? 'تمت استعادة المشتريات بنجاح.'
-              : 'لم يتم العثور على مشتريات لاستعادتها.',
+          error.message.trim().isNotEmpty
+              ? error.message.trim()
+              : 'تعذر فتح خيارات خصوصية الإعلانات الآن.',
         ),
+        backgroundColor: const Color(0xFFB91C1C),
       ),
+    );
+  }
+
+  Future<void> _deleteAccount() async {
+    if (_haptic) {
+      HapticFeedback.heavyImpact();
+    }
+
+    final appState = context.read<AppState>();
+    final user = appState.user;
+    if (user == null) {
+      return;
+    }
+
+    final providerIds = user.providerData
+        .map((info) => info.providerId)
+        .whereType<String>()
+        .toSet();
+    final requiresPassword = providerIds.contains('password');
+    final password = await _showDeleteAccountDialog(
+      email: user.email ?? '',
+      requiresPassword: requiresPassword,
+    );
+    if (password == null || !mounted) {
+      return;
+    }
+
+    try {
+      await appState.deleteAccount(
+        password: requiresPassword ? password : null,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم حذف الحساب وبياناته المحلية بنجاح.'),
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString()),
+          backgroundColor: const Color(0xFFB91C1C),
+        ),
+      );
+    }
+  }
+
+  Future<String?> _showDeleteAccountDialog({
+    required String email,
+    required bool requiresPassword,
+  }) {
+    final controller = TextEditingController();
+    String? validationMessage;
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext ctx) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF152055),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              title: const Row(
+                children: <Widget>[
+                  Icon(
+                    Icons.delete_forever_rounded,
+                    color: Color(0xFFF87171),
+                    size: 24,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'حذف الحساب نهائياً',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    requiresPassword
+                        ? 'سيتم حذف الحساب المرتبط بـ $email وكل بياناته من اللعبة. أدخل كلمة المرور الحالية للتأكيد.'
+                        : 'سيتم حذف حسابك وكل بياناته من اللعبة نهائياً، بما في ذلك الملف العام والتقدم المحلي.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.76),
+                      height: 1.55,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (requiresPassword) ...<Widget>[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controller,
+                      obscureText: true,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'كلمة المرور الحالية',
+                        errorText: validationMessage,
+                      ),
+                      onChanged: (_) {
+                        if (validationMessage != null) {
+                          setState(() => validationMessage = null);
+                        }
+                      },
+                    ),
+                  ],
+                ],
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(null),
+                  child: const Text(
+                    'إلغاء',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFDC2626),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () {
+                    final password = controller.text.trim();
+                    if (requiresPassword && password.isEmpty) {
+                      setState(() {
+                        validationMessage =
+                            'أدخل كلمة المرور لتأكيد حذف الحساب.';
+                      });
+                      return;
+                    }
+                    Navigator.of(ctx).pop(password);
+                  },
+                  child: const Text(
+                    'حذف نهائي',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
+    final adService = context.watch<AdService>();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B1640),
       body: SafeArea(
         child: Column(
-          children: [
+          children: <Widget>[
             _Header(onBack: () => Navigator.of(context).pop()),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : ListView(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 6),
-                      children: [
+                        horizontal: 16,
+                        vertical: 6,
+                      ),
+                      children: <Widget>[
                         _TappableRow(
                           icon: Icons.language_rounded,
                           label: 'اللغة',
-                          trailing: Container(
-                            width: 38,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.3)),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      color: const Color(0xFFB22234),
-                                      child: Column(
-                                        children: List.generate(
-                                          7,
-                                          (i) => Expanded(
-                                            child: Container(
-                                              color: i.isEven
-                                                  ? const Color(0xFFB22234)
-                                                  : Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    width: 15,
-                                    color: const Color(0xFF3C3B6E),
-                                    child: const Center(
-                                      child: Text(
-                                        '★',
-                                        style: TextStyle(
-                                            color: Colors.white, fontSize: 6),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          trailing: const _LanguageBadge(),
                           onTap: _openLanguage,
                         ),
                         const SizedBox(height: 6),
@@ -256,6 +362,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           onTap: _openNotifications,
                         ),
+                        if (adService.privacyOptionsRequired) ...<Widget>[
+                          const SizedBox(height: 6),
+                          _TappableRow(
+                            icon: Icons.shield_rounded,
+                            label: 'خيارات خصوصية الإعلانات',
+                            trailing: const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              color: Colors.white38,
+                              size: 16,
+                            ),
+                            onTap: _openAdPrivacyOptions,
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         _SignOutRow(appState: appState),
                       ],
@@ -263,7 +382,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             _BottomButtons(
               onPrivacyPolicy: _showProfessionalPrivacyPolicy,
-              onRestorePurchases: _restorePurchases,
+              onDeleteAccount: _deleteAccount,
             ),
           ],
         ),
@@ -272,10 +391,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-// ─── Header ───────────────────────────────────────────────────────────────────
-
 class _Header extends StatelessWidget {
   const _Header({required this.onBack});
+
   final VoidCallback onBack;
 
   @override
@@ -283,7 +401,7 @@ class _Header extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
-        children: [
+        children: <Widget>[
           const Text(
             'الإعدادات',
             style: TextStyle(
@@ -301,10 +419,15 @@ class _Header extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF1E3A8A).withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                ),
               ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
         ],
@@ -313,7 +436,55 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ─── Tappable row (Language / Notifications) ──────────────────────────────────
+class _LanguageBadge extends StatelessWidget {
+  const _LanguageBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 38,
+      height: 26,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Container(
+                color: const Color(0xFFB22234),
+                child: Column(
+                  children: List<Widget>.generate(
+                    7,
+                    (int index) => Expanded(
+                      child: Container(
+                        color: index.isEven
+                            ? const Color(0xFFB22234)
+                            : Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              width: 15,
+              color: const Color(0xFF3C3B6E),
+              child: const Center(
+                child: Text(
+                  '★',
+                  style: TextStyle(color: Colors.white, fontSize: 6),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _TappableRow extends StatelessWidget {
   const _TappableRow({
@@ -322,6 +493,7 @@ class _TappableRow extends StatelessWidget {
     required this.trailing,
     required this.onTap,
   });
+
   final IconData icon;
   final String label;
   final Widget trailing;
@@ -331,12 +503,14 @@ class _TappableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: _RowShell(icon: icon, label: label, trailing: trailing),
+      child: _RowShell(
+        icon: icon,
+        label: label,
+        trailing: trailing,
+      ),
     );
   }
 }
-
-// ─── Toggle row ───────────────────────────────────────────────────────────────
 
 class _ToggleRow extends StatelessWidget {
   const _ToggleRow({
@@ -345,6 +519,7 @@ class _ToggleRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
   });
+
   final IconData icon;
   final String label;
   final bool value;
@@ -375,11 +550,12 @@ class _ToggleRow extends StatelessWidget {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-                boxShadow: [
+                boxShadow: <BoxShadow>[
                   BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 4,
-                      offset: Offset(0, 1)),
+                    color: Colors.black26,
+                    blurRadius: 4,
+                    offset: Offset(0, 1),
+                  ),
                 ],
               ),
             ),
@@ -390,10 +566,9 @@ class _ToggleRow extends StatelessWidget {
   }
 }
 
-// ─── Sign-out row ─────────────────────────────────────────────────────────────
-
 class _SignOutRow extends StatelessWidget {
   const _SignOutRow({required this.appState});
+
   final AppState appState;
 
   @override
@@ -429,14 +604,13 @@ class _SignOutRow extends StatelessWidget {
   }
 }
 
-// ─── Row shell ────────────────────────────────────────────────────────────────
-
 class _RowShell extends StatelessWidget {
   const _RowShell({
     required this.icon,
     required this.label,
     required this.trailing,
   });
+
   final IconData icon;
   final String label;
   final Widget trailing;
@@ -451,7 +625,7 @@ class _RowShell extends StatelessWidget {
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Row(
-        children: [
+        children: <Widget>[
           Container(
             width: 38,
             height: 38,
@@ -479,22 +653,21 @@ class _RowShell extends StatelessWidget {
   }
 }
 
-// ─── Bottom buttons ───────────────────────────────────────────────────────────
-
 class _BottomButtons extends StatelessWidget {
   const _BottomButtons({
     required this.onPrivacyPolicy,
-    required this.onRestorePurchases,
+    required this.onDeleteAccount,
   });
+
   final VoidCallback onPrivacyPolicy;
-  final VoidCallback onRestorePurchases;
+  final VoidCallback onDeleteAccount;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Row(
-        children: [
+        children: <Widget>[
           Expanded(
             child: _ActionButton(
               label: 'سياسة\nالخصوصية',
@@ -505,9 +678,9 @@ class _BottomButtons extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _ActionButton(
-              label: 'استعادة\nالمشتريات',
-              color: const Color(0xFF16A34A),
-              onTap: onRestorePurchases,
+              label: 'حذف\nالحساب',
+              color: const Color(0xFFDC2626),
+              onTap: onDeleteAccount,
             ),
           ),
         ],
@@ -522,6 +695,7 @@ class _ActionButton extends StatelessWidget {
     required this.color,
     required this.onTap,
   });
+
   final String label;
   final Color color;
   final VoidCallback onTap;

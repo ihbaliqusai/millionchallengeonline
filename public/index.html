@@ -1,89 +1,281 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Welcome to Firebase Hosting</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Million Challenge Support</title>
+    <meta
+      name="description"
+      content="Official support page for Million Challenge with privacy policy, account deletion help, and contact details."
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4efe5;
+        --card: rgba(255, 255, 255, 0.82);
+        --text: #1f2937;
+        --muted: #526072;
+        --accent: #0f766e;
+        --accent-2: #d97706;
+        --line: rgba(15, 118, 110, 0.16);
+        --shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+      }
 
-    <!-- update the version number as needed -->
-    <script defer src="/__/firebase/12.12.0/firebase-app-compat.js"></script>
-    <!-- include only the Firebase features as you need -->
-    <script defer src="/__/firebase/12.12.0/firebase-auth-compat.js"></script>
-    <script defer src="/__/firebase/12.12.0/firebase-database-compat.js"></script>
-    <script defer src="/__/firebase/12.12.0/firebase-firestore-compat.js"></script>
-    <script defer src="/__/firebase/12.12.0/firebase-functions-compat.js"></script>
-    <script defer src="/__/firebase/12.12.0/firebase-messaging-compat.js"></script>
-    <script defer src="/__/firebase/12.12.0/firebase-storage-compat.js"></script>
-    <script defer src="/__/firebase/12.12.0/firebase-analytics-compat.js"></script>
-    <script defer src="/__/firebase/12.12.0/firebase-remote-config-compat.js"></script>
-    <script defer src="/__/firebase/12.12.0/firebase-performance-compat.js"></script>
-    <!-- 
-      initialize the SDK after all desired features are loaded, set useEmulator to false
-      to avoid connecting the SDK to running emulators.
-    -->
-    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+      * {
+        box-sizing: border-box;
+      }
 
-    <style media="screen">
-      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px; border-radius: 3px; }
-      #message h2 { color: #ffa100; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
-      #message h1 { font-size: 22px; font-weight: 300; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
-      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
-      #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
-      #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
-      @media (max-width: 600px) {
-        body, #message { margin-top: 0; background: white; box-shadow: none; }
-        body { border-top: 16px solid #ffa100; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(217, 119, 6, 0.22), transparent 32%),
+          radial-gradient(circle at bottom right, rgba(15, 118, 110, 0.18), transparent 34%),
+          linear-gradient(135deg, #f9f4eb 0%, #eef6f4 100%);
+      }
+
+      main {
+        width: min(1080px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 48px 0 56px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 22px;
+        align-items: stretch;
+      }
+
+      .panel,
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(16px);
+      }
+
+      .panel {
+        padding: 34px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: rgba(15, 118, 110, 0.1);
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      h1 {
+        margin: 18px 0 14px;
+        font-size: clamp(34px, 5vw, 54px);
+        line-height: 1.02;
+      }
+
+      .lead {
+        margin: 0;
+        max-width: 58ch;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.8;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 26px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 16px;
+        text-decoration: none;
+        font-weight: 700;
+        transition: transform 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      .button:hover {
+        transform: translateY(-1px);
+      }
+
+      .button-primary {
+        background: linear-gradient(135deg, var(--accent) 0%, #0f9f95 100%);
+        color: #fff;
+        box-shadow: 0 16px 24px rgba(15, 118, 110, 0.18);
+      }
+
+      .button-secondary {
+        background: rgba(217, 119, 6, 0.1);
+        color: #9a5d03;
+      }
+
+      .stats {
+        display: grid;
+        gap: 14px;
+        padding: 26px;
+      }
+
+      .stat {
+        padding: 18px 20px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid rgba(15, 118, 110, 0.12);
+      }
+
+      .stat strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+      }
+
+      .stat span {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 22px;
+      }
+
+      .card {
+        padding: 24px;
+      }
+
+      .card h2 {
+        margin: 0 0 12px;
+        font-size: 22px;
+      }
+
+      .card p,
+      .card li {
+        color: var(--muted);
+        line-height: 1.75;
+      }
+
+      .card ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .card a {
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      footer {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 14px;
+        text-align: center;
+      }
+
+      @media (max-width: 900px) {
+        .hero,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .panel,
+        .stats,
+        .card {
+          padding: 22px;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="message">
-      <h2>Welcome</h2>
-      <h1>Firebase Hosting Setup Complete</h1>
-      <p>You're seeing this because you've successfully setup Firebase Hosting. Now it's time to go build something extraordinary!</p>
-      <a target="_blank" href="https://firebase.google.com/docs/hosting/">Open Hosting Documentation</a>
-    </div>
-    <p id="load">Firebase SDK Loading&hellip;</p>
+    <main>
+      <section class="hero">
+        <div class="panel">
+          <span class="eyebrow">Million Challenge</span>
+          <h1>Official support and account help</h1>
+          <p class="lead">
+            This is the official support page for Million Challenge. You can use
+            it to review our privacy policy, request account deletion, and reach
+            the developer for support or privacy-related questions.
+          </p>
+          <div class="actions">
+            <a
+              class="button button-primary"
+              href="https://sites.google.com/view/privacypolicymillion"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open Privacy Policy
+            </a>
+            <a class="button button-secondary" href="/delete-account.html">
+              Delete Account Help
+            </a>
+          </div>
+        </div>
+        <aside class="panel stats">
+          <div class="stat">
+            <strong>Support Email</strong>
+            <span>IhbaliQusai@gmail.com</span>
+          </div>
+          <div class="stat">
+            <strong>Policy Page</strong>
+            <span>sites.google.com/view/privacypolicymillion</span>
+          </div>
+          <div class="stat">
+            <strong>Advertising Auth</strong>
+            <span>app-ads.txt is hosted on this domain.</span>
+          </div>
+        </aside>
+      </section>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const loadEl = document.querySelector('#load');
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-        // // The Firebase SDK is initialized and available here!
-        //
-        // firebase.auth().onAuthStateChanged(user => { });
-        // firebase.database().ref('/path/to/ref').on('value', snapshot => { });
-        // firebase.firestore().doc('/foo/bar').get().then(() => { });
-        // firebase.functions().httpsCallable('yourFunction')().then(() => { });
-        // firebase.messaging().requestPermission().then(() => { });
-        // firebase.storage().ref('/path/to/ref').getDownloadURL().then(() => { });
-        // firebase.analytics(); // call to activate
-        // firebase.analytics().logEvent('tutorial_completed');
-        // firebase.performance(); // call to activate
-        //
-        // // 🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
+      <section class="grid">
+        <article class="card">
+          <h2>Support</h2>
+          <p>
+            If you face a login issue, gameplay problem, or reward problem,
+            contact us by email and include your in-game name and a short
+            description of the issue.
+          </p>
+        </article>
 
-        try {
-          let app = firebase.app();
-          let features = [
-            'auth', 
-            'database', 
-            'firestore',
-            'functions',
-            'messaging', 
-            'storage', 
-            'analytics', 
-            'remoteConfig',
-            'performance',
-          ].filter(feature => typeof app[feature] === 'function');
-          loadEl.textContent = `Firebase SDK loaded with ${features.join(', ')}`;
-        } catch (e) {
-          console.error(e);
-          loadEl.textContent = 'Error loading the Firebase SDK, check the console.';
-        }
-      });
-    </script>
+        <article class="card">
+          <h2>Privacy</h2>
+          <p>
+            Our privacy policy explains what data is used to operate the game,
+            how public profile details appear to other players, and how you can
+            contact us about your data.
+          </p>
+        </article>
+
+        <article class="card">
+          <h2>Account Deletion</h2>
+          <p>
+            You can request account deletion from inside the app through
+            <strong>Settings &gt; Delete Account</strong> or through our web
+            instructions page linked above.
+          </p>
+        </article>
+      </section>
+
+      <footer>
+        Million Challenge official support page
+      </footer>
+    </main>
   </body>
 </html>

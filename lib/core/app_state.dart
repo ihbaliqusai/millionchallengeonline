@@ -258,6 +258,7 @@ class AppState extends ChangeNotifier {
       unawaited(loadCurrency());
       unawaited(loadLevelData());
     } else {
+      _resetSessionState();
       unawaited(_nativeBridgeService.resetLegacyUser());
     }
     notifyListeners();
@@ -290,6 +291,19 @@ class AppState extends ChangeNotifier {
   Future<void> signOut() async {
     await _runBusy(_authService.signOut);
     await _nativeBridgeService.resetLegacyUser();
+  }
+
+  Future<void> deleteAccount({String? password}) async {
+    await _runBusy(
+      () => _authService.deleteCurrentAccount(password: password),
+    );
+    try {
+      await _nativeBridgeService.resetLocalProgress();
+    } catch (_) {
+      // Account deletion already succeeded remotely; local cleanup is best-effort.
+    }
+    _resetSessionState();
+    notifyListeners();
   }
 
   Future<void> openAuthenticatedLanding() async {
@@ -416,5 +430,19 @@ class AppState extends ChangeNotifier {
       return authPhoto;
     }
     return null;
+  }
+
+  void _resetSessionState() {
+    coins = 0;
+    gems = 0;
+    trophies = 0;
+    streakDay = 0;
+    claimedToday = false;
+    level = 1;
+    xp = 0;
+    xpInCurrentLevel = 0;
+    xpNeededForLevel = 100;
+    _lastKnownGamesPlayed = -1;
+    _lastKnownWins = -1;
   }
 }

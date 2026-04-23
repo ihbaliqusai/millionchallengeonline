@@ -191,6 +191,10 @@ class NativeBridgeService {
     await _channel.invokeMethod<void>('openNotificationSettings');
   }
 
+  Future<void> resetLocalProgress() async {
+    await _channel.invokeMethod<void>('resetLocalProgress');
+  }
+
   Future<bool> restorePurchases() async {
     final result = await _channel.invokeMethod<bool>('restorePurchases');
     return result ?? false;
@@ -242,6 +246,17 @@ class NativeBridgeService {
       'quantity': quantity,
       'payWith': payWith,
       'cost': cost,
+    });
+    return result ?? false;
+  }
+
+  Future<bool> grantPowerUp({
+    required String type,
+    int quantity = 1,
+  }) async {
+    final result = await _channel.invokeMethod<bool>('grantPowerUp', {
+      'type': type,
+      'quantity': quantity,
     });
     return result ?? false;
   }

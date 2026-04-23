@@ -11,8 +11,13 @@ public final class AppPrefs {
     public static final String PREF_SETTINGS = "AppSettings";
     public static final String PREF_ROOM = "RoomBridge";
     public static final String PREF_PURCHASES = "PurchaseDeliveries";
+    public static final String PREF_ADS = "AdPrefs";
     private static final String KEY_PENDING_ROOM_MATCH_RESULT = "pendingRoomMatchResult";
     private static final String KEY_DELIVERED_PURCHASES = "deliveredPurchaseKeys";
+    private static final String KEY_INTERSTITIAL_LAST_SHOWN_AT = "interstitialLastShownAt";
+    private static final String KEY_INTERSTITIAL_PENDING_OPPORTUNITIES = "interstitialPendingOpportunities";
+    private static final long INTERSTITIAL_COOLDOWN_MS = 4L * 60L * 1000L;
+    private static final int INTERSTITIAL_REQUIRED_OPPORTUNITIES = 3;
 
     private AppPrefs() {}
 
@@ -30,6 +35,10 @@ public final class AppPrefs {
 
     private static SharedPreferences purchasePrefs(Context c) {
         return c.getSharedPreferences(PREF_PURCHASES, Context.MODE_PRIVATE);
+    }
+
+    private static SharedPreferences adPrefs(Context c) {
+        return c.getSharedPreferences(PREF_ADS, Context.MODE_PRIVATE);
     }
 
     public static void ensureGuestUser(Context c) {
@@ -140,9 +149,38 @@ public final class AppPrefs {
         purchasePrefs(c).edit().putStringSet(KEY_DELIVERED_PURCHASES, next).apply();
     }
 
+    public static void recordInterstitialOpportunity(Context c) {
+        SharedPreferences prefs = adPrefs(c);
+        int current = prefs.getInt(KEY_INTERSTITIAL_PENDING_OPPORTUNITIES, 0);
+        int next = Math.min(INTERSTITIAL_REQUIRED_OPPORTUNITIES, current + 1);
+        prefs.edit().putInt(KEY_INTERSTITIAL_PENDING_OPPORTUNITIES, next).apply();
+    }
+
+    public static boolean canShowInterstitialNow(Context c) {
+        SharedPreferences prefs = adPrefs(c);
+        int pending = prefs.getInt(KEY_INTERSTITIAL_PENDING_OPPORTUNITIES, 0);
+        if (pending < INTERSTITIAL_REQUIRED_OPPORTUNITIES) {
+            return false;
+        }
+        long lastShownAt = prefs.getLong(KEY_INTERSTITIAL_LAST_SHOWN_AT, 0L);
+        return lastShownAt <= 0L
+                || (System.currentTimeMillis() - lastShownAt) >= INTERSTITIAL_COOLDOWN_MS;
+    }
+
+    public static void markInterstitialShown(Context c) {
+        adPrefs(c).edit()
+                .putLong(KEY_INTERSTITIAL_LAST_SHOWN_AT, System.currentTimeMillis())
+                .putInt(KEY_INTERSTITIAL_PENDING_OPPORTUNITIES, 0)
+                .apply();
+    }
+
     public static void resetLocalProgress(Context c) {
         PlayerStats.reset(c);
         PlayerProgress.resetAll(c);
         setGuestUser(c);
+        adPrefs(c).edit()
+                .remove(KEY_INTERSTITIAL_LAST_SHOWN_AT)
+                .remove(KEY_INTERSTITIAL_PENDING_OPPORTUNITIES)
+                .apply();
     }
 }

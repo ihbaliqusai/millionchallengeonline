@@ -2,6 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+class UserFacingError implements Exception {
+  const UserFacingError(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class AuthService {
   AuthService({
     FirebaseAuth? auth,
@@ -23,7 +32,8 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final credential = await _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
+    final credential = await _auth.signInWithEmailAndPassword(
+        email: email.trim(), password: password);
     await _tryUpsertProfile(
       uid: credential.user!.uid,
       email: credential.user?.email ?? email.trim(),
@@ -121,8 +131,10 @@ class AuthService {
         photoUrl: photoUrl,
       );
     } catch (_) {
-      final fallbackName = _resolveUsername(const <String, dynamic>{}, username, email);
-      if (_auth.currentUser != null && (_auth.currentUser!.displayName ?? '').trim() != fallbackName) {
+      final fallbackName =
+          _resolveUsername(const <String, dynamic>{}, username, email);
+      if (_auth.currentUser != null &&
+          (_auth.currentUser!.displayName ?? '').trim() != fallbackName) {
         await _auth.currentUser!.updateDisplayName(fallbackName);
       }
     }
@@ -143,7 +155,8 @@ class AuthService {
     final publicTrophies = (existing['trophies'] as num?)?.toInt() ?? 0;
     final publicLevel = (existing['level'] as num?)?.toInt() ?? 1;
 
-    if (_auth.currentUser != null && (_auth.currentUser!.displayName ?? '').trim() != resolvedUsername) {
+    if (_auth.currentUser != null &&
+        (_auth.currentUser!.displayName ?? '').trim() != resolvedUsername) {
       await _auth.currentUser!.updateDisplayName(resolvedUsername);
     }
 
@@ -183,6 +196,29 @@ class AuthService {
     await _auth.signOut();
   }
 
+  Future<void> deleteCurrentAccount({String? password}) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      throw const UserFacingError('لا يوجد حساب مسجل لحذفه حالياً.');
+    }
+
+    try {
+      await _reauthenticateForDeletion(currentUser, password: password);
+      await _deleteStoredUserData(currentUser.uid);
+      await currentUser.delete();
+      await _googleSignIn.signOut();
+      await _auth.signOut();
+    } on FirebaseAuthException catch (error) {
+      throw _mapDeletionError(error);
+    } on UserFacingError {
+      rethrow;
+    } catch (_) {
+      throw const UserFacingError(
+        'تعذر حذف الحساب الآن. حاول مرة أخرى بعد قليل.',
+      );
+    }
+  }
+
   String _resolveUsername(
     Map<String, dynamic> existing,
     String? candidate,
@@ -220,5 +256,119 @@ class AuthService {
     }
 
     return null;
+  }
+
+  Future<void> _reauthenticateForDeletion(
+    User user, {
+    String? password,
+  }) async {
+    final providers = user.providerData
+        .map((UserInfo info) => info.providerId)
+        .whereType<String>()
+        .toSet();
+
+    if (providers.contains('password')) {
+      final email = user.email?.trim() ?? '';
+      final normalizedPassword = password?.trim() ?? '';
+      if (email.isEmpty || normalizedPassword.isEmpty) {
+        throw const UserFacingError(
+          'أدخل كلمة المرور الحالية لتأكيد حذف الحساب.',
+        );
+      }
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: normalizedPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+      return;
+    }
+
+    if (providers.contains('google.com')) {
+      GoogleSignInAccount? account = await _googleSignIn.signInSilently();
+      account ??= await _googleSignIn.signIn();
+      if (account == null) {
+        throw const UserFacingError(
+          'تعذر تأكيد هويتك عبر Google. أعد المحاولة ثم وافق على تسجيل الدخول.',
+        );
+      }
+      final auth = await account.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: auth.accessToken,
+        idToken: auth.idToken,
+      );
+      await user.reauthenticateWithCredential(credential);
+    }
+  }
+
+  Future<void> _deleteStoredUserData(String uid) async {
+    await _deleteSubcollection(
+      _firestore.collection('users').doc(uid).collection('friends'),
+    );
+    await _deleteSubcollection(
+      _firestore.collection('users').doc(uid).collection('match_history'),
+    );
+    await _deleteMatchingDocs(
+      _firestore.collection('invitations').where('fromUid', isEqualTo: uid),
+    );
+    await _deleteMatchingDocs(
+      _firestore.collection('invitations').where('toUid', isEqualTo: uid),
+    );
+    await _deleteMatchingDocs(
+      _firestore.collection('rooms').where('hostId', isEqualTo: uid),
+    );
+
+    final batch = _firestore.batch();
+    batch.delete(_firestore.collection('matchmaking_queue').doc(uid));
+    batch.delete(_firestore.collection('public_profiles').doc(uid));
+    batch.delete(_firestore.collection('users').doc(uid));
+    await batch.commit();
+  }
+
+  Future<void> _deleteSubcollection(
+    CollectionReference<Map<String, dynamic>> collection,
+  ) async {
+    final snapshot = await collection.get();
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
+  Future<void> _deleteMatchingDocs(
+    Query<Map<String, dynamic>> query,
+  ) async {
+    final snapshot = await query.get();
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
+  UserFacingError _mapDeletionError(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'wrong-password':
+      case 'invalid-credential':
+        return const UserFacingError('كلمة المرور غير صحيحة.');
+      case 'network-request-failed':
+        return const UserFacingError(
+          'تعذر الاتصال بالخادم أثناء حذف الحساب. تحقق من الإنترنت ثم حاول مرة أخرى.',
+        );
+      case 'requires-recent-login':
+        return const UserFacingError(
+          'لأسباب أمنية، أعد تسجيل الدخول ثم حاول حذف الحساب مرة أخرى.',
+        );
+      default:
+        return UserFacingError(
+          error.message?.trim().isNotEmpty == true
+              ? error.message!.trim()
+              : 'تعذر حذف الحساب الآن. حاول مرة أخرى بعد قليل.',
+        );
+    }
   }
 }
