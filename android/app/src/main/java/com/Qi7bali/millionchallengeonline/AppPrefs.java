@@ -3,11 +3,16 @@ package net.androidgaming.millionaire2024;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public final class AppPrefs {
     public static final String PREF_USER = "UserInfo";
     public static final String PREF_SETTINGS = "AppSettings";
     public static final String PREF_ROOM = "RoomBridge";
+    public static final String PREF_PURCHASES = "PurchaseDeliveries";
     private static final String KEY_PENDING_ROOM_MATCH_RESULT = "pendingRoomMatchResult";
+    private static final String KEY_DELIVERED_PURCHASES = "deliveredPurchaseKeys";
 
     private AppPrefs() {}
 
@@ -21,6 +26,10 @@ public final class AppPrefs {
 
     private static SharedPreferences roomPrefs(Context c) {
         return c.getSharedPreferences(PREF_ROOM, Context.MODE_PRIVATE);
+    }
+
+    private static SharedPreferences purchasePrefs(Context c) {
+        return c.getSharedPreferences(PREF_PURCHASES, Context.MODE_PRIVATE);
     }
 
     public static void ensureGuestUser(Context c) {
@@ -99,6 +108,36 @@ public final class AppPrefs {
         String payload = prefs.getString(KEY_PENDING_ROOM_MATCH_RESULT, "");
         prefs.edit().remove(KEY_PENDING_ROOM_MATCH_RESULT).apply();
         return payload == null ? "" : payload;
+    }
+
+    public static String getPendingRoomMatchResult(Context c) {
+        String payload = roomPrefs(c).getString(KEY_PENDING_ROOM_MATCH_RESULT, "");
+        return payload == null ? "" : payload;
+    }
+
+    public static void clearPendingRoomMatchResult(Context c) {
+        roomPrefs(c).edit().remove(KEY_PENDING_ROOM_MATCH_RESULT).apply();
+    }
+
+    public static boolean isPurchaseDelivered(Context c, String deliveryKey) {
+        if (deliveryKey == null || deliveryKey.trim().isEmpty()) {
+            return false;
+        }
+        Set<String> delivered = purchasePrefs(c).getStringSet(KEY_DELIVERED_PURCHASES, new HashSet<>());
+        return delivered != null && delivered.contains(deliveryKey);
+    }
+
+    public static void markPurchaseDelivered(Context c, String deliveryKey) {
+        if (deliveryKey == null || deliveryKey.trim().isEmpty()) {
+            return;
+        }
+        Set<String> delivered = purchasePrefs(c).getStringSet(KEY_DELIVERED_PURCHASES, new HashSet<>());
+        HashSet<String> next = new HashSet<>();
+        if (delivered != null) {
+            next.addAll(delivered);
+        }
+        next.add(deliveryKey);
+        purchasePrefs(c).edit().putStringSet(KEY_DELIVERED_PURCHASES, next).apply();
     }
 
     public static void resetLocalProgress(Context c) {

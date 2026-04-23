@@ -96,11 +96,11 @@ public class ResultActivity extends AppCompatActivity {
         txtModeSubtitle.setText(resolveModeSubtitle(matchMode, seriesTarget, roundDurationSeconds));
 
         if (isTeamBattle) {
-            txtMyName.setText(myName + "  |  Team " + safeTeamLabel(myTeam));
+            txtMyName.setText(myName + "  |  الفريق " + safeTeamLabel(myTeam));
             if (primaryOpponent != null) {
                 txtOpponentName.setText(
                         primaryOpponent.optString("name", opponentName)
-                                + "  |  Team "
+                                + "  |  الفريق "
                                 + safeTeamLabel(primaryOpponent.optString("teamId", ""))
                 );
             }
@@ -277,7 +277,7 @@ public class ResultActivity extends AppCompatActivity {
             return "طور المعركة الجماعية";
         }
         if ("blitz".equals(matchMode)) {
-            return "طور Blitz";
+            return "طور بلتز";
         }
         if ("elimination".equals(matchMode)) {
             return "طور الإقصاء";
@@ -321,10 +321,10 @@ public class ResultActivity extends AppCompatActivity {
             if (winnerTeamId == null || winnerTeamId.trim().isEmpty()) {
                 return "انتهت معركة الفرق بالتعادل";
             }
-            return "الفريق " + winnerTeamId + " حسم المواجهة";
+            return "الفريق " + safeTeamLabel(winnerTeamId) + " حسم المواجهة";
         }
         if ("blitz".equals(matchMode)) {
-            return didWin ? "أنهيت Blitz في الصدارة" : "انتهت جولة Blitz";
+            return didWin ? "أنهيت بلتز في الصدارة" : "انتهت جولة بلتز";
         }
         if ("elimination".equals(matchMode)) {
             if (didWin) {
@@ -397,10 +397,10 @@ public class ResultActivity extends AppCompatActivity {
         if ("team_battle".equals(matchMode)) {
             String winnerLine = (winnerTeamId == null || winnerTeamId.trim().isEmpty())
                     ? "لا يوجد فريق فائز"
-                    : "الفريق الفائز: " + winnerTeamId;
+                    : "الفريق الفائز: " + safeTeamLabel(winnerTeamId);
             return winnerLine
-                    + "  |  Team A: " + teamAScore
-                    + "  |  Team B: " + teamBScore
+                    + "  |  الفريق أ: " + teamAScore
+                    + "  |  الفريق ب: " + teamBScore
                     + "  |  فريقك: " + safeTeamLabel(myTeam);
         }
         if (didWin) {
@@ -426,7 +426,7 @@ public class ResultActivity extends AppCompatActivity {
         StringBuilder builder = new StringBuilder();
         builder.append(myName == null || myName.trim().isEmpty() ? "أنت" : myName);
         if ("team_battle".equals(matchMode)) {
-            builder.append("  |  Team ").append(safeTeamLabel(myTeam));
+            builder.append("  |  الفريق ").append(safeTeamLabel(myTeam));
         }
         appendModeState(builder, matchMode, myEliminated, myLivesRemaining, mySets, anySetsNonZero);
         builder.append("  |  الصحيح: ").append(myCorrectAnswers);
@@ -438,7 +438,7 @@ public class ResultActivity extends AppCompatActivity {
         StringBuilder builder = new StringBuilder();
         builder.append(opponent.optString("name", "لاعب"));
         if ("team_battle".equals(matchMode)) {
-            builder.append("  |  Team ").append(safeTeamLabel(opponent.optString("teamId", "")));
+            builder.append("  |  الفريق ").append(safeTeamLabel(opponent.optString("teamId", "")));
         }
         appendModeState(
                 builder,
@@ -485,6 +485,9 @@ public class ResultActivity extends AppCompatActivity {
     }
 
     private String safeTeamLabel(String teamId) {
-        return teamId == null || teamId.trim().isEmpty() ? "-" : teamId.trim();
+        if (teamId == null || teamId.trim().isEmpty()) return "-";
+        if ("A".equalsIgnoreCase(teamId.trim())) return "أ";
+        if ("B".equalsIgnoreCase(teamId.trim())) return "ب";
+        return teamId.trim();
     }
 }

@@ -157,7 +157,10 @@ class IapService extends ChangeNotifier {
       if (p.status == PurchaseStatus.purchased ||
           p.status == PurchaseStatus.restored) {
         try {
-          await _nativeBridge.deliverPurchase(p.productID);
+          await _nativeBridge.deliverPurchase(
+            p.productID,
+            deliveryKey: _buildDeliveryKey(p),
+          );
           lastDeliveredId = p.productID;
           error = null;
           if (p.pendingCompletePurchase) await _store.completePurchase(p);
@@ -173,6 +176,26 @@ class IapService extends ChangeNotifier {
     }
     isPurchasing = false;
     notifyListeners();
+  }
+
+  static String _buildDeliveryKey(PurchaseDetails purchase) {
+    final raw = [
+      purchase.productID,
+      purchase.purchaseID ?? '',
+      purchase.transactionDate ?? '',
+      purchase.verificationData.source,
+      purchase.verificationData.serverVerificationData,
+      purchase.verificationData.localVerificationData,
+    ].join('|');
+    return '${purchase.productID}_${_stableHash(raw)}';
+  }
+
+  static int _stableHash(String value) {
+    var hash = 5381;
+    for (final unit in value.codeUnits) {
+      hash = ((hash << 5) + hash) ^ unit;
+    }
+    return hash & 0x7fffffff;
   }
 
   @override

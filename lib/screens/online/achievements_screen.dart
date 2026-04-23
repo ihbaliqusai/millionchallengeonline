@@ -481,7 +481,7 @@ const _kCategories = [
       _AchDef(
         key: 'ACH_BLITZ_FINISH_5',
         titleAr: 'سريع وحاسم',
-        descAr: 'أكمل 5 مباريات Blitz للنهاية',
+        descAr: 'أكمل 5 مباريات بلتز للنهاية',
         icon: Icons.flash_on_rounded,
         color: Color(0xFFF97316),
         progressKey: 'blitzFinishes',
@@ -517,7 +517,7 @@ const _kCategories = [
       _AchDef(
         key: 'ACH_TEAM_BATTLE_WIN_5',
         titleAr: 'قائد الفريق',
-        descAr: 'افز 5 مرات في طور Team Battle',
+        descAr: 'افز 5 مرات في طور مواجهة الفرق',
         icon: Icons.groups_rounded,
         color: Color(0xFFA78BFA),
         progressKey: 'teamBattleWins',

@@ -556,7 +556,7 @@ class _GoogleButtonState extends State<_GoogleButton> {
                 Image.asset('assets/ui/google.png', width: 24, height: 24),
                 const SizedBox(width: 10),
                 const Text(
-                  'المتابعة باستخدام Google',
+                  'المتابعة بحساب Google',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,

@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">تحدي المليون</string>
-    <string name="dummy_button">Dummy Button</string>
-    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="dummy_button">زر تجريبي</string>
+    <string name="dummy_content">محتوى\nتجريبي</string>
     <string name="interstitial_ad_id">ca-app-pub-2427194500639575/6453998643</string>
     <string name="txtVs">ضد</string>
     <string name="txtOpponent1">أنت</string>
@@ -125,7 +125,7 @@
     <string name="currency_coins_value">القطع %1$d</string>
     <string name="currency_gems_value">الجواهر %1$d</string>
     <string name="player_guest">ضيف</string>
-    <string name="player_level_status">المستوى %1$d • XP %2$d/%3$d</string>
+    <string name="player_level_status">المستوى %1$d • الخبرة %2$d/%3$d</string>
     <string name="share_subject">من سيربح المليون</string>
     <string name="share_chooser">شارك اللعبة وتحد أصدقاءك</string>
     <string name="daily_reward_title">المكافأة اليومية</string>

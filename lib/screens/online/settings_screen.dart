@@ -121,7 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text(
-              'Close',
+              'إغلاق',
               style: TextStyle(color: Color(0xFF7DD3FC), fontWeight: FontWeight.w700),
             ),
           ),
@@ -209,28 +209,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 6),
                         _ToggleRow(
                           icon: Icons.volume_up_rounded,
-                          label: 'SFX',
+                          label: 'المؤثرات',
                           value: _sfx,
                           onChanged: _setSfx,
                         ),
                         const SizedBox(height: 6),
                         _ToggleRow(
                           icon: Icons.music_note_rounded,
-                          label: 'Music',
+                          label: 'الموسيقى',
                           value: _music,
                           onChanged: _setMusic,
                         ),
                         const SizedBox(height: 6),
                         _ToggleRow(
                           icon: Icons.vibration_rounded,
-                          label: 'Haptic',
+                          label: 'الاهتزاز',
                           value: _haptic,
                           onChanged: _setHaptic,
                         ),
                         const SizedBox(height: 6),
                         _TappableRow(
                           icon: Icons.notifications_rounded,
-                          label: 'Notifications',
+                          label: 'الإشعارات',
                           trailing: const Icon(
                             Icons.arrow_forward_ios_rounded,
                             color: Colors.white38,
@@ -267,7 +267,7 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           const Text(
-            'Settings',
+            'الإعدادات',
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w900,
@@ -378,7 +378,7 @@ class _SignOutRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RowShell(
       icon: Icons.logout_rounded,
-      label: appState.user?.email ?? 'Account',
+      label: appState.user?.email ?? 'الحساب',
       trailing: GestureDetector(
         onTap: appState.isBusy
             ? null

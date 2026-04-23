@@ -37,7 +37,7 @@ class TrophyProgression {
   static const List<TrophyLeague> leagues = [
     TrophyLeague(
       name: 'Rookie',
-      nameAr: 'روكي',
+      nameAr: 'مبتدئ',
       color: Color(0xFF94A3B8),
       icon: Icons.star_outline_rounded,
       min: 0,
@@ -45,7 +45,7 @@ class TrophyProgression {
     ),
     TrophyLeague(
       name: 'Bronze',
-      nameAr: 'برونز',
+      nameAr: 'برونزي',
       color: Color(0xFFCD7F32),
       icon: Icons.shield_rounded,
       min: 150,
@@ -53,7 +53,7 @@ class TrophyProgression {
     ),
     TrophyLeague(
       name: 'Silver',
-      nameAr: 'فضة',
+      nameAr: 'فضي',
       color: Color(0xFFCBD5E1),
       icon: Icons.shield_moon_rounded,
       min: 400,
@@ -61,7 +61,7 @@ class TrophyProgression {
     ),
     TrophyLeague(
       name: 'Gold',
-      nameAr: 'ذهب',
+      nameAr: 'ذهبي',
       color: Color(0xFFFACC15),
       icon: Icons.military_tech_rounded,
       min: 800,
@@ -69,7 +69,7 @@ class TrophyProgression {
     ),
     TrophyLeague(
       name: 'Diamond',
-      nameAr: 'دايموند',
+      nameAr: 'ماسي',
       color: Color(0xFF38BDF8),
       icon: Icons.diamond_rounded,
       min: 1400,
@@ -77,7 +77,7 @@ class TrophyProgression {
     ),
     TrophyLeague(
       name: 'Master',
-      nameAr: 'ماستر',
+      nameAr: 'خبير',
       color: Color(0xFF8B5CF6),
       icon: Icons.workspace_premium_rounded,
       min: 2300,

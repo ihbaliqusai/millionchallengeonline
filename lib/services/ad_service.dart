@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdService extends ChangeNotifier {
   // ── Test IDs (replace with real IDs before publishing) ──────────────────────
@@ -15,12 +16,16 @@ class AdService extends ChangeNotifier {
   static const int rewardGems = 5;
   static const int maxDailyWatches = 5;
   static const Duration cooldown = Duration(hours: 1);
+  static const String _prefsWatchesToday = 'ads.watchesToday';
+  static const String _prefsLastWatchAt = 'ads.lastWatchAtMillis';
+  static const String _prefsNextAvailableAt = 'ads.nextAvailableAtMillis';
 
   RewardedAd? _rewardedAd;
   InterstitialAd? _interstitialAd;
 
   bool _rewardedLoading = false;
   bool _interstitialLoading = false;
+  SharedPreferences? _prefs;
 
   int _watchesToday = 0;
   DateTime? _lastWatchDate;
@@ -46,6 +51,8 @@ class AdService extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    _prefs = await SharedPreferences.getInstance();
+    _restoreState();
     await MobileAds.instance.initialize();
     _loadRewarded();
     _loadInterstitial();
@@ -150,6 +157,7 @@ class AdService extends ChangeNotifier {
     _watchesToday++;
     _lastWatchDate = DateTime.now();
     _nextAvailableAt = DateTime.now().add(cooldown);
+    unawaited(_persistState());
     notifyListeners();
   }
 
@@ -160,8 +168,58 @@ class AdService extends ChangeNotifier {
       if (last.year != now.year ||
           last.month != now.month ||
           last.day != now.day) {
+        final hadState = _watchesToday != 0 || _nextAvailableAt != null;
         _watchesToday = 0;
+        _nextAvailableAt = null;
+        if (hadState) {
+          unawaited(_persistState());
+        }
       }
+    }
+  }
+
+  void _restoreState() {
+    final prefs = _prefs;
+    if (prefs == null) return;
+
+    _watchesToday = prefs.getInt(_prefsWatchesToday) ?? 0;
+    final lastWatchAtMillis = prefs.getInt(_prefsLastWatchAt);
+    final nextAvailableAtMillis = prefs.getInt(_prefsNextAvailableAt);
+
+    if (lastWatchAtMillis != null && lastWatchAtMillis > 0) {
+      _lastWatchDate =
+          DateTime.fromMillisecondsSinceEpoch(lastWatchAtMillis);
+    }
+    if (nextAvailableAtMillis != null && nextAvailableAtMillis > 0) {
+      _nextAvailableAt =
+          DateTime.fromMillisecondsSinceEpoch(nextAvailableAtMillis);
+    }
+
+    _resetIfNewDay();
+    notifyListeners();
+  }
+
+  Future<void> _persistState() async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+
+    await prefs.setInt(_prefsWatchesToday, _watchesToday);
+    if (_lastWatchDate == null) {
+      await prefs.remove(_prefsLastWatchAt);
+    } else {
+      await prefs.setInt(
+        _prefsLastWatchAt,
+        _lastWatchDate!.millisecondsSinceEpoch,
+      );
+    }
+
+    if (_nextAvailableAt == null) {
+      await prefs.remove(_prefsNextAvailableAt);
+    } else {
+      await prefs.setInt(
+        _prefsNextAvailableAt,
+        _nextAvailableAt!.millisecondsSinceEpoch,
+      );
     }
   }
 

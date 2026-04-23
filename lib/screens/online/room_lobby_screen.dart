@@ -273,7 +273,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     if (opponents.isEmpty) {
       opponents.add(const <String, dynamic>{
         'id': 'fictitious',
-        'name': 'Computer',
+        'name': 'خصم آلي',
         'photo': '',
         'level': 1,
         'score': 0,
@@ -297,14 +297,14 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   Future<void> _shareRoom(Room room) async {
     try {
       await Share.share(
-        'Join my room in Million Challenge Online.\nRoom code: ${room.id}\nOpen multiplayer and paste the code to join.',
-        subject: 'Multiplayer room invite',
+        'انضم إلى غرفتي في تحدي المليون.\nرمز الغرفة: ${room.id}\nافتح اللعب الجماعي وأدخل الرمز للانضمام.',
+        subject: 'دعوة إلى غرفة جماعية',
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Unable to open the share sheet on this device.'),
+          content: Text('تعذر فتح نافذة المشاركة على هذا الجهاز.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -336,7 +336,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Leave room?',
+                    'مغادرة الغرفة؟',
                     style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
@@ -344,7 +344,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'You will be removed from the waiting room.',
+                    'سيتم إخراجك من غرفة الانتظار.',
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 14),
@@ -365,7 +365,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                   color: Colors.white.withValues(alpha: 0.12)),
                             ),
                             child: const Text(
-                              'Stay',
+                              'البقاء',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   fontWeight: FontWeight.w800,
@@ -385,7 +385,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
-                              'Leave',
+                              'مغادرة',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                   fontWeight: FontWeight.w900,
@@ -636,12 +636,12 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
 // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Header ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
 
 String _roomModeLabel(String mode) => switch (mode) {
-      Room.modeElimination => 'Elimination',
-      Room.modeSurvival => 'Survival',
-      Room.modeSeries => 'Series',
-      Room.modeTeamBattle => 'Team Battle',
-      Room.modeBlitz => 'Blitz',
-      _ => 'Battle',
+      Room.modeElimination => 'إقصاء',
+      Room.modeSurvival => 'نجاة',
+      Room.modeSeries => 'سلسلة',
+      Room.modeTeamBattle => 'مواجهة الفرق',
+      Room.modeBlitz => 'بلتز',
+      _ => 'تنافس',
     };
 
 Color _roomModeColor(String mode) => switch (mode) {
@@ -654,11 +654,11 @@ Color _roomModeColor(String mode) => switch (mode) {
     };
 
 String _roomPhaseLabel(String phase) => switch (phase) {
-      Room.phasePlayingRound => 'Playing Round',
-      Room.phaseRoundOver => 'Round Over',
-      Room.phaseFinished => 'Finished',
-      Room.phasePlaying => 'Playing',
-      _ => 'Lobby',
+      Room.phasePlayingRound => 'جولة جارية',
+      Room.phaseRoundOver => 'نهاية الجولة',
+      Room.phaseFinished => 'انتهت',
+      Room.phasePlaying => 'جارية',
+      _ => 'الانتظار',
     };
 
 Color _roomPhaseColor(String phase) => switch (phase) {
@@ -679,6 +679,11 @@ String _roomPlayerName({
   return profiles[playerId]?.username ??
       _RoomLobbyScreenState._fallbackName(playerId);
 }
+
+String _teamLabel(String teamId) =>
+    teamId == Room.teamA ? 'الفريق أ' : 'الفريق ب';
+
+String _teamShortLabel(String teamId) => teamId == Room.teamA ? 'أ' : 'ب';
 
 class _LobbyHeader extends StatelessWidget {
   const _LobbyHeader({
@@ -740,14 +745,14 @@ class _LobbyHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Waiting Room',
+                  'غرفة الانتظار',
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       color: Colors.white),
                 ),
                 Text(
-                  'ID: ${room.id}',
+                  'رمز الغرفة: ${room.id}',
                   style: const TextStyle(
                       fontSize: 12,
                       color: Color(0xFF94A3B8),
@@ -768,17 +773,17 @@ class _LobbyHeader extends StatelessWidget {
                     ),
                     if (room.isRoundBasedMode)
                       _MiniChip(
-                        label: 'Round ${room.roundNumber}',
+                        label: 'الجولة ${room.roundNumber}',
                         color: const Color(0xFF38BDF8),
                       ),
                     if (room.mode == Room.modeSurvival)
                       _MiniChip(
-                        label: 'Alive $aliveCount',
+                        label: 'المتبقي $aliveCount',
                         color: const Color(0xFF4ADE80),
                       ),
                     if (blitzSecondsLeft != null)
                       _MiniChip(
-                        label: '${blitzSecondsLeft}s',
+                        label: '$blitzSecondsLeftث',
                         color: blitzSecondsLeft! > 10
                             ? const Color(0xFF10B981)
                             : const Color(0xFFEF4444),
@@ -878,7 +883,7 @@ class _PlayersPanel extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const Text(
-                'Players',
+                'اللاعبون',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w900,
@@ -923,11 +928,11 @@ class _PlayersPanel extends StatelessWidget {
     final subtitle = balanceIssue ??
         (room.phase == Room.phaseFinished
             ? (room.winnerTeamId != null
-                ? 'Team ${room.winnerTeamId} wins on total score.'
-                : 'The teams finished level on points.')
+                ? '${_teamLabel(room.winnerTeamId!)} حسم المواجهة بمجموع النقاط.'
+                : 'انتهت المواجهة بالتعادل في مجموع النقاط.')
             : room.playerCount < room.maxPlayers
-                ? 'Open seats will be filled with balanced bots when the host starts.'
-                : 'Teams are locked in and ready to play.');
+                ? 'سيتم ملء المقاعد الشاغرة بروبوتات متوازنة عند بدء المضيف.'
+                : 'الفرق متوازنة وجاهزة للانطلاق.');
 
     final accentColor = balanceIssue != null
         ? const Color(0xFFEF4444)
@@ -957,9 +962,9 @@ class _PlayersPanel extends StatelessWidget {
               Text(
                 room.phase == Room.phaseFinished
                     ? (room.winnerTeamId != null
-                        ? 'Winning Team: ${room.winnerTeamId}'
-                        : 'Final Result: Draw')
-                    : 'Team Balance Status',
+                        ? 'الفريق الفائز: ${_teamLabel(room.winnerTeamId!)}'
+                        : 'النتيجة النهائية: تعادل')
+                    : 'حالة توازن الفرق',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w900,
@@ -1070,7 +1075,7 @@ class _PlayersPanel extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Team $teamId',
+                  _teamLabel(teamId),
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -1090,7 +1095,7 @@ class _PlayersPanel extends StatelessWidget {
                     ),
                   ),
                   child: const Text(
-                    'Winner',
+                    'فائز',
                     style: TextStyle(
                       color: Color(0xFFFACC15),
                       fontSize: 10,
@@ -1106,12 +1111,12 @@ class _PlayersPanel extends StatelessWidget {
             runSpacing: 8,
             children: [
               _MiniChip(
-                label: 'Total ${room.teamScore(teamId)}',
+                label: 'الإجمالي ${room.teamScore(teamId)}',
                 color: color,
               ),
               _MiniChip(
                 label:
-                    'Roster ${room.teamSize(teamId)}/${room.teamBattleTeamCapacity}',
+                    'التشكيلة ${room.teamSize(teamId)}/${room.teamBattleTeamCapacity}',
                 color: Colors.white,
               ),
             ],
@@ -1196,7 +1201,7 @@ class _TeamOverviewChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Team $teamId',
+            _teamLabel(teamId),
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w900,
@@ -1205,7 +1210,7 @@ class _TeamOverviewChip extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '$score pts  |  $sizeLabel',
+            '$score نقطة  |  $sizeLabel',
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w800,
@@ -1227,16 +1232,16 @@ class _TeamLegend extends StatelessWidget {
       children: [
         _teamDot(const Color(0xFF3B82F6)),
         const SizedBox(width: 2),
-        const Text('A',
-            style: TextStyle(
+        Text(_teamShortLabel(Room.teamA),
+            style: const TextStyle(
                 color: Color(0xFF3B82F6),
                 fontSize: 11,
                 fontWeight: FontWeight.w800)),
         const SizedBox(width: 10),
         _teamDot(const Color(0xFFEF4444)),
         const SizedBox(width: 2),
-        const Text('B',
-            style: TextStyle(
+        Text(_teamShortLabel(Room.teamB),
+            style: const TextStyle(
                 color: Color(0xFFEF4444),
                 fontSize: 11,
                 fontWeight: FontWeight.w800)),
@@ -1297,8 +1302,7 @@ class _PlayerTile extends StatelessWidget {
     final showsLives = mode == Room.modeSurvival;
     final showsEliminationState =
         mode == Room.modeSurvival || mode == Room.modeElimination;
-    final activeStatusLabel =
-        phase == Room.phaseFinished ? 'Finished' : 'Playing';
+    final activeStatusLabel = phase == Room.phaseFinished ? 'انتهت' : 'جارية';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1328,7 +1332,7 @@ class _PlayerTile extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        isCurrentUser ? '$username (You)' : username,
+                        isCurrentUser ? '$username (أنت)' : username,
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
@@ -1348,7 +1352,7 @@ class _PlayerTile extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
-                          'Host',
+                          'المضيف',
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w900,
@@ -1365,19 +1369,19 @@ class _PlayerTile extends StatelessWidget {
                   children: [
                     if (isBot && botIntelligence != null) ...[
                       _MiniChip(
-                        label: 'AI ${botIntelligence!}%',
+                        label: 'ذكاء ${botIntelligence!}%',
                         color: const Color(0xFF38BDF8),
                       ),
                       const SizedBox(width: 5),
                     ],
                     _MiniChip(
-                      label: '$score pts',
+                      label: '$score نقطة',
                       color: const Color(0xFFFACC15),
                     ),
                     if (showsLives) ...[
                       const SizedBox(width: 5),
                       _MiniChip(
-                        label: 'Lives $lives',
+                        label: 'أرواح $lives',
                         color: lives > 1
                             ? const Color(0xFFF97316)
                             : const Color(0xFFEF4444),
@@ -1386,7 +1390,7 @@ class _PlayerTile extends StatelessWidget {
                     if (showsEliminationState) ...[
                       const SizedBox(width: 5),
                       _MiniChip(
-                        label: eliminated ? 'Eliminated' : 'Alive',
+                        label: eliminated ? 'مقصي' : 'صامد',
                         color: eliminated
                             ? const Color(0xFFEF4444)
                             : const Color(0xFF4ADE80),
@@ -1468,8 +1472,8 @@ class _PlayerTile extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   showReadyState
-                      ? (ready ? 'Ready' : 'Waiting')
-                      : (eliminated ? 'Out' : activeStatusLabel),
+                      ? (ready ? 'جاهز' : 'بانتظار')
+                      : (eliminated ? 'خرج' : activeStatusLabel),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
@@ -1511,7 +1515,7 @@ class _TeamBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Team $teamId',
+            _teamLabel(teamId),
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w900,
@@ -1560,7 +1564,7 @@ class _EmptySlot extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Text(
-            'Waiting for player...',
+            'بانتظار لاعب...',
             style: TextStyle(
               fontSize: 13,
               color: Colors.white.withValues(alpha: 0.2),
@@ -1913,42 +1917,42 @@ class _ControlsPanelBody extends StatelessWidget {
 
     final statusTitle = switch (room.phase) {
       Room.phasePlayingRound => room.isRoundBasedMode
-          ? 'Round ${room.roundNumber} in progress'
-          : '${_roomModeLabel(room.mode)} in progress',
-      Room.phaseRoundOver => 'Round ${room.roundNumber} complete',
-      Room.phaseFinished => 'Match finished',
-      Room.phasePlaying when isTeamBattle => 'Team Battle live',
-      Room.phasePlaying => '${_roomModeLabel(room.mode)} in progress',
-      _ => '${_roomModeLabel(room.mode)} lobby',
+          ? 'الجولة ${room.roundNumber} جارية'
+          : '${_roomModeLabel(room.mode)} جارٍ',
+      Room.phaseRoundOver => 'انتهت الجولة ${room.roundNumber}',
+      Room.phaseFinished => 'انتهت المواجهة',
+      Room.phasePlaying when isTeamBattle => 'مواجهة الفرق جارية',
+      Room.phasePlaying => '${_roomModeLabel(room.mode)} جارٍ',
+      _ => '${_roomModeLabel(room.mode)} في الانتظار',
     };
 
     final statusBody = switch (room.phase) {
       Room.phaseLobby when isTeamBattle && teamBalanceIssue != null =>
         teamBalanceIssue,
       Room.phaseLobby when isTeamBattle && room.playerCount < room.maxPlayers =>
-        'Teams are valid. The host can start now, and open seats will be filled with balanced bots.',
+        'توزيع الفرق صالح. يمكن للمضيف البدء الآن، وأي مقاعد شاغرة سيكملها خصوم آليون بشكل متوازن.',
       Room.phaseLobby when isTeamBattle =>
-        'Teams are balanced and ready. Players can still switch sides until the match begins.',
+        'الفرق متوازنة وجاهزة. ما زال بإمكان اللاعبين تبديل الفريق قبل بدء المواجهة.',
       Room.phasePlayingRound when isSurvival && currentPlayerEliminated =>
-        'You are eliminated. Waiting for the surviving players to finish this round.',
+        'تم إقصاؤك. ننتظر اللاعبين الصامدين حتى ينهوا هذه الجولة.',
       Room.phasePlayingRound when isSurvival =>
-        '$aliveCount players are still alive in Survival.',
-      Room.phasePlayingRound => 'Waiting for the current round to finish.',
+        'لا يزال $aliveCount لاعبين صامدين في طور النجاة.',
+      Room.phasePlayingRound => 'بانتظار انتهاء الجولة الحالية.',
       Room.phasePlaying
           when isTeamBattle && currentPlayer?.completedAt != null =>
-        'Your score is locked in. Waiting for the remaining players so the team totals can be finalized.',
+        'تم تثبيت نتيجتك. ننتظر بقية اللاعبين حتى يكتمل مجموع الفريقين.',
       Room.phasePlaying when isTeamBattle =>
-        'Players are finishing their individual runs. Team totals update from the sum of every player score.',
+        'اللاعبون ينهون جولاتهم الفردية الآن، ومجموع الفريقين يتحدث من مجموع نقاط الجميع.',
       Room.phaseRoundOver when isHost =>
-        'More than one player survived. Start the next round when you are ready.',
-      Room.phaseRoundOver => 'Waiting for $hostName to start the next round.',
+        'بقي أكثر من لاعب صامدًا. ابدأ الجولة التالية عندما تكون جاهزًا.',
+      Room.phaseRoundOver => 'بانتظار $hostName ليبدأ الجولة التالية.',
       Room.phaseFinished when isTeamBattle && room.winnerTeamId != null =>
-        'Team ${room.winnerTeamId} wins $teamAScore-$teamBScore on total score.',
+        '${_teamLabel(room.winnerTeamId!)} حسمت النتيجة $teamAScore-$teamBScore بمجموع النقاط.',
       Room.phaseFinished when isTeamBattle =>
-        'The teams finished level at $teamAScore-$teamBScore, so the match ends in a draw.',
-      Room.phaseFinished when winnerName != null => 'Winner: $winnerName',
-      Room.phaseFinished => 'The room is finished.',
-      _ => 'Host can start early or fill the remaining seats with bots.',
+        'انتهت نتيجة الفريقين بالتعادل $teamAScore-$teamBScore.',
+      Room.phaseFinished when winnerName != null => 'الفائز: $winnerName',
+      Room.phaseFinished => 'انتهت الغرفة.',
+      _ => 'يمكن للمضيف البدء مبكرًا أو ملء المقاعد الشاغرة بخصوم آليين.',
     };
 
     return Column(
@@ -2008,7 +2012,7 @@ class _ControlsPanelBody extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          readyValue ? 'Ready!' : 'Not ready',
+                          readyValue ? 'جاهز' : 'غير جاهز',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
@@ -2018,7 +2022,7 @@ class _ControlsPanelBody extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Tap to toggle',
+                          'اضغط للتبديل',
                           style: TextStyle(
                             fontSize: 11,
                             color: Colors.white.withValues(alpha: 0.45),
@@ -2067,10 +2071,10 @@ class _ControlsPanelBody extends StatelessWidget {
           const SizedBox(height: 10),
           _ActionBtn(
             label: starting
-                ? 'Starting...'
+                ? 'جارٍ البدء...'
                 : isHost
-                    ? 'Start ${_roomModeLabel(room.mode)}'
-                    : 'Waiting for host',
+                    ? 'ابدأ ${_roomModeLabel(room.mode)}'
+                    : 'بانتظار المضيف',
             icon: Icons.rocket_launch_rounded,
             colors: const [Color(0xFFF8D34C), Color(0xFFF59E0B)],
             borderColor: const Color(0xFFFFF3A3),
@@ -2136,7 +2140,7 @@ class _ControlsPanelBody extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Waiting for $hostName to start',
+                      'بانتظار $hostName ليبدأ',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.6),
@@ -2214,27 +2218,27 @@ class _ControlsPanelBody extends StatelessWidget {
                     ),
                     if (room.isRoundBasedMode)
                       _MiniChip(
-                        label: 'Round ${room.roundNumber}',
+                        label: 'الجولة ${room.roundNumber}',
                         color: const Color(0xFF38BDF8),
                       ),
                     if (isTeamBattle)
                       _MiniChip(
-                        label: 'Team A $teamAScore',
+                        label: '${_teamLabel(Room.teamA)} $teamAScore',
                         color: const Color(0xFF3B82F6),
                       ),
                     if (isTeamBattle)
                       _MiniChip(
-                        label: 'Team B $teamBScore',
+                        label: '${_teamLabel(Room.teamB)} $teamBScore',
                         color: const Color(0xFFEF4444),
                       ),
                     if (isSurvival)
                       _MiniChip(
-                        label: 'Alive $aliveCount',
+                        label: 'الصامدون $aliveCount',
                         color: const Color(0xFF4ADE80),
                       ),
                     if (isSurvival && currentPlayer != null)
                       _MiniChip(
-                        label: 'Your lives ${currentPlayer.lives}',
+                        label: 'أرواحك ${currentPlayer.lives}',
                         color: currentPlayer.lives > 1
                             ? const Color(0xFFF97316)
                             : const Color(0xFFEF4444),
@@ -2248,10 +2252,10 @@ class _ControlsPanelBody extends StatelessWidget {
             const SizedBox(height: 10),
             _ActionBtn(
               label: starting
-                  ? 'Starting next round...'
+                  ? 'جارٍ بدء الجولة التالية...'
                   : isHost
-                      ? 'Start Round ${room.roundNumber + 1}'
-                      : 'Waiting for host',
+                      ? 'ابدأ الجولة ${room.roundNumber + 1}'
+                      : 'بانتظار المضيف',
               icon: Icons.skip_next_rounded,
               colors: const [Color(0xFF22C55E), Color(0xFF059669)],
               borderColor: const Color(0xFF86EFAC),
@@ -2263,7 +2267,7 @@ class _ControlsPanelBody extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         _ActionBtn(
-          label: 'Share room',
+          label: 'مشاركة الغرفة',
           icon: Icons.share_rounded,
           colors: const [Color(0xFF1E3A8A), Color(0xFF1E1B4B)],
           borderColor: const Color(0xFF3B82F6),
@@ -2273,7 +2277,7 @@ class _ControlsPanelBody extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _ActionBtn(
-          label: leaving ? 'Leaving...' : 'Leave room',
+          label: leaving ? 'جارٍ المغادرة...' : 'مغادرة الغرفة',
           icon: Icons.logout_rounded,
           colors: const [Color(0xFF7F1D1D), Color(0xFF450A0A)],
           borderColor: const Color(0xFFF87171),
@@ -2302,17 +2306,17 @@ class _ControlsPanelBody extends StatelessWidget {
                 child: Text(
                   switch (room.mode) {
                     Room.modeElimination =>
-                      'Elimination mode: one wrong answer means instant knockout.',
+                      'طور الإقصاء: إجابة خاطئة واحدة تعني الخروج الفوري.',
                     Room.modeSurvival =>
-                      'Survival mode: each player has 3 lives, wrong answers cost a life, and the host starts the next round.',
+                      'طور النجاة: لكل لاعب 3 أرواح، والإجابة الخاطئة تخصم روحًا، والمضيف يبدأ الجولة التالية.',
                     Room.modeSeries =>
-                      'Series mode: the first player to reach the required round wins takes the series.',
+                      'طور السلسلة: أول لاعب يصل إلى عدد الجولات المطلوب يحسم السلسلة.',
                     Room.modeTeamBattle =>
-                      'Team Battle: every player keeps an individual score, team totals decide the winner, and equal totals finish as a draw. Team switches are only allowed before the match starts.',
+                      'مواجهة الفرق: يحتفظ كل لاعب بنقاطه الفردية، ومجموع الفريقين يحدد الفائز، والتعادل ينهي المواجهة بلا فريق منتصر. تبديل الفرق متاح فقط قبل البداية.',
                     Room.modeBlitz =>
-                      'Blitz mode: answer as many questions as possible before time runs out.',
+                      'طور بلتز: أجب عن أكبر عدد ممكن من الأسئلة قبل انتهاء الوقت.',
                     _ =>
-                      'The host can start early, and any empty seats will be filled with bots.',
+                      'يمكن للمضيف البدء مبكرًا، وأي مقاعد شاغرة سيملؤها خصوم آليون.',
                   },
                   style: TextStyle(
                     fontSize: 11,
@@ -2345,7 +2349,7 @@ class _LoadingState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Connecting...',
+            'جارٍ الاتصال...',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
               fontWeight: FontWeight.w700,
@@ -2381,7 +2385,7 @@ class _ClosedState extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             const Text(
-              'Room Closed',
+              'أُغلقت الغرفة',
               style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -2389,7 +2393,7 @@ class _ClosedState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'The host may have deleted it, or the room may have expired.',
+              'قد يكون المضيف حذفها أو انتهت صلاحيتها.',
               textAlign: TextAlign.center,
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
@@ -2406,7 +2410,7 @@ class _ClosedState extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
-                  'Back',
+                  'رجوع',
                   style: TextStyle(
                       fontWeight: FontWeight.w900,
                       color: Colors.white,

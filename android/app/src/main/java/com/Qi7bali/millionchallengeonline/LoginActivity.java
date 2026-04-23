@@ -116,10 +116,10 @@ public class LoginActivity extends AppCompatActivity {
 
     private void updateUI(FirebaseUser user) {
         if (user != null) {
-            Toast.makeText(this, "Welcome " + user.getDisplayName(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "مرحبًا " + user.getDisplayName(), Toast.LENGTH_SHORT).show();
             // Navigate to the next activity or update the UI as needed
         } else {
-            Toast.makeText(this, "Sign-In Failed", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "فشل تسجيل الدخول", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -133,7 +133,7 @@ public class LoginActivity extends AppCompatActivity {
                         if (task.isSuccessful()) {
                             getUserAndStart("Google");
                         } else {
-                            Toast.makeText(LoginActivity.this, "signInWithCredential:failure", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(LoginActivity.this, "تعذر إكمال تسجيل الدخول عبر Google", Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
@@ -163,7 +163,7 @@ public class LoginActivity extends AppCompatActivity {
                     settings.putInt("userScore", user.score);
 
                 } else {
-                    Toast.makeText(LoginActivity.this, userID +  fbUser.getDisplayName()+ fbUser.getPhotoUrl().toString() , Toast.LENGTH_SHORT).show();
+                    Toast.makeText(LoginActivity.this, "جارٍ إنشاء ملفك الشخصي لأول مرة", Toast.LENGTH_SHORT).show();
                     settings.putString("userID", userID);
                     settings.putString("userName", fbUser.getDisplayName());
                     settings.putString("userPhoto", fbUser.getPhotoUrl().toString());

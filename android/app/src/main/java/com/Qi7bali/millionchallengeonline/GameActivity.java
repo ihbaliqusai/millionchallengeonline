@@ -111,7 +111,7 @@ public class GameActivity extends AppCompatActivity {
 
     private static class MatchOpponent {
         String id = "";
-        String name = "Computer";
+        String name = "خصم آلي";
         String photo = "";
         int level = 1;
         int intelligence = 60;
@@ -1368,7 +1368,9 @@ public class GameActivity extends AppCompatActivity {
     private String safeDisplayName(String name, int index) {
         String resolved = safeString(name).trim();
         if (resolved.isEmpty()) {
-            return index <= 1 ? "Computer" : String.format(Locale.US, "Computer %d", index);
+            return index <= 1
+                    ? "خصم آلي"
+                    : String.format(Locale.getDefault(), "خصم آلي %d", index);
         }
         return resolved;
     }
@@ -1402,7 +1404,11 @@ public class GameActivity extends AppCompatActivity {
         opponent.intelligence = profile.intelligence;
         opponent.level = Math.max(1, opponent.intelligence / 10);
         if (replacingHuman) {
-            Toast.makeText(this, opponent.name + " is now playing as computer", Toast.LENGTH_SHORT).show();
+            Toast.makeText(
+                    this,
+                    opponent.name + " يتابع اللعب الآن كخصم آلي",
+                    Toast.LENGTH_SHORT
+            ).show();
         }
     }
 
@@ -1775,9 +1781,9 @@ public class GameActivity extends AppCompatActivity {
         CAN_HOME = false;
 
         new AlertDialog.Builder(this)
-                .setMessage("You missed 3 questions in a row. A computer will continue in your place.")
+                .setMessage("أخطأت في 3 أسئلة متتالية. سيكمل خصم آلي اللعب بدلًا منك.")
                 .setCancelable(false)
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                .setPositiveButton("حسنًا", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         Intent intent = new Intent(GameActivity.this, MainActivity.class);
@@ -2093,7 +2099,7 @@ public class GameActivity extends AppCompatActivity {
                 questionsReady = false;
                 questionsLoadFailed = true;
                 startPending = false;
-                Toast.makeText(GameActivity.this, "Unable to load match questions", Toast.LENGTH_SHORT).show();
+                Toast.makeText(GameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -2119,7 +2125,7 @@ public class GameActivity extends AppCompatActivity {
                             questionsReady = false;
                             questionsLoadFailed = true;
                             startPending = false;
-                            Toast.makeText(GameActivity.this, "Unable to load match questions", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(GameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
                         }
                     });
                 }
@@ -2140,14 +2146,14 @@ public class GameActivity extends AppCompatActivity {
         }
         if (questionsLoadFailed) {
             startPending = false;
-            Toast.makeText(GameActivity.this, "Unable to load match questions", Toast.LENGTH_SHORT).show();
+            Toast.makeText(GameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
             return;
         }
         if (startPending) {
             return;
         }
         startPending = true;
-        Toast.makeText(GameActivity.this, "Preparing match questions...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(GameActivity.this, "جارٍ تجهيز أسئلة المواجهة...", Toast.LENGTH_SHORT).show();
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             @Override

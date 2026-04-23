@@ -172,7 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final appState = context.watch<AppState>();
     final user = appState.user;
     final username =
-        (user?.displayName ?? user?.email?.split('@').first ?? 'Player').trim();
+        (user?.displayName ?? user?.email?.split('@').first ?? 'لاعب').trim();
     final uid = user?.uid ?? '';
     final level = appState.level;
 
@@ -206,12 +206,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           _buildBackButton(),
                           const SizedBox(height: 12),
-                          _sectionLabel('PROFILE'),
+                          _sectionLabel('الملف الشخصي'),
                           const SizedBox(height: 8),
                           _buildProfileCard(
                               username, level, trophies, user?.photoURL),
                           const SizedBox(height: 12),
-                          _sectionLabel('ACCOUNT'),
+                          _sectionLabel('الحساب'),
                           const SizedBox(height: 8),
                           _buildAccountCard(uid),
                         ],
@@ -225,7 +225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 48),
-                          _sectionLabel('BATTLE RECORD'),
+                          _sectionLabel('سجل المواجهات'),
                           const SizedBox(height: 8),
                           _buildBattleRecord(
                             totalMatches: totalMatches,
@@ -247,7 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 48),
-                          _sectionLabel('TROPHY LEAGUE'),
+                          _sectionLabel('دوري الكؤوس'),
                           const SizedBox(height: 8),
                           _buildTrophyLeagueCard(trophies),
                         ],
@@ -481,12 +481,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('LINKED!',
+                const Text('موصول',
                     style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
                         color: Color(0xFF22C55E))),
-                Text('ID: $shortId',
+                Text('المعرّف: $shortId',
                     style: const TextStyle(fontSize: 9, color: Colors.white54)),
               ],
             ),
@@ -522,31 +522,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           _battleRow(Icons.sports_esports_rounded, const Color(0xFF38BDF8),
-              'TOTAL BATTLES', '$totalMatches'),
+              'إجمالي المواجهات', '$totalMatches'),
           const Divider(color: Colors.white12, height: 16),
           Row(
             children: [
               Expanded(
                   child: _battleTile(Icons.emoji_events_rounded,
-                      const Color(0xFFFACC15), 'WINS', '$wins')),
+                      const Color(0xFFFACC15), 'الانتصارات', '$wins')),
               const SizedBox(width: 8),
               Expanded(
                   child: _battleTile(Icons.mood_bad_rounded,
-                      const Color(0xFFEF4444), 'LOSSES', '$losses')),
+                      const Color(0xFFEF4444), 'الخسائر', '$losses')),
             ],
           ),
           const SizedBox(height: 6),
-          _battleRow(Icons.shield_rounded, const Color(0xFF22C55E), 'WIN RATE',
+          _battleRow(Icons.shield_rounded, const Color(0xFF22C55E), 'نسبة الفوز',
               '$winRate%'),
           _battleRow(Icons.local_fire_department_rounded,
-              const Color(0xFFF97316), 'WIN STREAK', '$winStreak'),
+              const Color(0xFFF97316), 'سلسلة الفوز', '$winStreak'),
           _battleRow(Icons.military_tech_rounded, const Color(0xFFFACC15),
-              'BEST WIN STREAK', '$bestStreak'),
+              'أفضل سلسلة فوز', '$bestStreak'),
           const Divider(color: Colors.white12, height: 16),
           // Trophy change per game
           _trophyChangeRow(),
           _battleRow(Icons.emoji_events_rounded, const Color(0xFFFACC15),
-              'TROPHIES', '$trophies'),
+              'الكؤوس', '$trophies'),
         ],
       ),
     );

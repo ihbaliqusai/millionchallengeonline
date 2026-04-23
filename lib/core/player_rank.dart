@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 class PlayerRank {
   static String titleForLevel(int level) {
-    if (level >= 60) return 'Legend';
-    if (level >= 45) return 'Master';
-    if (level >= 30) return 'Diamond';
-    if (level >= 20) return 'Gold';
-    if (level >= 10) return 'Silver';
-    if (level >= 5) return 'Bronze';
-    return 'Rookie';
+    if (level >= 60) return 'أسطورة';
+    if (level >= 45) return 'خبير';
+    if (level >= 30) return 'ماسي';
+    if (level >= 20) return 'ذهبي';
+    if (level >= 10) return 'فضي';
+    if (level >= 5) return 'برونزي';
+    return 'مبتدئ';
   }
 
   static Color colorForLevel(int level) {

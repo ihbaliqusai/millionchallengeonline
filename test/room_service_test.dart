@@ -571,6 +571,38 @@ void main() {
       expect(room.winnerId, 'host');
       expect(room.winnerTeamId, isNull);
     });
+
+    test('blitz native result is persisted after the timer expires', () async {
+      final roomId = await service.createRoom(
+        hostId: 'host',
+        maxPlayers: 2,
+        mode: Room.modeBlitz,
+        roundDurationSeconds: 60,
+      );
+      await service.joinRoom(roomId: roomId, userId: 'p2');
+
+      await firestore.collection('rooms').doc(roomId).update({
+        'started': true,
+        'phase': Room.phasePlaying,
+        'startedAt': Timestamp.fromDate(
+          DateTime.now().subtract(const Duration(minutes: 2)),
+        ),
+      });
+
+      await service.finalizeBlitzMatchFromNative(
+        roomId: roomId,
+        userId: 'host',
+        score: 11,
+        answeredCount: 11,
+      );
+
+      final room = await _loadRoom(firestore, roomId);
+      expect(room.phase, Room.phaseFinished);
+      expect(room.players['host']!.score, 11);
+      expect(room.players['host']!.answeredCount, 11);
+      expect(room.players['host']!.completedAt, isNotNull);
+      expect(room.winnerId, isNotNull);
+    });
   });
 }
 

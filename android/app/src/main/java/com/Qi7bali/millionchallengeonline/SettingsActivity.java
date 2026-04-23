@@ -112,7 +112,7 @@ public class SettingsActivity extends AppCompatActivity {
 
     private void updateSummary() {
         String summary = "المستوى: " + AppPrefs.getLevel(this)
-                + "\nXP: " + AppPrefs.getXp(this)
+                + "\nالخبرة: " + AppPrefs.getXp(this)
                 + "\nالعملات: " + AppPrefs.getCoins(this)
                 + "\nالجواهر: " + AppPrefs.getGems(this)
                 + "\nالصوت: " + (AppPrefs.isSoundEnabled(this) ? "مفعل" : "مكتوم")

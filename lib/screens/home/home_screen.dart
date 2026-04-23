@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     _syncingPendingRoomMatchResult = true;
     try {
-      final payload = await nativeBridgeService.consumePendingRoomMatchResult();
+      final payload = await nativeBridgeService.getPendingRoomMatchResult();
       if (payload == null) return;
 
       final roomId = (payload['roomId'] ?? '').toString().trim();
@@ -98,17 +98,19 @@ class _HomeScreenState extends State<HomeScreen>
       final opponents = _decodeOpponentsPayload(
         (payload['opponentsJson'] ?? '').toString(),
       );
-      if (roomId.isEmpty || matchMode.isEmpty) return;
+      if (roomId.isEmpty || matchMode.isEmpty) {
+        await nativeBridgeService.clearPendingRoomMatchResult();
+        return;
+      }
 
       switch (matchMode) {
         case Room.modeBlitz:
-          await roomService.submitBlitzScore(
+          await roomService.finalizeBlitzMatchFromNative(
             roomId: roomId,
             userId: userId,
             score: score,
             answeredCount: answeredCount,
           );
-          await roomService.finalizeBlitzRoom(roomId: roomId);
           break;
         case Room.modeBattle:
         case Room.modeTeamBattle:
@@ -150,6 +152,7 @@ class _HomeScreenState extends State<HomeScreen>
         default:
           break;
       }
+      await nativeBridgeService.clearPendingRoomMatchResult();
     } catch (_) {
       // Leave room sync silent so returning from native feels seamless.
     } finally {
@@ -194,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen>
     final appState = context.watch<AppState>();
     final user = appState.user;
     final username =
-        (user?.displayName ?? user?.email?.split('@').first ?? 'Player').trim();
+        (user?.displayName ?? user?.email?.split('@').first ?? 'لاعب').trim();
 
     return Scaffold(
       extendBody: true,
@@ -417,7 +420,7 @@ class _LevelBadge extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'LEVEL $level',
+                'المستوى $level',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
@@ -473,10 +476,10 @@ class _LeftSidebar extends StatelessWidget {
         children: [
           // STATS → Stats screen
           _SideCard(
-            label: 'STATS',
+            label: 'إحصاءات',
             icon: Icons.bar_chart_rounded,
             iconColor: const Color(0xFFF97316),
-            badge: 'NEW',
+            badge: 'جديد',
             badgeColor: const Color(0xFF22C55E),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const StatsScreen()),
@@ -760,7 +763,7 @@ class _CenterArena extends StatelessWidget {
                 children: [
                   _BattleButton(
                     glowCtrl: glowCtrl,
-                    label: 'Battle',
+                    label: 'تحدي جماعي',
                     gold: true,
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -770,7 +773,7 @@ class _CenterArena extends StatelessWidget {
                   const SizedBox(width: 12),
                   _BattleButton(
                     glowCtrl: glowCtrl,
-                    label: 'Speed Battle',
+                    label: 'تحدي السرعة',
                     gold: false,
                     onPressed: () => context.read<AppState>().openSpeedBattle(),
                   ),
@@ -816,7 +819,7 @@ class _RankingButton extends StatelessWidget {
             Icon(Icons.leaderboard_rounded, size: 18, color: Color(0xFFFACC15)),
             SizedBox(width: 6),
             Text(
-              'RANKING',
+              'الصدارة',
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w900,
@@ -1303,7 +1306,7 @@ class _PlayerCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    username.isEmpty ? 'Player' : username,
+                    username.isEmpty ? 'لاعب' : username,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1331,7 +1334,7 @@ class _PlayerCard extends StatelessWidget {
                       Icon(league.icon, size: 12, color: league.color),
                       const SizedBox(width: 3),
                       Text(
-                        '${appState.trophies} ${league.name}',
+                        '${appState.trophies} ${league.nameAr}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

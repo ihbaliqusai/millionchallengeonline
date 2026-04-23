@@ -127,7 +127,7 @@ public class BlitzGameActivity extends BaseGameActivity {
 
     private void updateTimerText(int secsLeft) {
         if (txtGlobalTimer == null) return;
-        txtGlobalTimer.setText("\u23F1 " + secsLeft + "s");
+        txtGlobalTimer.setText("\u23F1 " + secsLeft + "ث");
         if (secsLeft <= 10) {
             txtGlobalTimer.setTextColor(COLOR_URGENT);
             txtGlobalTimer.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 22);

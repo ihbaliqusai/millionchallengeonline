@@ -118,24 +118,24 @@ class RoomService {
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
           if (!snapshot.exists) {
-            throw StateError('This room no longer exists.');
+            throw StateError('هذه الغرفة لم تعد موجودة.');
           }
 
           final room = Room.fromSnapshot(snapshot);
           if (_isExpiredOpenRoom(room)) {
             transaction.delete(ref);
             throw StateError(
-              'This room expired after 20 minutes without starting.',
+              'انتهت صلاحية هذه الغرفة بعد 20 دقيقة من دون بدء.',
             );
           }
           if (room.started) {
-            throw StateError('This room has already started.');
+            throw StateError('هذه الغرفة بدأت بالفعل.');
           }
           if (room.containsPlayer(userId)) {
             return;
           }
           if (room.isFull) {
-            throw StateError('This room is already full.');
+            throw StateError('هذه الغرفة ممتلئة بالفعل.');
           }
 
           final joiningPlayer = RoomPlayer(
@@ -215,18 +215,18 @@ class RoomService {
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
           if (!snapshot.exists) {
-            throw StateError('This room no longer exists.');
+            throw StateError('هذه الغرفة لم تعد موجودة.');
           }
 
           final room = Room.fromSnapshot(snapshot);
           if (_isExpiredOpenRoom(room)) {
             transaction.delete(ref);
             throw StateError(
-              'This room expired after 20 minutes without starting.',
+              'انتهت صلاحية هذه الغرفة بعد 20 دقيقة من دون بدء.',
             );
           }
           if (room.hostId != userId) {
-            throw StateError('Only the host can start the room.');
+            throw StateError('فقط المضيف يمكنه بدء الغرفة.');
           }
           if (room.started) {
             return;
@@ -384,12 +384,12 @@ class RoomService {
         final ref = _rooms.doc(roomId);
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
-          if (!snapshot.exists) throw StateError('Room no longer exists.');
+          if (!snapshot.exists) throw StateError('هذه الغرفة لم تعد موجودة.');
 
           final room = Room.fromSnapshot(snapshot);
           if (room.mode != Room.modeBlitz) return;
           if (!room.containsPlayer(userId)) {
-            throw StateError('You are no longer in this room.');
+            throw StateError('لم تعد ضمن هذه الغرفة.');
           }
           if (room.phase == Room.phaseFinished) return;
           if (room.isBlitzExpired) return; // post-timeout — reject silently
@@ -462,6 +462,89 @@ class RoomService {
         });
       });
 
+  /// Persists the returning native blitz result even after the local timer has
+  /// expired, then finalizes the room in the same transaction.
+  Future<void> finalizeBlitzMatchFromNative({
+    required String roomId,
+    required String userId,
+    required int score,
+    required int answeredCount,
+  }) =>
+      _guard(() async {
+        final ref = _rooms.doc(roomId);
+        await _firestore.runTransaction((transaction) async {
+          final snapshot = await transaction.get(ref);
+          if (!snapshot.exists) {
+            throw StateError('هذه الغرفة لم تعد موجودة.');
+          }
+
+          final room = Room.fromSnapshot(snapshot);
+          if (room.mode != Room.modeBlitz) return;
+          if (!room.containsPlayer(userId)) {
+            throw StateError('لم تعد ضمن هذه الغرفة.');
+          }
+          if (room.phase == Room.phaseFinished) return;
+
+          final current = room.players[userId]!;
+          final safeScore = math.max(0, score);
+          final safeAnsweredCount = math.max(0, answeredCount);
+          final updates = <String, dynamic>{};
+          final effectivePlayers = Map<String, RoomPlayer>.from(room.players);
+          final shouldUpdatePlayer = current.completedAt == null ||
+              current.score < safeScore ||
+              current.answeredCount < safeAnsweredCount;
+
+          if (shouldUpdatePlayer) {
+            updates['players.$userId.score'] = safeScore;
+            updates['players.$userId.answeredCount'] = safeAnsweredCount;
+            updates['players.$userId.completedAt'] =
+                FieldValue.serverTimestamp();
+            effectivePlayers[userId] = current.copyWith(
+              score: safeScore,
+              answeredCount: safeAnsweredCount,
+              completedAt: DateTime.now(),
+            );
+          }
+
+          if (!room.isBlitzExpired) {
+            if (updates.isNotEmpty) {
+              transaction.update(ref, updates);
+            }
+            return;
+          }
+
+          updates['phase'] = Room.phaseFinished;
+          for (final botId in room.playerIds.where(Room.isBotUserId)) {
+            final player = effectivePlayers[botId];
+            if (player == null || player.completedAt != null) continue;
+
+            final botScore = _buildBlitzBotScore(
+              roomId: room.id,
+              botId: botId,
+              durationSeconds: room.roundDurationSeconds,
+            );
+            updates['players.$botId.score'] = botScore;
+            updates['players.$botId.answeredCount'] = botScore;
+            updates['players.$botId.completedAt'] =
+                FieldValue.serverTimestamp();
+            effectivePlayers[botId] = player.copyWith(
+              score: botScore,
+              answeredCount: botScore,
+              completedAt: DateTime.now(),
+            );
+          }
+
+          final winnerId = _computeBlitzWinner(effectivePlayers);
+          if (winnerId == null) {
+            updates['winnerId'] = FieldValue.delete();
+          } else {
+            updates['winnerId'] = winnerId;
+          }
+
+          transaction.update(ref, updates);
+        });
+      });
+
   Future<void> submitFinalScore({
     required String roomId,
     required String userId,
@@ -473,12 +556,12 @@ class RoomService {
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
           if (!snapshot.exists) {
-            throw StateError('This room no longer exists.');
+            throw StateError('هذه الغرفة لم تعد موجودة.');
           }
 
           final room = Room.fromSnapshot(snapshot);
           if (!room.containsPlayer(userId)) {
-            throw StateError('You are no longer in this room.');
+            throw StateError('لم تعد ضمن هذه الغرفة.');
           }
           if (room.phase == Room.phaseFinished) {
             return;
@@ -532,7 +615,7 @@ class RoomService {
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
           if (!snapshot.exists) {
-            throw StateError('This room no longer exists.');
+            throw StateError('هذه الغرفة لم تعد موجودة.');
           }
 
           final room = Room.fromSnapshot(snapshot);
@@ -540,7 +623,7 @@ class RoomService {
             return;
           }
           if (!room.containsPlayer(userId)) {
-            throw StateError('You are no longer in this room.');
+            throw StateError('لم تعد ضمن هذه الغرفة.');
           }
 
           final updates = <String, dynamic>{
@@ -611,7 +694,7 @@ class RoomService {
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
           if (!snapshot.exists) {
-            throw StateError('This room no longer exists.');
+            throw StateError('هذه الغرفة لم تعد موجودة.');
           }
 
           final room = Room.fromSnapshot(snapshot);
@@ -621,7 +704,7 @@ class RoomService {
             return;
           }
           if (!room.containsPlayer(userId)) {
-            throw StateError('You are no longer in this room.');
+            throw StateError('لم تعد ضمن هذه الغرفة.');
           }
 
           final updates = <String, dynamic>{
@@ -748,7 +831,7 @@ class RoomService {
 
           final room = Room.fromSnapshot(snapshot);
           if (room.hostId != userId) {
-            throw StateError('Only the host can start the next round.');
+            throw StateError('فقط المضيف يمكنه بدء الجولة التالية.');
           }
           if (room.phase != Room.phaseRoundOver) return;
 
@@ -927,7 +1010,7 @@ class RoomService {
 
           final room = Room.fromSnapshot(snapshot);
           if (room.hostId != userId) {
-            throw StateError('Only the host can start the next round.');
+            throw StateError('فقط المضيف يمكنه بدء الجولة التالية.');
           }
           if (room.mode != Room.modeSurvival ||
               room.phase != Room.phaseRoundOver) {
@@ -1041,7 +1124,7 @@ class RoomService {
 
           final room = Room.fromSnapshot(snapshot);
           if (room.hostId != userId) {
-            throw StateError('Only the host can start the next round.');
+            throw StateError('فقط المضيف يمكنه بدء الجولة التالية.');
           }
           if (room.phase != Room.phaseRoundOver) return;
 
@@ -1167,13 +1250,12 @@ class RoomService {
           final room = Room.fromSnapshot(snapshot);
           if (room.mode != Room.modeTeamBattle) return;
           if (room.started || room.phase != Room.phaseLobby) {
-            throw StateError(
-                'Teams can only be changed before the match starts.');
+            throw StateError('يمكن تغيير الفريق قبل بدء المواجهة فقط.');
           }
 
           final player = room.players[userId];
           if (player == null) {
-            throw StateError('This player is no longer in the room.');
+            throw StateError('هذا اللاعب لم يعد داخل الغرفة.');
           }
 
           final capacity = _teamCapacityForRoom(room.maxPlayers);
@@ -1185,7 +1267,7 @@ class RoomService {
 
           if ((counts[newTeam] ?? 0) > capacity) {
             throw StateError(
-              'That move would give Team $newTeam too many players.',
+              'هذا النقل سيجعل ${newTeam == Room.teamA ? 'الفريق أ' : 'الفريق ب'} يتجاوز العدد المسموح.',
             );
           }
 
@@ -1243,10 +1325,17 @@ class RoomService {
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
         throw StateError(
-          'Firestore rules are blocking room updates. Publish the latest rules for the rooms collection in Firebase Console, then try again.',
+          'قواعد Firestore تمنع تحديثات الغرف. انشر أحدث قواعد مجموعة rooms من Firebase Console ثم أعد المحاولة.',
         );
       }
-      throw StateError(e.message ?? e.code);
+      if (e.code == 'unavailable') {
+        throw StateError(
+            'الخدمة غير متاحة الآن. تحقق من الاتصال وحاول مرة أخرى.');
+      }
+      if (e.code == 'deadline-exceeded') {
+        throw StateError('انتهت مهلة الاتصال. حاول مرة أخرى.');
+      }
+      throw StateError('تعذر تنفيذ العملية على الغرفة. حاول مرة أخرى.');
     }
   }
 
@@ -1481,16 +1570,16 @@ class RoomService {
   }) {
     if (mode != Room.modeTeamBattle) return;
     if (maxPlayers < 2) {
-      throw StateError('Team Battle rooms need at least 2 players.');
+      throw StateError('غرف مواجهة الفرق تحتاج لاعبين على الأقل.');
     }
     if (maxPlayers.isOdd) {
-      throw StateError('Team Battle rooms require an even player count.');
+      throw StateError('غرف مواجهة الفرق تتطلب عدد لاعبين زوجيًا.');
     }
   }
 
   static int _teamCapacityForRoom(int maxPlayers) {
     if (maxPlayers < 2 || maxPlayers.isOdd) {
-      throw StateError('Team Battle rooms require an even player count.');
+      throw StateError('غرف مواجهة الفرق تتطلب عدد لاعبين زوجيًا.');
     }
     return maxPlayers ~/ 2;
   }
@@ -1525,7 +1614,7 @@ class RoomService {
     final canJoinB = countB < capacity;
 
     if (!canJoinA && !canJoinB) {
-      throw StateError('Both teams are already full.');
+      throw StateError('الفريقان ممتلئان بالفعل.');
     }
     if (canJoinA && !canJoinB) {
       return Room.teamA;
@@ -1543,7 +1632,7 @@ class RoomService {
     final capacity = _teamCapacityForRoom(room.maxPlayers);
     final missingPlayers = room.maxPlayers - lobbyPlayers.length;
     if (missingPlayers < 0) {
-      throw StateError('This room has more players than available slots.');
+      throw StateError('هذه الغرفة تحتوي لاعبين أكثر من المقاعد المتاحة.');
     }
 
     final teamAssignments = <String, String>{};
@@ -1566,7 +1655,7 @@ class RoomService {
     if ((teamCounts[Room.teamA] ?? 0) > capacity ||
         (teamCounts[Room.teamB] ?? 0) > capacity) {
       throw StateError(
-        'One team has too many players for a ${room.maxPlayers}-slot Team Battle.',
+        'أحد الفريقين يضم لاعبين أكثر من المسموح لغرفة مواجهة فرق بسعة ${room.maxPlayers}.',
       );
     }
 
@@ -1601,7 +1690,7 @@ class RoomService {
     if ((teamCounts[Room.teamA] ?? 0) != capacity ||
         (teamCounts[Room.teamB] ?? 0) != capacity) {
       throw StateError(
-        'Teams must be balanced before Team Battle can start.',
+        'يجب توازن الفريقين قبل بدء مواجهة الفرق.',
       );
     }
 

@@ -1075,13 +1075,13 @@ class _MegaGemCard extends StatelessWidget {
               child: const Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('MEGA',
+                  Text('باقة',
                       style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
                           letterSpacing: 0.5)),
-                  Text('PACK',
+                  Text('ضخمة',
                       style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w900,

@@ -30,7 +30,7 @@ class PlayerProfile {
   factory PlayerProfile.empty() => PlayerProfile(
         uid: '',
         email: '',
-        username: 'Guest',
+        username: 'لاعب',
         photoUrl: null,
         wins: 0,
         losses: 0,
@@ -121,6 +121,6 @@ class PlayerProfile {
       return normalized;
     }
 
-    return 'Guest';
+    return 'لاعب';
   }
 }

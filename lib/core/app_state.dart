@@ -238,6 +238,10 @@ class AppState extends ChangeNotifier {
           },
           SetOptions(merge: true),
         );
+        await _syncPublicProfile(
+          level: level,
+          trophies: trophies,
+        );
       }
     } catch (_) {
     } finally {
@@ -249,6 +253,7 @@ class AppState extends ChangeNotifier {
     user = nextUser;
 
     if (nextUser != null) {
+      unawaited(_syncPublicProfile());
       unawaited(_syncLegacyUser());
       unawaited(loadCurrency());
       unawaited(loadLevelData());
@@ -343,6 +348,30 @@ class AppState extends ChangeNotifier {
     );
   }
 
+  Future<void> _syncPublicProfile({
+    int? level,
+    int? trophies,
+  }) async {
+    final currentUser = user;
+    if (currentUser == null) return;
+
+    try {
+      await _firestore.collection('public_profiles').doc(currentUser.uid).set(
+        <String, dynamic>{
+          'uid': currentUser.uid,
+          'username': _resolvedUsername(currentUser),
+          'photoUrl': _resolvedPhotoUrl(currentUser),
+          'level': level ?? this.level,
+          'trophies': trophies ?? this.trophies,
+          'lastSeenAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {
+      // Keep gameplay responsive if Firestore is temporarily unavailable.
+    }
+  }
+
   Future<void> _runBusy(Future<dynamic> Function() action) async {
     try {
       isBusy = true;
@@ -378,7 +407,7 @@ class AppState extends ChangeNotifier {
       return normalized;
     }
 
-    return 'Guest';
+    return 'لاعب';
   }
 
   String? _resolvedPhotoUrl(User user) {

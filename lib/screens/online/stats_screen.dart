@@ -108,7 +108,7 @@ class _StatsScreenState extends State<StatsScreen> {
                               icon: Icons.public_rounded,
                               color: const Color(0xFF38BDF8),
                               value: _fmt('onlineWins'),
-                              label: 'ONLINE WINS',
+                              label: 'انتصارات أونلاين',
                             ),
                             _StatCard(
                               icon: Icons.bolt_rounded,
@@ -120,13 +120,13 @@ class _StatsScreenState extends State<StatsScreen> {
                               icon: Icons.local_fire_department_rounded,
                               color: const Color(0xFFFB7185),
                               value: _fmt('winStreak'),
-                              label: 'WIN STREAK',
+                              label: 'سلسلة الفوز',
                             ),
                             _StatCard(
                               icon: Icons.workspace_premium_rounded,
                               color: const Color(0xFFFACC15),
                               value: _fmt('bestWinStreak'),
-                              label: 'BEST WIN STREAK',
+                              label: 'أفضل سلسلة فوز',
                             ),
                             _StatCard(
                               icon: Icons.quiz_rounded,
@@ -146,7 +146,7 @@ class _StatsScreenState extends State<StatsScreen> {
                               value: trophies >= 1000
                                   ? '${(trophies / 1000).toStringAsFixed(1)}k'
                                   : '$trophies',
-                              label: 'TROPHIES',
+                              label: 'الكؤوس',
                             ),
                           ],
                         ),
@@ -223,7 +223,7 @@ class _PlayerInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final username =
-        appState.user?.displayName ?? appState.user?.email ?? 'Player';
+        appState.user?.displayName ?? appState.user?.email ?? 'لاعب';
     final rankTitle = PlayerRank.titleForLevel(appState.level);
     final rankColor = PlayerRank.colorForLevel(appState.level);
     final league = TrophyProgression.leagueFor(appState.trophies);

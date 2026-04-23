@@ -756,7 +756,7 @@ class _LiveRoomsPanel extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       const Text(
-                        'LIVE',
+                        'مباشر',
                         style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w900,
@@ -846,12 +846,12 @@ class _RoomCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isFull = room.isFull;
     final modeLabel = switch (room.mode) {
-      Room.modeElimination => 'Elimination',
-      Room.modeSurvival => 'Survival',
-      Room.modeSeries => 'Series',
-      Room.modeTeamBattle => 'Team Battle',
-      Room.modeBlitz => 'Blitz',
-      _ => 'Battle',
+      Room.modeElimination => 'إقصاء',
+      Room.modeSurvival => 'نجاة',
+      Room.modeSeries => 'سلسلة',
+      Room.modeTeamBattle => 'فرق',
+      Room.modeBlitz => 'بلتز',
+      _ => 'تنافس',
     };
     final modeColor = switch (room.mode) {
       Room.modeElimination => const Color(0xFFEF4444),
@@ -1021,7 +1021,7 @@ class _RoomCard extends StatelessWidget {
                 isFull
                     ? 'ممتلئة'
                     : isJoining
-                        ? '...'
+                        ? 'جارٍ...'
                         : 'انضمام',
                 style: TextStyle(
                   fontSize: 12,

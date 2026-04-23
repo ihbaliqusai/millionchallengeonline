@@ -415,22 +415,22 @@ class Room {
   String? get teamBattleBalanceIssue {
     if (!isTeamBattle) return null;
     if (maxPlayers < 2) {
-      return 'Team Battle requires at least 2 slots.';
+      return 'تتطلب مواجهة الفرق مقعدين على الأقل.';
     }
     if (maxPlayers.isOdd) {
-      return 'Team Battle requires an even room size.';
+      return 'تتطلب مواجهة الفرق عددًا زوجيًا من المقاعد.';
     }
     if (playerCount > maxPlayers) {
-      return 'Room has more players than available slots.';
+      return 'عدد اللاعبين أكبر من المقاعد المتاحة في الغرفة.';
     }
     final capacity = teamBattleTeamCapacity;
     for (final player in players.values) {
       if (!teamIds.contains(player.teamId)) {
-        return 'Every player must be assigned to Team A or Team B.';
+        return 'يجب تعيين كل لاعب إلى الفريق أ أو الفريق ب.';
       }
     }
     if (teamSize(teamA) > capacity || teamSize(teamB) > capacity) {
-      return 'One team has too many players for this room size.';
+      return 'أحد الفريقين يضم لاعبين أكثر من المسموح لهذه الغرفة.';
     }
     return null;
   }

@@ -31,7 +31,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     try {
       await appState.checkAndAwardXpForGames();
       final snap = await FirebaseFirestore.instance
-          .collection('users')
+          .collection('public_profiles')
           .orderBy('trophies', descending: true)
           .limit(200)
           .get();
@@ -40,7 +40,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         final data = d.data();
         return <String, dynamic>{
           'uid': d.id,
-          'username': data['username'] ?? data['playerName'] ?? 'Player',
+          'username': data['username'] ?? data['playerName'] ?? 'لاعب',
           'trophies': (data['trophies'] as num?)?.toInt() ?? 0,
           'level': (data['level'] as num?)?.toInt() ?? 1,
           'photoUrl': data['photoUrl'] ?? '',
@@ -118,7 +118,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
-              'Global Leaderboard',
+              'لوحة الصدارة العالمية',
               style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
@@ -185,7 +185,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  'Top\n$topPercent%',
+                  'أفضل\n$topPercent%',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       fontSize: 8,
@@ -247,7 +247,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         const Padding(
           padding: EdgeInsets.only(top: 8, bottom: 6),
           child: Text(
-            'BEST PLAYERS',
+            'الأوائل',
             style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w900,

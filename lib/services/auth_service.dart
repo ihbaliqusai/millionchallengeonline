@@ -55,7 +55,10 @@ class AuthService {
   Future<UserCredential> signInWithGoogle() async {
     final account = await _googleSignIn.signIn();
     if (account == null) {
-      throw FirebaseAuthException(code: 'cancelled', message: 'Google sign-in cancelled');
+      throw FirebaseAuthException(
+        code: 'cancelled',
+        message: 'تم إلغاء تسجيل الدخول عبر Google',
+      );
     }
     final auth = await account.authentication;
     final credential = GoogleAuthProvider.credential(
@@ -75,11 +78,26 @@ class AuthService {
   Future<void> updateUsername(String username) async {
     final user = _auth.currentUser;
     if (user == null) return;
-    await user.updateDisplayName(username.trim());
+    final normalizedUsername = username.trim();
+    await user.updateDisplayName(normalizedUsername);
     try {
-      await _firestore.collection('users').doc(user.uid).set(
+      final privateRef = _firestore.collection('users').doc(user.uid);
+      final publicRef = _firestore.collection('public_profiles').doc(user.uid);
+      final payload = <String, dynamic>{
+        'username': normalizedUsername,
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      };
+      await privateRef.set(
+        payload,
+        SetOptions(merge: true),
+      );
+      await publicRef.set(
         <String, dynamic>{
-          'username': username.trim(),
+          'uid': user.uid,
+          'username': normalizedUsername,
+          'photoUrl': user.photoURL?.trim().isNotEmpty == true
+              ? user.photoURL!.trim()
+              : null,
           'lastSeenAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -117,10 +135,13 @@ class AuthService {
     String? photoUrl,
   }) async {
     final ref = _firestore.collection('users').doc(uid);
+    final publicRef = _firestore.collection('public_profiles').doc(uid);
     final snapshot = await ref.get();
     final existing = snapshot.data() ?? const <String, dynamic>{};
     final resolvedUsername = _resolveUsername(existing, username, email);
     final resolvedPhotoUrl = _resolvePhotoUrl(existing, photoUrl);
+    final publicTrophies = (existing['trophies'] as num?)?.toInt() ?? 0;
+    final publicLevel = (existing['level'] as num?)?.toInt() ?? 1;
 
     if (_auth.currentUser != null && (_auth.currentUser!.displayName ?? '').trim() != resolvedUsername) {
       await _auth.currentUser!.updateDisplayName(resolvedUsername);
@@ -137,6 +158,19 @@ class AuthService {
         if (!snapshot.exists) 'totalMatches': 0,
         if (!snapshot.exists) 'totalScore': 0,
         if (!snapshot.exists) 'rating': 1000,
+        if (!snapshot.exists) 'createdAt': FieldValue.serverTimestamp(),
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    await publicRef.set(
+      <String, dynamic>{
+        'uid': uid,
+        'username': resolvedUsername,
+        'photoUrl': resolvedPhotoUrl,
+        'rating': (existing['rating'] as num?)?.toInt() ?? 1000,
+        'trophies': publicTrophies,
+        'level': publicLevel,
         if (!snapshot.exists) 'createdAt': FieldValue.serverTimestamp(),
         'lastSeenAt': FieldValue.serverTimestamp(),
       },
@@ -171,7 +205,7 @@ class AuthService {
       return normalized;
     }
 
-    return 'Guest';
+    return 'لاعب';
   }
 
   String? _resolvePhotoUrl(Map<String, dynamic> existing, String? candidate) {

@@ -184,7 +184,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     static class MatchOpponent {
         String id = "";
-        String name = "Computer";
+        String name = "خصم آلي";
         String photo = "";
         int level = 1;
         int intelligence = 60;
@@ -997,7 +997,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             }
             if (!enemyOpp.isEmpty()) {
                 String enemyTeamId = "A".equals(myTeam) ? "B" : "A";
-                llyOpponentScores.addView(createTeamSectionDivider("TEAM " + enemyTeamId, false));
+                llyOpponentScores.addView(
+                        createTeamSectionDivider("الفريق " + resolveTeamLabel(enemyTeamId), false)
+                );
             }
             for (MatchOpponent opp : enemyOpp) {
                 llyOpponentScores.addView(createOpponentScoreRow(opp));
@@ -1398,7 +1400,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (headerBar != null) headerBar.setBackgroundColor(color);
         if (headerText != null) {
             headerText.setTextColor(color);
-            headerText.setText("TEAM " + (myTeam != null ? myTeam : "?"));
+            headerText.setText("الفريق " + resolveTeamLabel(myTeam));
         }
     }
 
@@ -1644,9 +1646,17 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     private String safeDisplayName(String name, int index) {
         String resolved = safeString(name).trim();
         if (resolved.isEmpty()) {
-            return index <= 1 ? "Computer" : String.format(Locale.US, "Computer %d", index);
+            return index <= 1
+                    ? "خصم آلي"
+                    : String.format(Locale.getDefault(), "خصم آلي %d", index);
         }
         return resolved;
+    }
+
+    private String resolveTeamLabel(String teamId) {
+        if ("A".equalsIgnoreCase(safeString(teamId))) return "أ";
+        if ("B".equalsIgnoreCase(safeString(teamId))) return "ب";
+        return "?";
     }
 
     private BotProfile resolveBotProfile(String playerId) {
@@ -1678,7 +1688,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         opponent.intelligence = profile.intelligence;
         opponent.level = Math.max(1, opponent.intelligence / 10);
         if (replacingHuman) {
-            Toast.makeText(this, opponent.name + " is now playing as computer", Toast.LENGTH_SHORT).show();
+            Toast.makeText(
+                    this,
+                    opponent.name + " يتابع اللعب الآن كخصم آلي",
+                    Toast.LENGTH_SHORT
+            ).show();
         }
     }
 
@@ -2149,9 +2163,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         CAN_HOME = false;
 
         new AlertDialog.Builder(this)
-                .setMessage("You missed 3 questions in a row. A computer will continue in your place.")
+                .setMessage("أخطأت في 3 أسئلة متتالية. سيكمل خصم آلي اللعب بدلًا منك.")
                 .setCancelable(false)
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                .setPositiveButton("حسنًا", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         Intent intent = new Intent(BaseGameActivity.this, MainActivity.class);
@@ -2486,7 +2500,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 questionsReady = false;
                 questionsLoadFailed = true;
                 startPending = false;
-                Toast.makeText(BaseGameActivity.this, "Unable to load match questions", Toast.LENGTH_SHORT).show();
+                Toast.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -2512,7 +2526,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                             questionsReady = false;
                             questionsLoadFailed = true;
                             startPending = false;
-                            Toast.makeText(BaseGameActivity.this, "Unable to load match questions", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
                         }
                     });
                 }
@@ -2533,14 +2547,14 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
         if (questionsLoadFailed) {
             startPending = false;
-            Toast.makeText(BaseGameActivity.this, "Unable to load match questions", Toast.LENGTH_SHORT).show();
+            Toast.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
             return;
         }
         if (startPending) {
             return;
         }
         startPending = true;
-        Toast.makeText(BaseGameActivity.this, "Preparing match questions...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(BaseGameActivity.this, "جارٍ تجهيز أسئلة المواجهة...", Toast.LENGTH_SHORT).show();
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             @Override

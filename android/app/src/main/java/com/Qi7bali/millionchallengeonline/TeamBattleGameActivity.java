@@ -108,7 +108,9 @@ public class TeamBattleGameActivity extends BaseGameActivity {
                 ? "A"
                 : (teamBScore > teamAScore ? "B" : "");
         final boolean didWin = !winnerTeamId.isEmpty() && winnerTeamId.equals(myTeam);
-        final String winnerName = winnerTeamId.isEmpty() ? "" : ("Team " + winnerTeamId);
+        final String winnerName = winnerTeamId.isEmpty()
+                ? ""
+                : ("الفريق " + ("A".equals(winnerTeamId) ? "أ" : "ب"));
         final int opponentBestScore = "A".equals(myTeam) ? teamBScore : teamAScore;
         return new OnlineResultState(didWin, winnerName, opponentBestScore);
     }

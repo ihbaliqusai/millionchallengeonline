@@ -94,9 +94,16 @@ class MainActivity : FlutterActivity() {
                     "consumePendingRoomMatchResult" -> {
                         result.success(AppPrefs.consumePendingRoomMatchResult(this))
                     }
+                    "getPendingRoomMatchResult" -> {
+                        result.success(AppPrefs.getPendingRoomMatchResult(this))
+                    }
+                    "clearPendingRoomMatchResult" -> {
+                        AppPrefs.clearPendingRoomMatchResult(this)
+                        result.success(true)
+                    }
                     "syncLegacyUser" -> {
                         val uid = call.argument<String>("uid") ?: "guest_local"
-                        val username = call.argument<String>("username") ?: "Guest"
+                        val username = call.argument<String>("username") ?: "لاعب"
                         val photoUrl = call.argument<String>("photoUrl") ?: ""
                         val level = AppPrefs.getUserLevel(this)
                         val score = AppPrefs.getUserScore(this)
@@ -185,6 +192,11 @@ class MainActivity : FlutterActivity() {
                     }
                     "deliverPurchase" -> {
                         val productId = call.argument<String>("productId") ?: ""
+                        val deliveryKey = call.argument<String>("deliveryKey") ?: ""
+                        if (deliveryKey.isNotBlank() && AppPrefs.isPurchaseDelivered(this, deliveryKey)) {
+                            result.success(true)
+                            return@setMethodCallHandler
+                        }
                         when (productId) {
                             "gems_80"    -> PlayerProgress.addGems(this, 80)
                             "gems_500"   -> PlayerProgress.addGems(this, 500)
@@ -210,6 +222,9 @@ class MainActivity : FlutterActivity() {
                                 PlayerProgress.addInventory(this, "audience", 3)
                                 PlayerProgress.addInventory(this, "call", 2)
                             }
+                        }
+                        if (deliveryKey.isNotBlank()) {
+                            AppPrefs.markPurchaseDelivered(this, deliveryKey)
                         }
                         result.success(true)
                     }

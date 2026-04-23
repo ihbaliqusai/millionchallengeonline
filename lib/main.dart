@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'core/app_state.dart';
@@ -69,8 +70,15 @@ class MillionaireOnlineApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Million Challenge Online',
+        title: 'تحدي المليون',
         debugShowCheckedModeBanner: false,
+        locale: const Locale('ar'),
+        supportedLocales: const <Locale>[Locale('ar')],
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          GlobalMaterialLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+        ],
         theme: ThemeData(
           useMaterial3: true,
           brightness: Brightness.dark,

@@ -63,6 +63,29 @@ class NativeBridgeService {
     return null;
   }
 
+  Future<Map<String, dynamic>?> getPendingRoomMatchResult() async {
+    final payload =
+        await _channel.invokeMethod<String>('getPendingRoomMatchResult');
+    if (payload == null || payload.trim().isEmpty) {
+      return null;
+    }
+
+    final decoded = jsonDecode(payload);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    if (decoded is Map) {
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    }
+    return null;
+  }
+
+  Future<void> clearPendingRoomMatchResult() async {
+    await _channel.invokeMethod<void>('clearPendingRoomMatchResult');
+  }
+
   Future<void> syncLegacyUser({
     required String uid,
     required String username,
@@ -182,10 +205,16 @@ class NativeBridgeService {
   }
 
   /// يُسلّم منتج IAP للاعب (يُستدعى بعد نجاح عملية الدفع عبر Google Play).
-  Future<bool> deliverPurchase(String productId) async {
+  Future<bool> deliverPurchase(
+    String productId, {
+    String? deliveryKey,
+  }) async {
     final result = await _channel.invokeMethod<bool>(
       'deliverPurchase',
-      {'productId': productId},
+      {
+        'productId': productId,
+        'deliveryKey': deliveryKey ?? '',
+      },
     );
     return result ?? false;
   }
