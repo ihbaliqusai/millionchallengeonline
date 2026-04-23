@@ -125,13 +125,7 @@ public class LegacyMainActivity extends AppCompatActivity {
         findViewById(R.id.btnPolicy).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (Data.isNetworkAvailable(LegacyMainActivity.this)) {
-                    Uri uriPolicy = Uri.parse("https://sites.google.com/view/millionaire2021");
-                    Intent showPolicy = new Intent(Intent.ACTION_VIEW, uriPolicy);
-                    startActivity(showPolicy);
-                } else {
-                    Toast.makeText(LegacyMainActivity.this, getString(R.string.msg_no_internet), Toast.LENGTH_SHORT).show();
-                }
+                startActivity(new Intent(LegacyMainActivity.this, PrivacyPolicyActivity.class));
             }
         });
 

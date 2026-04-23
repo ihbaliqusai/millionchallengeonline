@@ -20,6 +20,7 @@
         <activity android:name=".StatsActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".StoreActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".SettingsActivity" android:screenOrientation="sensorLandscape" />
+        <activity android:name=".PrivacyPolicyActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".AchievementsActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".ResultActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".OpponentActivity" android:screenOrientation="sensorLandscape" />

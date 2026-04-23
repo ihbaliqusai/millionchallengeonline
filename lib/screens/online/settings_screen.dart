@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../legal/privacy_policy_screen.dart';
 import '../../services/native_bridge_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -31,8 +32,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final settings = await bridge.getSettings();
       if (!mounted) return;
       setState(() {
-        _sfx    = settings['sfx']    ?? true;
-        _music  = settings['music']  ?? true;
+        _sfx = settings['sfx'] ?? true;
+        _music = settings['music'] ?? true;
         _haptic = settings['haptic'] ?? true;
         _loading = false;
       });
@@ -86,7 +87,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text(
               'حسناً',
-              style: TextStyle(color: Color(0xFF7DD3FC), fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  color: Color(0xFF7DD3FC), fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -94,7 +96,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _openPrivacyPolicy() {
+  void openLegacyPrivacyPolicy() {
     if (_haptic) HapticFeedback.lightImpact();
     showDialog<void>(
       context: context,
@@ -122,7 +124,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text(
               'إغلاق',
-              style: TextStyle(color: Color(0xFF7DD3FC), fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  color: Color(0xFF7DD3FC), fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -130,14 +133,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _showProfessionalPrivacyPolicy() {
+    if (_haptic) HapticFeedback.lightImpact();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PrivacyPolicyScreen(),
+      ),
+    );
+  }
+
   Future<void> _restorePurchases() async {
     if (_haptic) HapticFeedback.lightImpact();
-    final restored = await context.read<NativeBridgeService>().restorePurchases();
+    final restored =
+        await context.read<NativeBridgeService>().restorePurchases();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          restored ? 'تمت استعادة المشتريات بنجاح.' : 'لم يتم العثور على مشتريات لاستعادتها.',
+          restored
+              ? 'تمت استعادة المشتريات بنجاح.'
+              : 'لم يتم العثور على مشتريات لاستعادتها.',
         ),
       ),
     );
@@ -157,7 +172,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
                       children: [
                         _TappableRow(
                           icon: Icons.language_rounded,
@@ -167,7 +183,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             height: 26,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.3)),
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(3),
@@ -196,7 +213,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     child: const Center(
                                       child: Text(
                                         '★',
-                                        style: TextStyle(color: Colors.white, fontSize: 6),
+                                        style: TextStyle(
+                                            color: Colors.white, fontSize: 6),
                                       ),
                                     ),
                                   ),
@@ -244,7 +262,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
             ),
             _BottomButtons(
-              onPrivacyPolicy: _openPrivacyPolicy,
+              onPrivacyPolicy: _showProfessionalPrivacyPolicy,
               onRestorePurchases: _restorePurchases,
             ),
           ],
@@ -285,7 +303,8 @@ class _Header extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
-              child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.arrow_back_rounded,
+                  color: Colors.white, size: 20),
             ),
           ),
         ],
@@ -357,7 +376,10 @@ class _ToggleRow extends StatelessWidget {
                 color: Colors.white,
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 1)),
+                  BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 1)),
                 ],
               ),
             ),
