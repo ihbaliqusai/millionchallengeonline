@@ -15,6 +15,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "969520184942-4rhrp8a3154as2brt5oe2a3gen88i867.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "net.androidgaming.millionaire2024",
+            "certificate_hash": "7ef0fca241686c43b5ab606410bfa548f81d5807"
+          }
+        },
+        {
           "client_id": "969520184942-dl913kl5ndafcln4o6n5eu3v1v4r60sq.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
