@@ -42,11 +42,11 @@ class _PowerupDef {
 }
 
 const List<_CoinItem> _kCoinItems = <_CoinItem>[
-  _CoinItem('500', '50', 500, 50),
-  _CoinItem('2,200', '200', 2200, 200),
-  _CoinItem('9,600', '800', 9600, 800),
-  _CoinItem('34,500', '3,000', 34500, 3000),
-  _CoinItem('120,000', '10,000', 120000, 10000),
+  _CoinItem('5,000', '50', 5000, 50),
+  _CoinItem('22,000', '200', 22000, 200),
+  _CoinItem('96,000', '800', 96000, 800),
+  _CoinItem('345,000', '3,000', 345000, 3000),
+  _CoinItem('1,200,000', '10,000', 1200000, 10000),
 ];
 
 const List<_PowerupDef> _kPowerups = <_PowerupDef>[
