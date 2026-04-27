@@ -25,6 +25,7 @@ class RoomPlayer {
     this.lives = 0,
     this.roundWins = 0,
     this.teamId,
+    this.disconnected = false,
   });
 
   final int score;
@@ -43,6 +44,9 @@ class RoomPlayer {
   /// team_battle: 'A' or 'B'.
   final String? teamId;
 
+  /// true when the player left an active game — they keep their slot and can rejoin.
+  final bool disconnected;
+
   factory RoomPlayer.fromMap(
     Map<String, dynamic> map, {
     int defaultLives = 0,
@@ -57,6 +61,7 @@ class RoomPlayer {
         lives: _readLives(map, defaultLives: defaultLives),
         roundWins: (map['roundWins'] as num?)?.toInt() ?? 0,
         teamId: Room.normalizeTeamId(map['teamId'] as String?),
+        disconnected: map['disconnected'] == true,
       );
 
   Map<String, dynamic> toMap() => <String, dynamic>{
@@ -70,6 +75,7 @@ class RoomPlayer {
         if (lives > 0 || eliminated) 'lives': lives,
         if (roundWins > 0) 'roundWins': roundWins,
         if (teamId != null) 'teamId': Room.normalizeTeamId(teamId),
+        if (disconnected) 'disconnected': disconnected,
       };
 
   RoomPlayer copyWith({
@@ -82,6 +88,7 @@ class RoomPlayer {
     int? lives,
     int? roundWins,
     String? teamId,
+    bool? disconnected,
   }) {
     return RoomPlayer(
       score: score ?? this.score,
@@ -93,6 +100,7 @@ class RoomPlayer {
       lives: lives ?? this.lives,
       roundWins: roundWins ?? this.roundWins,
       teamId: Room.normalizeTeamId(teamId ?? this.teamId),
+      disconnected: disconnected ?? this.disconnected,
     );
   }
 

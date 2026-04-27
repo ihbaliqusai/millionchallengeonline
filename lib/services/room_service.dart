@@ -18,7 +18,7 @@ class RoomService {
   CollectionReference<Map<String, dynamic>> get _rooms =>
       _firestore.collection('rooms');
 
-  Stream<List<Room>> watchOpenRooms() {
+  Stream<List<Room>> watchOpenRooms({String? userId}) {
     _scheduleStaleRoomCleanup();
     return _rooms.snapshots().map((snapshot) {
       final cutoff = DateTime.now().subtract(roomExpiry);
@@ -26,9 +26,17 @@ class RoomService {
           .map(Room.fromSnapshot)
           .where(
             (room) =>
-                !room.started &&
-                room.playerCount > 0 &&
-                !_isExpiredOpenRoom(room, cutoff: cutoff),
+                // Open lobby rooms (not yet started).
+                (!room.started &&
+                    room.playerCount > 0 &&
+                    !_isExpiredOpenRoom(room, cutoff: cutoff)) ||
+                // In-progress rooms where the current user was disconnected —
+                // kept visible so the player can find and rejoin the game.
+                (userId != null &&
+                    userId.isNotEmpty &&
+                    room.started &&
+                    room.phase != Room.phaseFinished &&
+                    room.players[userId]?.disconnected == true),
           )
           .toList(growable: false)
         ..sort((a, b) {
@@ -129,6 +137,16 @@ class RoomService {
             );
           }
           if (room.started) {
+            // Allow a previously disconnected player to reconnect.
+            final existingPlayer = room.players[userId];
+            if (existingPlayer != null) {
+              if (existingPlayer.disconnected) {
+                transaction.update(ref, <String, dynamic>{
+                  'players.$userId.disconnected': false,
+                });
+              }
+              return; // Already in room (connected or just reconnected).
+            }
             throw StateError('هذه الغرفة بدأت بالفعل.');
           }
           if (room.containsPlayer(userId)) {
@@ -1290,6 +1308,49 @@ class RoomService {
           final room = Room.fromSnapshot(snapshot);
           if (!room.containsPlayer(userId)) return;
 
+          // If the game is active, mark the player as disconnected instead of
+          // removing them — they keep their slot and can rejoin while the game runs.
+          if (room.started && room.phase != Room.phaseFinished) {
+            final player = room.players[userId]!;
+            final updates = <String, dynamic>{
+              'players.$userId.disconnected': true,
+            };
+
+            // Reassign host deterministically even on disconnect.
+            if (room.hostId == userId) {
+              final candidates = room.players.keys
+                  .where((id) => !Room.isBotUserId(id) && id != userId)
+                  .toList()
+                ..sort();
+              final otherIds =
+                  room.players.keys.where((id) => id != userId).toList()
+                    ..sort();
+              final nextHostId = candidates.isNotEmpty
+                  ? candidates.first
+                  : otherIds.isNotEmpty
+                      ? otherIds.first
+                      : userId;
+              if (nextHostId != userId) {
+                updates['hostId'] = nextHostId;
+              }
+            }
+
+            // If the player hasn't submitted yet, forfeit their turn so the
+            // room can finalize without waiting for a disconnected client.
+            if (player.completedAt == null) {
+              updates['players.$userId.completedAt'] =
+                  FieldValue.serverTimestamp();
+              if (room.mode == Room.modeElimination ||
+                  room.mode == Room.modeSurvival) {
+                updates['players.$userId.eliminated'] = true;
+              }
+            }
+
+            transaction.update(ref, updates);
+            return;
+          }
+
+          // Lobby / finished: remove the player entirely.
           final remainingPlayers = Map<String, RoomPlayer>.from(room.players)
             ..remove(userId);
 

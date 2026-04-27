@@ -110,6 +110,7 @@ class _RoomsScreenState extends State<RoomsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final userId = context.watch<AppState>().user?.uid ?? '';
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -162,6 +163,7 @@ class _RoomsScreenState extends State<RoomsScreen>
                       );
                       final rightPanel = _LiveRoomsPanel(
                         pulseCtrl: _pulseCtrl,
+                        userId: userId,
                         onJoinRoom: (id) {
                           _roomCodeController.text = id;
                           _joinRoom(id);
@@ -687,11 +689,13 @@ class _CreateJoinPanel extends StatelessWidget {
 class _LiveRoomsPanel extends StatelessWidget {
   const _LiveRoomsPanel({
     required this.pulseCtrl,
+    required this.userId,
     required this.onJoinRoom,
     required this.joiningRoomId,
   });
 
   final AnimationController pulseCtrl;
+  final String userId;
   final ValueChanged<String> onJoinRoom;
   final String joiningRoomId;
 
@@ -775,7 +779,8 @@ class _LiveRoomsPanel extends StatelessWidget {
           // Rooms list
           Expanded(
             child: StreamBuilder<List<Room>>(
-              stream: context.read<RoomService>().watchOpenRooms(),
+              stream:
+                  context.read<RoomService>().watchOpenRooms(userId: userId),
               builder: (context, roomSnap) {
                 if (roomSnap.hasError) {
                   return _ErrorState(message: roomSnap.error.toString());
@@ -804,12 +809,17 @@ class _LiveRoomsPanel extends StatelessWidget {
                       itemBuilder: (_, i) {
                         final room = rooms[i];
                         final host = profiles[room.hostId];
+                        final canRejoin = room.started &&
+                            userId.isNotEmpty &&
+                            room.players[userId]?.disconnected == true;
                         return _RoomCard(
                           room: room,
                           hostName: host?.username ?? _short(room.hostId),
                           isJoining: joiningRoomId == room.id,
-                          onJoin:
-                              room.isFull ? null : () => onJoinRoom(room.id),
+                          canRejoin: canRejoin,
+                          onJoin: (canRejoin || !room.isFull)
+                              ? () => onJoinRoom(room.id)
+                              : null,
                         );
                       },
                     );
@@ -834,12 +844,14 @@ class _RoomCard extends StatelessWidget {
     required this.room,
     required this.hostName,
     required this.isJoining,
+    required this.canRejoin,
     required this.onJoin,
   });
 
   final Room room;
   final String hostName;
   final bool isJoining;
+  final bool canRejoin;
   final VoidCallback? onJoin;
 
   @override
@@ -998,37 +1010,46 @@ class _RoomCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          // Join button
+          // Join / Rejoin button
           GestureDetector(
             onTap: onJoin,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
-                gradient: isFull
+                gradient: (canRejoin || !isFull)
+                    ? LinearGradient(
+                        colors: canRejoin
+                            ? const [Color(0xFF10B981), Color(0xFF059669)]
+                            : const [Color(0xFFF8D34C), Color(0xFFF59E0B)],
+                      )
+                    : null,
+                color: (canRejoin || !isFull)
                     ? null
-                    : const LinearGradient(
-                        colors: [Color(0xFFF8D34C), Color(0xFFF59E0B)]),
-                color: isFull ? Colors.white.withValues(alpha: 0.06) : null,
+                    : Colors.white.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isFull
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : const Color(0xFFFFF3A3),
+                  color: canRejoin
+                      ? const Color(0xFF6EE7B7)
+                      : isFull
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : const Color(0xFFFFF3A3),
                 ),
               ),
               child: Text(
-                isFull
-                    ? 'ممتلئة'
-                    : isJoining
-                        ? 'جارٍ...'
-                        : 'انضمام',
+                isJoining
+                    ? 'جارٍ...'
+                    : canRejoin
+                        ? 'العودة'
+                        : isFull
+                            ? 'ممتلئة'
+                            : 'انضمام',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w900,
-                  color: isFull
-                      ? Colors.white.withValues(alpha: 0.4)
-                      : const Color(0xFF1F2937),
+                  color: (canRejoin || !isFull)
+                      ? const Color(0xFF1F2937)
+                      : Colors.white.withValues(alpha: 0.4),
                 ),
               ),
             ),

@@ -34,6 +34,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   bool _leaving = false;
   bool _navigatedToGame = false;
   DateTime? _lastLaunchedRoundAt;
+  Room? _latestRoom; // tracked for the leave-confirmation dialog
   late final AnimationController _pulseCtrl;
 
   Timer? _blitzTimer;
@@ -313,6 +314,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
 
   Future<bool> _confirmLeave() async {
     if (_leaving) return false;
+    final gameInProgress = _latestRoom != null &&
+        _latestRoom!.started &&
+        _latestRoom!.phase != Room.phaseFinished;
     final shouldLeave = await showDialog<bool>(
           context: context,
           builder: (context) => Dialog(
@@ -344,7 +348,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'سيتم إخراجك من غرفة الانتظار.',
+                    gameInProgress
+                        ? 'ستفقد مقعدك مؤقتاً لكن يمكنك العودة والانضمام من قائمة الغرف طالما اللعبة مستمرة.'
+                        : 'سيتم إخراجك من غرفة الانتظار.',
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 14),
@@ -454,6 +460,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                         onBack: () => Navigator.of(context).pop());
                   }
 
+                  // Keep _latestRoom in sync for the leave-confirmation dialog.
+                  _latestRoom = room;
+
                   if (!room.containsPlayer(currentUserId)) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!mounted) return;
@@ -488,7 +497,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                         'series'
                       };
                       final isRoundBased = roundBasedModes.contains(room.mode);
+                      // Don't re-launch if the game is already finished.
                       final shouldLaunch = room.started &&
+                          room.phase != Room.phaseFinished &&
                           ((!isRoundBased && !_navigatedToGame) ||
                               (isRoundBased &&
                                   room.phase == 'playing_round' &&
