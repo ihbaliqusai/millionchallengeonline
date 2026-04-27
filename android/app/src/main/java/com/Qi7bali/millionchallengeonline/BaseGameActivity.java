@@ -135,7 +135,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     private static final String HEART_EMPTY = "\u2661";
     private static final int SURVIVAL_HEART_FULL_COLOR = 0xFFE53935;
     private static final int SURVIVAL_HEART_EMPTY_COLOR = 0xFF6B7280;
-    private static final int[] ONLINE_SPEED_POINTS = new int[]{10, 7, 5, 3};
+    private static final int[] ONLINE_SPEED_POINTS = new int[]{10, 8, 6, 4};
     private static final long QUESTION_TIMEOUT_MS = 30_000L;
     private static final long FIRST_QUESTION_SYNC_BUFFER_MS = 4_500L;
     private static final long NEXT_QUESTION_SYNC_BUFFER_MS = 2_500L;
@@ -538,7 +538,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         if (modeOnline) {
                             rlyScore.setVisibility(View.VISIBLE);
                             Animations.move(rlyScore, 500, -300, 0, 0, 0);
-                            showDialog("مرحبا بكما في مباراة جديدة", "", 800, 2000, R.drawable.mouth_01, false);
+                            showDialog("مرحبا بكم في مباراة جديدة", "", 800, 2000, R.drawable.mouth_01, false);
                         } else {
                             llySolde.setVisibility(View.VISIBLE);
                             showDialog("مرحبا بك في مباراة جديدة", "", 800, 2000, R.drawable.mouth_01, false);
@@ -674,20 +674,30 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                                 showDialog("أمامك 15 سؤال نحو المليون", "Rules1", 1000, -1, R.drawable.mouth_05, false);
                             break;
                         case "Rules-1":
-                            showDialog("كل إجابة صحيحة تربح قيمتها من النقاط\nوكل إجابة خاطئة تساوي صفر", "Rules0", 1000, -1, R.drawable.mouth_05, false);
+                            if (isBlitzMode()) {
+                                showDialog("الإجابات الصحيحة تحسب لك\nالخاطئة لا تُنقص نقاطك لكنها تستهلك وقتك", "Rules0", 1000, -1, R.drawable.mouth_05, false);
+                            } else {
+                                showDialog("الأسرع في الإجابة الصحيحة ينال أكثر النقاط\nالأول 10 • الثاني 8 • الثالث 6 • الرابع 4\nالخطأ أو الصمت يساوي صفر", "Rules0", 1000, -1, R.drawable.mouth_05, false);
+                            }
                             break;
                         case "Rules0":
                             showDialog(buildOnlineVictoryConditionMessage(), "Rules1", 1000, -1, R.drawable.mouth_05, false);
                             break;
                         case "Rules1":
                             person.moveHead(600);
-                            showDialog("لديك 30 ثانية لللإجابة عن كل سؤال", "Rules2", 1000, -1, R.drawable.mouth_05, false);
+                            if (isBlitzMode()) {
+                                showDialog("لديك " + getBlitzRoundDurationSeconds() + " ثانية إجمالية لجميع الأسئلة\nأجب بسرعة دون انتظار الآخرين", "Rules2", 1000, -1, R.drawable.mouth_05, false);
+                            } else {
+                                showDialog("لديك 30 ثانية للإجابة عن كل سؤال", "Rules2", 1000, -1, R.drawable.mouth_05, false);
+                            }
                             break;
                         case "Rules2":
                             person.like(600);
                             person.raiseEyeBrowsUp(600, false, true);
                             if (isSurvivalMode()) {
                                 showDialog("في طور النجاة لا توجد وسائل مساعدة، وتظهر أرواحك أعلى الشاشة بدلًا منها.", "RulesSurvival", 2000, -1, R.drawable.mouth_05, false);
+                            } else if (isBlitzMode()) {
+                                showDialog("في طور سرعة البرق لا توجد وسائل مساعدة\nركز على الإجابة الصحيحة والسريعة", "Rules7", 2000, -1, R.drawable.mouth_05, false);
                             } else {
                                 showDialog("إذا لم تعرف الإجابة يمكنك استخدام إحدى وسائل المساعدة", "Rules3", 2000, -1, R.drawable.mouth_05, false);
                             }
@@ -706,7 +716,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                             break;
                         case "Rules6":
                             person.moveShowHand(1000);
-                            showDialog("يمكنك في أي وقت الانسحاب والاكتفاء بالمبلغ الذي وصلت إليه", "Rules7", 2000, -1, R.drawable.mouth_05, false);
+                            if (modeOnline) {
+                                showDialog("يمكنك الانسحاب من المباراة في أي وقت\nلكن سيُحتسب ذلك خسارة", "Rules7", 2000, -1, R.drawable.mouth_05, false);
+                            } else {
+                                showDialog("يمكنك في أي وقت الانسحاب والاكتفاء بالمبلغ الذي وصلت إليه", "Rules7", 2000, -1, R.drawable.mouth_05, false);
+                            }
                             break;
                         case "Rules7":
                             playSound(R.raw.commerical_break, true, false);
@@ -757,6 +771,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                             exitEliminationMatchAfterDecliningSpectator();
                             break;
                         case "ConfirmRules":
+                        case "Rules-1":
+                        case "Rules0":
                         case "Rules1":
                         case "Rules2":
                         case "RulesSurvival":
@@ -1904,7 +1920,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         } else if (currentQuestion == 14) {
                             person.moveShow2Hands(2000);
                             person.raiseEyeBrowsUp(2000, true, true);
-                            showDialog("ألف مبروك\n لقد فزت بالمليون", "", 2000, 2000, R.drawable.mouth_01, false);
+                            showDialog("ألف مبروك\nلقد فزت بالمليون", "", 2000, 2000, R.drawable.mouth_01, false);
                             CAN_HOME = false;
                         } else {
                             person.moveShowScreen(2000);
@@ -2119,6 +2135,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private String buildOnlineRulesIntroMessage() {
+        if (isBlitzMode()) {
+            return "طور سرعة البرق\nأجب على أكبر عدد من الأسئلة في " + getBlitzRoundDurationSeconds() + " ثانية";
+        }
         int totalRounds = getConfiguredRoundCount();
         return "تتكون المباراة من " + totalRounds + " جولات\nكل جولة من " + getQuestionsPerRound() + " أسئلة";
     }
@@ -2129,6 +2148,15 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
         if (isTeamBattleMode()) {
             return "الفريق الأكثر حسمًا للجولات يفوز بالمباراة";
+        }
+        if (isBlitzMode()) {
+            return "الفائز من يجيب على أكثر الأسئلة صحيحاً في الوقت المحدد";
+        }
+        if (isSurvivalMode()) {
+            return "آخر لاعب يصمد بأرواحه يفوز بالمباراة";
+        }
+        if (usesEliminationRoundFlow()) {
+            return "كل من يخطئ يُقصى، وآخر لاعب يبقى يفوز";
         }
         return "من يفوز بجولتين يربح المباراة";
     }

@@ -94,10 +94,15 @@ public class LegacyMainActivity extends AppCompatActivity {
             }
         });
 
-        findViewById(R.id.btnStats).setOnClickListener(new View.OnClickListener() {
+        findViewById(R.id.btnShareGame).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                startActivity(new Intent(LegacyMainActivity.this, StatsActivity.class));
+                final String appPackageName = getPackageName();
+                Intent intent = new Intent(Intent.ACTION_SEND);
+                intent.setType("text/plain");
+                intent.putExtra(Intent.EXTRA_TEXT, "https://play.google.com/store/apps/details?id=" + appPackageName);
+                intent.putExtra(Intent.EXTRA_SUBJECT, getString(R.string.share_subject));
+                startActivity(Intent.createChooser(intent, getString(R.string.share_chooser)));
             }
         });
 

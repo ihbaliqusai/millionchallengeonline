@@ -118,11 +118,11 @@
             android:text="@string/btnPlayOnline" />
 
         <Button
-            android:id="@+id/btnStats"
+            android:id="@+id/btnShareGame"
             style="@style/button_main_menu"
-            android:drawableStart="@android:drawable/ic_menu_sort_by_size"
+            android:drawableStart="@android:drawable/ic_menu_send"
             android:drawablePadding="10dp"
-            android:text="@string/menu_stats" />
+            android:text="@string/menu_share" />
 
         <Button
             android:id="@+id/btnAchievements"

@@ -110,7 +110,7 @@
     <string name="login">تسجيل الدخول بحساب Google</string>
     <string name="todo66">TODO</string>
     <string name="default_web_client_id" translatable="false">969520184942-gs0rd8vm4pi6h7eak86rho3oiik6j3q8.apps.googleusercontent.com</string>
-    <string name="menu_stats">إحصائياتي</string>
+    <string name="menu_share">دعوة الأصدقاء</string>
     <string name="menu_achievements">الإنجازات</string>
     <string name="menu_store">المتجر</string>
     <string name="menu_settings">الإعدادات</string>
