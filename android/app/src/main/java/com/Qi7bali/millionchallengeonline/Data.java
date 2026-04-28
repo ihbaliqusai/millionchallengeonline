@@ -5,6 +5,7 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.widget.ImageView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.google.firebase.FirebaseApp;
@@ -420,6 +421,134 @@ public class Data {
         });
     }
 
+    public void createRoomGameSession(final String gameID,
+                                      final String myID,
+                                      final ArrayList<String> opponentIds,
+                                      final OnCreateGameIdListener listener) {
+        if (gameID == null || gameID.trim().isEmpty()) {
+            if (listener != null) {
+                listener.onSuccess("");
+            }
+            return;
+        }
+
+        final DatabaseReference gameRef = gamesRef().child(gameID.trim());
+        gameRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                if (snapshot.child("questions").exists()) {
+                    HashMap<String, Object> updates = buildRoomGamePlayerPayload(
+                            myID,
+                            opponentIds,
+                            false
+                    );
+                    gameRef.updateChildren(updates, new DatabaseReference.CompletionListener() {
+                        @Override
+                        public void onComplete(@Nullable DatabaseError error,
+                                               @NonNull DatabaseReference ref) {
+                            if (error != null) {
+                                if (listener != null) {
+                                    listener.onFailed(error);
+                                }
+                                return;
+                            }
+                            if (listener != null) {
+                                listener.onSuccess(gameID);
+                            }
+                        }
+                    });
+                    return;
+                }
+
+                HashMap<String, Object> payload = buildRoomGamePlayerPayload(
+                        myID,
+                        opponentIds,
+                        true
+                );
+                ArrayList<Question> questions = loadSharedQuestions();
+                int index = 0;
+                for (Question question : questions) {
+                    String key = String.format(Locale.US, "questions/q%02d", index++);
+                    payload.put(key + "/Level", question.getLevel());
+                    payload.put(key + "/Q", question.getQ());
+                    payload.put(key + "/R", question.getR());
+                    payload.put(key + "/W1", question.getW1());
+                    payload.put(key + "/W2", question.getW2());
+                    payload.put(key + "/W3", question.getW3());
+                }
+
+                gameRef.updateChildren(payload, new DatabaseReference.CompletionListener() {
+                    @Override
+                    public void onComplete(@Nullable DatabaseError error,
+                                           @NonNull DatabaseReference ref) {
+                        if (error != null) {
+                            if (listener != null) {
+                                listener.onFailed(error);
+                            }
+                            return;
+                        }
+                        if (listener != null) {
+                            listener.onSuccess(gameID);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onCancelled(DatabaseError error) {
+                if (listener != null) {
+                    listener.onFailed(error);
+                }
+            }
+        });
+    }
+
+    public static void announceRoomSeatClaim(String roomId,
+                                             String matchMode,
+                                             int roomRoundNumber,
+                                             String seatId,
+                                             String userId,
+                                             String username,
+                                             String photoUrl,
+                                             String teamId,
+                                             int initialScore,
+                                             int initialRoundWins,
+                                             int initialLivesRemaining,
+                                             boolean initiallyEliminated) {
+        String safeRoomId = valueAsString(roomId);
+        String safeSeatId = valueAsString(seatId);
+        if (safeRoomId.isEmpty() || safeSeatId.isEmpty()) {
+            return;
+        }
+
+        String safeMode = valueAsString(matchMode);
+        if (safeMode.isEmpty()) {
+            safeMode = "battle";
+        }
+        int safeRoundNumber = Math.max(1, roomRoundNumber);
+        String gameID = safeRoomId + "|" + safeMode + "|r" + safeRoundNumber;
+
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("userId", valueAsString(userId));
+        payload.put("name", safeName(username));
+        payload.put("photo", photoUrl == null ? "" : photoUrl.trim());
+        payload.put("level", 1);
+        payload.put("score", Math.max(0, initialScore));
+        payload.put("sets", Math.max(0, initialRoundWins));
+        payload.put("bot", false);
+        payload.put("intelligence", 0);
+        payload.put("teamId", teamId == null ? "" : teamId.trim());
+        payload.put("livesRemaining", Math.max(0, initialLivesRemaining));
+        payload.put("eliminated", initiallyEliminated);
+        payload.put("status", "active");
+        payload.put("resetSubmissionPending", true);
+        payload.put("updatedAt", ServerValue.TIMESTAMP);
+        payload.put("lastEventType", "player_replaced_bot");
+        payload.put("lastEventAt", ServerValue.TIMESTAMP);
+
+        gamesRef().child(gameID).child(safeSeatId).updateChildren(payload);
+    }
+
     public void getGameID(String myID, final OnGetGameIdListener listener) {
         tempRef().child(myID).child("gameID").addValueEventListener(new ValueEventListener() {
             @Override
@@ -557,6 +686,33 @@ public class Data {
 
     private static DatabaseReference rootRef() {
         return FirebaseDatabase.getInstance().getReference();
+    }
+
+    private static HashMap<String, Object> buildRoomGamePlayerPayload(
+            String myID,
+            ArrayList<String> opponentIds,
+            boolean includeMeta
+    ) {
+        HashMap<String, Object> payload = new HashMap<>();
+        if (includeMeta) {
+            payload.put("meta/createdAt", ServerValue.TIMESTAMP);
+            payload.put("meta/ownerId", myID);
+            payload.put("meta/playerCount", 1 + (opponentIds == null ? 0 : opponentIds.size()));
+        }
+        payload.put(myID + "/answer", 0);
+        payload.put(myID + "/current", 0);
+        payload.put(myID + "/status", "active");
+        if (opponentIds != null) {
+            for (String opponentId : opponentIds) {
+                if (opponentId == null || opponentId.trim().isEmpty()) {
+                    continue;
+                }
+                payload.put(opponentId + "/answer", 0);
+                payload.put(opponentId + "/current", 0);
+                payload.put(opponentId + "/status", "active");
+            }
+        }
+        return payload;
     }
 
     private static DatabaseReference usersRegisteredRef() {

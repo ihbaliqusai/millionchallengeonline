@@ -56,6 +56,7 @@ import com.google.android.gms.ads.initialization.OnInitializationCompleteListene
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
 import com.google.firebase.database.Query;
+import com.google.firebase.database.ServerValue;
 import com.google.firebase.database.Transaction;
 
 import org.json.JSONArray;
@@ -118,7 +119,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     protected OnlineResultState buildOnlineResultState() {
         String leaderId = getMatchLeaderId();
         return new OnlineResultState(
-                myID.equals(leaderId),
+                isLocalMatchPlayer(leaderId),
                 getPlayerDisplayName(leaderId),
                 getHighestOpponentScore()
         );
@@ -184,6 +185,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     static class MatchOpponent {
         String id = "";
+        String userId = "";
         String name = "خصم آلي";
         String photo = "";
         int level = 1;
@@ -207,6 +209,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         long answerElapsedMs = QUESTION_TIMEOUT_MS;
         long totalAnswerTimeMs = 0L;
         long setAnswerTimeMs = 0L;
+        long lastSeatEventAt = 0L;
+        String lastSeatEventType = "";
         CircleImageView topImageView;
         TextView topNameView;
         TextView topStateView;
@@ -303,6 +307,15 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     private long questionStartTimeMs = 0L;
     private boolean localPlayerRemoved = false;
     private boolean localPlayerEliminated = false;
+    private boolean resumeExistingRoomGame = false;
+    private boolean resumeRoomStateRequested = false;
+    private String matchPlayerId = "";
+    private String seatSourceId = "";
+    private int roomRoundNumber = 1;
+    private int initialRoomScore = 0;
+    private int initialRoomAnsweredCount = 0;
+    private int initialRoomRoundWins = 0;
+    private int initialRoomLivesRemaining = 0;
     protected int myLivesRemaining = 3;
     private boolean spectatorEliminationRound = false;
     private int pendingQuestionIndex = -1;
@@ -359,6 +372,22 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         myTeam = safeString(getIntent().getStringExtra("myTeam"));
         roomId = safeString(getIntent().getStringExtra("roomId"));
         roomMatchMode = matchModeExtra.isEmpty() ? getMatchModeId() : matchModeExtra;
+        roomRoundNumber = Math.max(1, getIntent().getIntExtra("roomRoundNumber", 1));
+        resumeExistingRoomGame = getIntent().getBooleanExtra("resumeExistingGame", false);
+        seatSourceId = safeString(getIntent().getStringExtra("seatSourceId"));
+        matchPlayerId = getResolvedMatchPlayerId();
+        initialRoomScore = Math.max(0, getIntent().getIntExtra("initialScore", 0));
+        initialRoomAnsweredCount =
+                Math.max(0, getIntent().getIntExtra("initialAnsweredCount", 0));
+        initialRoomRoundWins =
+                Math.max(0, getIntent().getIntExtra("initialRoundWins", 0));
+        initialRoomLivesRemaining =
+                Math.max(0, getIntent().getIntExtra("initialLivesRemaining", 0));
+        localPlayerEliminated =
+                getIntent().getBooleanExtra("initiallyEliminated", false);
+        if (initialRoomLivesRemaining > 0) {
+            myLivesRemaining = initialRoomLivesRemaining;
+        }
 
 
         findViewById(android.R.id.content).post(new Runnable() {
@@ -419,7 +448,27 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 buildOpponentPanels();
                 syncPrimaryOpponentFields();
 
-                if (meOwner) {
+                if (isRoomMatchSession()) {
+                    gameID = buildRoomGameId();
+                    if (meOwner && !resumeExistingRoomGame) {
+                        new Data().createRoomGameSession(gameID, getLocalMatchPlayerId(), getOpponentIds(), new OnCreateGameIdListener() {
+                            @Override
+                            public void onSuccess(String gameID) {
+                                BaseGameActivity.this.gameID = gameID;
+                                beginOnlineGameSession();
+                                getQuestions(gameID);
+                            }
+
+                            @Override
+                            public void onFailed(DatabaseError error) {
+
+                            }
+                        });
+                    } else {
+                        beginOnlineGameSession();
+                        getQuestions(gameID);
+                    }
+                } else if (meOwner) {
                     new Data().createGameID(myID, getOpponentIds(), new OnCreateGameIdListener() {
                         @Override
                         public void onSuccess(String gameID) {
@@ -910,7 +959,13 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                     continue;
                 }
                 MatchOpponent opponent = new MatchOpponent();
-                opponent.id = safeString(item.optString("id"));
+                String occupantId = safeString(item.optString("id")).trim();
+                String seatId = safeString(item.optString("seatId")).trim();
+                opponent.id = seatId.isEmpty() ? occupantId : seatId;
+                opponent.userId = safeString(item.optString("userId")).trim();
+                if (opponent.userId.isEmpty()) {
+                    opponent.userId = occupantId.isEmpty() ? opponent.id : occupantId;
+                }
                 opponent.name = safeDisplayName(item.optString("name"), opponents.size() + 1);
                 opponent.photo = safeString(item.optString("photo"));
                 opponent.level = Math.max(1, item.optInt("level", 1));
@@ -918,6 +973,12 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 opponent.score = Math.max(0, item.optInt("score", 0));
                 opponent.bot = item.optBoolean("bot", false) || "fictitious".equals(opponent.id);
                 opponent.teamId = safeString(item.optString("teamId"));
+                opponent.sets = Math.max(0, item.optInt("sets", 0));
+                opponent.livesRemaining = Math.max(0, item.optInt("livesRemaining", 3));
+                opponent.eliminated = item.optBoolean("eliminated", false);
+                if (opponent.bot && opponent.userId.isEmpty()) {
+                    opponent.userId = opponent.id;
+                }
                 if (opponent.bot) {
                     applyBotIdentity(opponent, false);
                 }
@@ -931,6 +992,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (opponents.isEmpty()) {
             MatchOpponent fallback = new MatchOpponent();
             fallback.id = "fictitious";
+            fallback.userId = "fictitious";
             fallback.bot = true;
             applyBotIdentity(fallback, false);
             opponents.add(fallback);
@@ -971,6 +1033,41 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             }
         }
         return ids;
+    }
+
+    private String getResolvedMatchPlayerId() {
+        if (seatSourceId != null && !seatSourceId.trim().isEmpty()) {
+            return seatSourceId.trim();
+        }
+        return myID == null ? "" : myID.trim();
+    }
+
+    private String getLocalMatchPlayerId() {
+        if (matchPlayerId == null || matchPlayerId.trim().isEmpty()) {
+            matchPlayerId = getResolvedMatchPlayerId();
+        }
+        return matchPlayerId.trim();
+    }
+
+    private boolean isLocalMatchPlayer(String playerId) {
+        if (playerId == null) {
+            return false;
+        }
+        return playerId.trim().equals(getLocalMatchPlayerId());
+    }
+
+    private String resolveActualUserIdForSeat(String seatId) {
+        if (isLocalMatchPlayer(seatId)) {
+            return myID == null ? "" : myID.trim();
+        }
+        MatchOpponent opponent = findOpponentById(seatId);
+        if (opponent == null) {
+            return safeString(seatId).trim();
+        }
+        if (opponent.userId != null && !opponent.userId.trim().isEmpty()) {
+            return opponent.userId.trim();
+        }
+        return safeString(opponent.id).trim();
     }
 
     private void buildOpponentPanels() {
@@ -1520,6 +1617,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private void refreshOpponentPanels() {
+        syncPrimaryOpponentFields();
         for (MatchOpponent opponent : opponents) {
             if (opponent.topNameView != null) {
                 opponent.topNameView.setText(opponent.name);
@@ -1695,6 +1793,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
         BotProfile profile = resolveBotProfile(opponent.id);
         opponent.bot = true;
+        opponent.userId = opponent.id;
         opponent.name = profile.name;
         opponent.photo = profile.photo;
         opponent.intelligence = profile.intelligence;
@@ -2037,6 +2136,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             txtScoreMe.setText(setScoreMe + "");
             txtScoreGameMe.setText(gameScoreMe + "");
             refreshOpponentPanels();
+            syncLocalSeatState("game_state_updated");
             return;
         }
 
@@ -2072,6 +2172,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         txtScoreMe.setText(setScoreMe + "");
         txtScoreGameMe.setText(gameScoreMe + "");
         refreshOpponentPanels();
+        syncLocalSeatState("game_state_updated");
         onRoundMetricsApplied();
     }
 
@@ -2244,10 +2345,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
 
         refreshOpponentPanels();
+        syncLocalSeatState("game_state_updated");
 
         if (currentQuestion >= questions.size() - 1) {
             String leaderId = getMatchLeaderId();
-            if (myID.equals(leaderId)) {
+            if (isLocalMatchPlayer(leaderId)) {
                 person.moveShow2Hands(2000);
                 person.raiseEyeBrowsUp(1000, false, true);
                 showDialog("مبروك، فزت في مباراة الإقصاء بأعلى نقاط", "", 2000, 3000, R.drawable.mouth_01, false);
@@ -2364,7 +2466,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private String getAliveLeaderId() {
-        String leaderId = localPlayerEliminated ? "" : myID;
+        String leaderId = localPlayerEliminated ? "" : getLocalMatchPlayerId();
         for (MatchOpponent opponent : opponents) {
             if (opponent.eliminated) {
                 continue;
@@ -2511,6 +2613,10 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             questionsReady = !BaseGameActivity.this.questions.isEmpty();
             return;
         }
+        if (isRoomMatchSession()) {
+            fetchRoomQuestionsWithRetry(gameID, 25);
+            return;
+        }
         new Data().getQuestions(gameID, new OnGetQuestionsListener() {
             @Override
             public void onSuccess(ArrayList<Question> questions) {
@@ -2525,6 +2631,39 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 questionsLoadFailed = true;
                 startPending = false;
                 Toast.makeText(BaseGameActivity.this, "تعذر تحميل أسئلة المواجهة", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void fetchRoomQuestionsWithRetry(final String gameID, final int attemptsLeft) {
+        new Data().getQuestions(gameID, new OnGetQuestionsListener() {
+            @Override
+            public void onSuccess(ArrayList<Question> questions) {
+                BaseGameActivity.this.questions = trimQuestionsForCurrentMatch(questions);
+                questionsReady = !BaseGameActivity.this.questions.isEmpty();
+                questionsLoadFailed = false;
+                if (questionsReady || attemptsLeft <= 1) {
+                    if (!questionsReady) {
+                        questionsLoadFailed = true;
+                    }
+                    return;
+                }
+                new Handler().postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!questionsReady && !EXITING) {
+                            fetchRoomQuestionsWithRetry(gameID, attemptsLeft - 1);
+                        }
+                    }
+                }, 400);
+            }
+
+            @Override
+            public void onFailed(DatabaseError error) {
+                questionsReady = false;
+                questionsLoadFailed = true;
+                startPending = false;
+                Toast.makeText(BaseGameActivity.this, "ØªØ¹Ø°Ø± ØªØ­Ù…ÙŠÙ„ Ø£Ø³Ø¦Ù„Ø© Ø§Ù„Ù…ÙˆØ§Ø¬Ù‡Ø©", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -2561,6 +2700,399 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
             }
         });
+    }
+
+    private boolean isRoomMatchSession() {
+        return roomId != null && !roomId.trim().isEmpty();
+    }
+
+    private String buildRoomGameId() {
+        return roomId.trim() + "|" + roomMatchMode + "|r" + roomRoundNumber;
+    }
+
+    private void resumeExistingRoomMatch() {
+        if (!modeOnline || !resumeExistingRoomGame) {
+            requestSynchronizedQuestion(0);
+            return;
+        }
+        if (resumeRoomStateRequested) {
+            return;
+        }
+        resumeRoomStateRequested = true;
+        if (gameID == null || gameID.trim().isEmpty()) {
+            requestSynchronizedQuestion(0);
+            return;
+        }
+
+        FirebaseDatabase.getInstance().getReference()
+                .child("Games")
+                .child(gameID)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot snapshot) {
+                        if (EXITING) {
+                            return;
+                        }
+                        int resumeQuestionIndex = deriveResumeQuestionIndex(snapshot);
+                        restoreRecoveredRoomState(snapshot, resumeQuestionIndex);
+                        if (questions.isEmpty()) {
+                            requestSynchronizedQuestion(0);
+                            return;
+                        }
+                        int clampedIndex = Math.max(0, Math.min(
+                                resumeQuestionIndex,
+                                questions.size() - 1
+                        ));
+                        if (seatSourceId != null && !seatSourceId.trim().isEmpty()) {
+                            primeLocalSeatForQuestion(clampedIndex, "player_replaced_bot");
+                        }
+                        requestSynchronizedQuestion(clampedIndex);
+                    }
+
+                    @Override
+                    public void onCancelled(DatabaseError error) {
+                        requestSynchronizedQuestion(0);
+                    }
+                });
+    }
+
+    private void primeLocalSeatForQuestion(int questionIndex, @Nullable String eventType) {
+        if (!modeOnline || questionIndex < 0) {
+            return;
+        }
+        String localSeatId = getLocalMatchPlayerId();
+        if (localSeatId.isEmpty()) {
+            return;
+        }
+        Data.initQuestionPlayer(gameID, localSeatId, questionIndex);
+        DatabaseReference roundRef = getRoundSyncRef(questionIndex);
+        if (roundRef == null) {
+            return;
+        }
+
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("players/" + localSeatId + "/answerKey", 0);
+        payload.put("players/" + localSeatId + "/submitted", false);
+        payload.put("players/" + localSeatId + "/correct", false);
+        payload.put("players/" + localSeatId + "/elapsedMs", QUESTION_TIMEOUT_MS);
+        roundRef.updateChildren(payload, new DatabaseReference.CompletionListener() {
+            @Override
+            public void onComplete(@Nullable DatabaseError error,
+                                   @NonNull DatabaseReference ref) {
+                if (error != null) {
+                    Log.w("RoomGameSync",
+                            "Failed to reopen seat " + localSeatId
+                                    + " for question=" + questionIndex,
+                            error.toException());
+                    return;
+                }
+                clearPendingSeatResetFlag();
+                syncLocalSeatState(eventType);
+                Log.d("RoomGameSync",
+                        "Reopened seat " + localSeatId
+                                + " for question=" + questionIndex
+                                + " event=" + safeString(eventType));
+            }
+        });
+    }
+
+    private int deriveResumeQuestionIndex(DataSnapshot gameSnapshot) {
+        int maxCurrentIndex = 0;
+        for (DataSnapshot child : gameSnapshot.getChildren()) {
+            String key = child.getKey();
+            if (key == null
+                    || "meta".equals(key)
+                    || "questions".equals(key)
+                    || "questionSync".equals(key)
+                    || "rounds".equals(key)) {
+                continue;
+            }
+            maxCurrentIndex = Math.max(
+                    maxCurrentIndex,
+                    parseInt(child.child("current").getValue(), 0)
+            );
+        }
+
+        int maxScheduledIndex = maxCurrentIndex;
+        for (DataSnapshot child : gameSnapshot.child("questionSync").getChildren()) {
+            int questionIndex = parseInt(
+                    child.child("questionIndex").getValue(),
+                    parseRoundIndex(child.getKey())
+            );
+            Long startAt = child.child("startAt").getValue(Long.class);
+            if (questionIndex >= 0
+                    && (startAt == null || startAt <= (getServerNowMs() + 1000L))) {
+                maxScheduledIndex = Math.max(maxScheduledIndex, questionIndex);
+            }
+        }
+        return Math.max(0, maxScheduledIndex);
+    }
+
+    private void restoreRecoveredRoomState(DataSnapshot gameSnapshot, int resumeQuestionIndex) {
+        resetRecoveredRoomState();
+        final String localSeatId = getRecoveredSeatId();
+        final int completedQuestions = Math.max(0, resumeQuestionIndex);
+
+        for (int questionIndex = 0; questionIndex < completedQuestions; questionIndex++) {
+            final int recoveredQuestionIndex = questionIndex;
+            DataSnapshot playersSnapshot = gameSnapshot
+                    .child("rounds")
+                    .child(getRoundKey(recoveredQuestionIndex))
+                    .child("players");
+            if (!playersSnapshot.exists()) {
+                continue;
+            }
+
+            ArrayList<RoundRankEntry> rankedCorrectAnswers = new ArrayList<>();
+            for (DataSnapshot playerSnapshot : playersSnapshot.getChildren()) {
+                String playerId = safeString(playerSnapshot.getKey());
+                int answerKey = parseInt(playerSnapshot.child("answerKey").getValue(), 0);
+                long elapsedMs = getElapsedMs(playerSnapshot);
+                if (isBlitzMode()) {
+                    if (answerKey == ANSWER_KEY_RIGHT) {
+                        rankedCorrectAnswers.add(new RoundRankEntry(playerId, elapsedMs));
+                    }
+                } else if (answerKey == ANSWER_KEY_RIGHT) {
+                    rankedCorrectAnswers.add(new RoundRankEntry(playerId, elapsedMs));
+                }
+            }
+
+            if (!isBlitzMode()) {
+                Collections.sort(rankedCorrectAnswers, new Comparator<RoundRankEntry>() {
+                    @Override
+                    public int compare(RoundRankEntry left, RoundRankEntry right) {
+                        int byElapsed = Long.compare(left.elapsedMs, right.elapsedMs);
+                        if (byElapsed != 0) {
+                            return byElapsed;
+                        }
+                        return Integer.compare(
+                                getQuestionTieBreaker(left.playerId, recoveredQuestionIndex),
+                                getQuestionTieBreaker(right.playerId, recoveredQuestionIndex)
+                        );
+                    }
+                });
+            }
+
+            applyRecoveredQuestionMetrics(
+                    localSeatId,
+                    playersSnapshot.child(localSeatId),
+                    rankedCorrectAnswers
+            );
+            for (MatchOpponent opponent : opponents) {
+                applyRecoveredOpponentMetrics(
+                        opponent,
+                        playersSnapshot.child(opponent.id),
+                        rankedCorrectAnswers
+                );
+            }
+
+            if (!usesEliminationRoundFlow()
+                    && !isBlitzMode()
+                    && isRoundBoundaryQuestion(recoveredQuestionIndex)) {
+                applyRecoveredRoundBoundary();
+            }
+        }
+
+        applyRecoveredRoomStateToUi();
+    }
+
+    private void resetRecoveredRoomState() {
+        setScoreMe = 0;
+        gameScoreMe = Math.max(0, initialRoomScore);
+        setMe = Math.max(0, initialRoomRoundWins);
+        mySetCorrectAnswers = 0;
+        myTotalCorrectAnswers = Math.max(0, initialRoomAnsweredCount);
+        mySetAnswerTimeMs = 0L;
+        myTotalAnswerTimeMs = 0L;
+        myTimeoutStreak = 0;
+        if (initialRoomLivesRemaining > 0) {
+            myLivesRemaining = initialRoomLivesRemaining;
+        }
+
+        for (MatchOpponent opponent : opponents) {
+            opponent.roundScore = 0;
+            opponent.gameScore = Math.max(0, opponent.score);
+            opponent.sets = 0;
+            opponent.setCorrectAnswers = 0;
+            opponent.totalCorrectAnswers = 0;
+            opponent.setAnswerTimeMs = 0L;
+            opponent.totalAnswerTimeMs = 0L;
+            opponent.timeoutStreak = 0;
+            opponent.submitted = false;
+            opponent.submittedAnswerKey = 0;
+            opponent.displayedAnswer = 0;
+        }
+    }
+
+    private void applyRecoveredQuestionMetrics(String localSeatId,
+                                               DataSnapshot playerSnapshot,
+                                               ArrayList<RoundRankEntry> rankedCorrectAnswers) {
+        if (!playerSnapshot.exists()) {
+            return;
+        }
+        int answerKey = parseInt(playerSnapshot.child("answerKey").getValue(), 0);
+        long elapsedMs = getElapsedMs(playerSnapshot);
+        int roundPoints = isBlitzMode()
+                ? (answerKey == ANSWER_KEY_RIGHT ? ONLINE_SPEED_POINTS[0] : 0)
+                : getSpeedPoints(localSeatId, rankedCorrectAnswers);
+
+        if (usesEliminationRoundFlow()) {
+            if (answerKey == ANSWER_KEY_RIGHT) {
+                setScoreMe += 1;
+                mySetCorrectAnswers++;
+                myTotalCorrectAnswers++;
+            }
+            if (roundPoints > 0) {
+                gameScoreMe += roundPoints;
+            }
+        } else {
+            if (roundPoints > 0) {
+                setScoreMe += roundPoints;
+                gameScoreMe += roundPoints;
+            }
+            if (answerKey == ANSWER_KEY_RIGHT) {
+                mySetCorrectAnswers++;
+                myTotalCorrectAnswers++;
+            }
+        }
+
+        mySetAnswerTimeMs += elapsedMs;
+        myTotalAnswerTimeMs += elapsedMs;
+        myTimeoutStreak = answerKey == 0 ? myTimeoutStreak + 1 : 0;
+    }
+
+    private void applyRecoveredOpponentMetrics(MatchOpponent opponent,
+                                               DataSnapshot playerSnapshot,
+                                               ArrayList<RoundRankEntry> rankedCorrectAnswers) {
+        if (opponent == null || !playerSnapshot.exists()) {
+            return;
+        }
+        int answerKey = parseInt(playerSnapshot.child("answerKey").getValue(), 0);
+        long elapsedMs = getElapsedMs(playerSnapshot);
+        int roundPoints = isBlitzMode()
+                ? (answerKey == ANSWER_KEY_RIGHT ? ONLINE_SPEED_POINTS[0] : 0)
+                : getSpeedPoints(opponent.id, rankedCorrectAnswers);
+
+        if (usesEliminationRoundFlow()) {
+            if (answerKey == ANSWER_KEY_RIGHT) {
+                opponent.roundScore += 1;
+                opponent.setCorrectAnswers++;
+                opponent.totalCorrectAnswers++;
+            }
+            if (roundPoints > 0) {
+                opponent.gameScore += roundPoints;
+            }
+        } else {
+            if (roundPoints > 0) {
+                opponent.roundScore += roundPoints;
+                opponent.gameScore += roundPoints;
+            }
+            if (answerKey == ANSWER_KEY_RIGHT) {
+                opponent.setCorrectAnswers++;
+                opponent.totalCorrectAnswers++;
+            }
+        }
+
+        opponent.setAnswerTimeMs += elapsedMs;
+        opponent.totalAnswerTimeMs += elapsedMs;
+        opponent.timeoutStreak = answerKey == 0 ? opponent.timeoutStreak + 1 : 0;
+    }
+
+    private void applyRecoveredRoundBoundary() {
+        if (isTeamBattleMode()) {
+            String winningTeam = getWinningTeamIdForSet();
+            if (!winningTeam.isEmpty()) {
+                if (winningTeam.equals(myTeam)) {
+                    setMe++;
+                }
+                for (MatchOpponent opponent : opponents) {
+                    if (winningTeam.equals(opponent.teamId)) {
+                        opponent.sets++;
+                    }
+                }
+            }
+        } else {
+            String setWinnerId = getSetLeaderId();
+            if (isLocalMatchPlayer(setWinnerId)) {
+                setMe++;
+            } else {
+                MatchOpponent winner = findOpponentById(setWinnerId);
+                if (winner != null) {
+                    winner.sets++;
+                }
+            }
+        }
+
+        setScoreMe = 0;
+        mySetCorrectAnswers = 0;
+        mySetAnswerTimeMs = 0L;
+        for (MatchOpponent opponent : opponents) {
+            opponent.roundScore = 0;
+            opponent.setCorrectAnswers = 0;
+            opponent.setAnswerTimeMs = 0L;
+        }
+    }
+
+    private void applyRecoveredRoomStateToUi() {
+        if (txtScoreMe != null) {
+            txtScoreMe.setText(String.valueOf(setScoreMe));
+        }
+        if (txtScoreGameMe != null) {
+            txtScoreGameMe.setText(String.valueOf(gameScoreMe));
+        }
+        if (txtSetsMe != null && !usesStatusScoreCells()) {
+            txtSetsMe.setText(String.valueOf(setMe));
+        }
+        refreshMePanelState();
+        refreshPlayerPanels();
+    }
+
+    private String getRecoveredSeatId() {
+        return getLocalMatchPlayerId();
+    }
+
+    private long getElapsedMs(DataSnapshot playerSnapshot) {
+        Long elapsedValue = playerSnapshot.child("elapsedMs").getValue(Long.class);
+        return elapsedValue == null ? QUESTION_TIMEOUT_MS : elapsedValue;
+    }
+
+    private int parseRoundIndex(String key) {
+        if (key == null) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(key.replace("q", "").trim());
+        } catch (Exception ignored) {
+            return -1;
+        }
+    }
+
+    private int parseInt(Object value, int fallback) {
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value).trim());
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private long parseLong(Object value, long fallback) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (value == null) {
+            return fallback;
+        }
+        try {
+            return Long.parseLong(String.valueOf(value).trim());
+        } catch (Exception ignored) {
+            return fallback;
+        }
     }
 
     private void startMatchFlow() {
@@ -2611,14 +3143,113 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         myStatusRef = FirebaseDatabase.getInstance().getReference()
                 .child("Games")
                 .child(gameID)
-                .child(myID)
+                .child(getLocalMatchPlayerId())
                 .child("status");
         try {
             myStatusRef.onDisconnect().setValue("left");
         } catch (Exception ignored) {
         }
         markMyGameState("active");
+        syncLocalSeatState(
+                (seatSourceId != null && !seatSourceId.trim().isEmpty())
+                        ? "player_replaced_bot"
+                        : "player_joined"
+        );
         attachOpponentStatusListener();
+    }
+
+    private void syncLocalSeatState(@Nullable String eventType) {
+        if (!modeOnline
+                || !isRoomMatchSession()
+                || gameID == null
+                || gameID.trim().isEmpty()) {
+            return;
+        }
+
+        final String localSeatId = getLocalMatchPlayerId();
+        if (localSeatId.isEmpty()) {
+            return;
+        }
+
+        HashMap<String, Object> payload = new HashMap<>();
+        payload.put("userId", myID == null ? "" : myID.trim());
+        payload.put("name", safeDisplayName(myName, 1));
+        payload.put("photo", myPhoto == null ? "" : myPhoto);
+        payload.put("level", Math.max(1, myLevel));
+        payload.put("score", Math.max(0, gameScoreMe));
+        payload.put("sets", Math.max(0, setMe));
+        payload.put("bot", false);
+        payload.put("intelligence", 0);
+        payload.put("teamId", safeString(myTeam));
+        payload.put("livesRemaining", Math.max(0, myLivesRemaining));
+        payload.put("eliminated", localPlayerEliminated);
+        payload.put("status", resolveLocalSeatStatus());
+        payload.put("updatedAt", ServerValue.TIMESTAMP);
+        if (currentQuestion >= 0) {
+            payload.put("current", currentQuestion);
+        }
+        if (seatSourceId != null && !seatSourceId.trim().isEmpty()) {
+            payload.put("replacedBotSeatId", seatSourceId.trim());
+        }
+        String safeEventType = safeString(eventType).trim();
+        if (!safeEventType.isEmpty()) {
+            payload.put("lastEventType", safeEventType);
+            payload.put("lastEventAt", ServerValue.TIMESTAMP);
+        }
+
+        FirebaseDatabase.getInstance().getReference()
+                .child("Games")
+                .child(gameID)
+                .child(localSeatId)
+                .updateChildren(payload, new DatabaseReference.CompletionListener() {
+                    @Override
+                    public void onComplete(@Nullable DatabaseError error,
+                                           @NonNull DatabaseReference ref) {
+                        if (error != null) {
+                            Log.w("RoomGameSync",
+                                    "Failed to sync local seat state for " + localSeatId,
+                                    error.toException());
+                            return;
+                        }
+                        Log.d("RoomGameSync",
+                                "Synced seat " + localSeatId
+                                        + " user=" + (myID == null ? "" : myID)
+                                        + " event=" + safeEventType
+                                        + " score=" + gameScoreMe
+                                        + " sets=" + setMe
+                                        + " lives=" + myLivesRemaining
+                                        + " eliminated=" + localPlayerEliminated);
+                    }
+                });
+    }
+
+    private void clearPendingSeatResetFlag() {
+        DatabaseReference gameRef = getGameRootRef();
+        String localSeatId = getLocalMatchPlayerId();
+        if (gameRef == null || localSeatId.isEmpty()) {
+            return;
+        }
+        gameRef.child(localSeatId).child("resetSubmissionPending").setValue(false);
+    }
+
+    private String resolveLocalSeatStatus() {
+        if (localPlayerRemoved) {
+            return "left_timeout";
+        }
+        if (localPlayerEliminated) {
+            return "eliminated";
+        }
+        return "active";
+    }
+
+    private void cancelPendingBotAnswer(String seatId) {
+        if (seatId == null || seatId.trim().isEmpty()) {
+            return;
+        }
+        Runnable runnable = pendingBotAnswerRunnables.remove(seatId);
+        if (runnable != null) {
+            fictitiousAnswerHandler.removeCallbacks(runnable);
+        }
     }
 
     private void attachOpponentStatusListener() {
@@ -2627,27 +3258,113 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
         detachOpponentStatusListener();
         for (final MatchOpponent opponent : opponents) {
-            if (opponent.bot || opponent.id == null || opponent.id.trim().isEmpty()) {
+            if (opponent.id == null || opponent.id.trim().isEmpty()) {
                 continue;
             }
             opponent.statusRef = FirebaseDatabase.getInstance().getReference()
                     .child("Games")
                     .child(gameID)
-                    .child(opponent.id)
-                    .child("status");
+                    .child(opponent.id);
             opponent.statusListener = new ValueEventListener() {
                 @Override
                 public void onDataChange(DataSnapshot snapshot) {
-                    if (EXITING || opponent.left || opponent.eliminated) {
+                    if (EXITING) {
                         return;
                     }
-                    String status = snapshot.getValue(String.class);
+                    String previousUserId = safeString(opponent.userId).trim();
+                    boolean wasBot = opponent.bot;
+                    String status = safeString(snapshot.child("status").getValue()).trim();
+                    Boolean botValue = snapshot.child("bot").getValue(Boolean.class);
+                    boolean nowBot = botValue != null ? botValue : opponent.bot;
+                    String incomingUserId = safeString(snapshot.child("userId").getValue()).trim();
+                    String incomingName = safeString(snapshot.child("name").getValue()).trim();
+                    String incomingPhoto = safeString(snapshot.child("photo").getValue()).trim();
+                    int incomingLevel = parseInt(snapshot.child("level").getValue(), opponent.level);
+                    int incomingIntelligence =
+                            parseInt(snapshot.child("intelligence").getValue(), opponent.intelligence);
+                    String incomingTeamId = safeString(snapshot.child("teamId").getValue()).trim();
+                    int incomingSets = parseInt(snapshot.child("sets").getValue(), opponent.sets);
+                    int incomingScore = parseInt(snapshot.child("score").getValue(), opponent.gameScore);
+                    int incomingLives =
+                            parseInt(snapshot.child("livesRemaining").getValue(), opponent.livesRemaining);
+                    Boolean eliminatedValue = snapshot.child("eliminated").getValue(Boolean.class);
+                    boolean incomingEliminated =
+                            eliminatedValue != null ? eliminatedValue : opponent.eliminated;
+                    Boolean resetPendingValue =
+                            snapshot.child("resetSubmissionPending").getValue(Boolean.class);
+                    boolean resetPending = resetPendingValue != null && resetPendingValue;
+                    long eventAt = parseLong(snapshot.child("lastEventAt").getValue(), 0L);
+                    String eventType = safeString(snapshot.child("lastEventType").getValue()).trim();
+
+                    if (eventAt > opponent.lastSeatEventAt
+                            || (!eventType.isEmpty()
+                            && !eventType.equals(opponent.lastSeatEventType))) {
+                        opponent.lastSeatEventAt = eventAt;
+                        opponent.lastSeatEventType = eventType;
+                        Log.d("RoomGameSync",
+                                "Seat event received seat=" + opponent.id
+                                        + " user=" + incomingUserId
+                                        + " status=" + status
+                                        + " bot=" + nowBot
+                                        + " event=" + eventType);
+                    }
+
+                    if (nowBot) {
+                        if (!opponent.bot
+                                || "left".equals(status)
+                                || "left_timeout".equals(status)) {
+                            convertOpponentToComputer(opponent);
+                        }
+                        if ("eliminated".equals(status)) {
+                            opponent.eliminated = true;
+                        }
+                        refreshOpponentPanels();
+                        return;
+                    }
+
                     if ("left".equals(status) || "left_timeout".equals(status)) {
                         convertOpponentToComputer(opponent);
-                    } else if ("eliminated".equals(status)) {
-                        opponent.eliminated = true;
-                        refreshOpponentPanels();
+                        return;
                     }
+
+                    opponent.bot = false;
+                    opponent.left = false;
+                    if (!incomingUserId.isEmpty()) {
+                        opponent.userId = incomingUserId;
+                    }
+                    if (!incomingName.isEmpty()) {
+                        opponent.name = incomingName;
+                    }
+                    if (!incomingPhoto.isEmpty()) {
+                        opponent.photo = incomingPhoto;
+                    }
+                    opponent.level = Math.max(1, incomingLevel);
+                    opponent.intelligence = Math.max(0, incomingIntelligence);
+                    if (!incomingTeamId.isEmpty()) {
+                        opponent.teamId = incomingTeamId;
+                    }
+                    opponent.score = Math.max(opponent.score, incomingScore);
+                    opponent.sets = Math.max(opponent.sets, incomingSets);
+                    opponent.gameScore = Math.max(opponent.gameScore, incomingScore);
+                    opponent.livesRemaining = Math.max(0, incomingLives);
+                    opponent.eliminated = incomingEliminated || "eliminated".equals(status);
+
+                    boolean seatOwnerChanged = wasBot
+                            || (!incomingUserId.isEmpty()
+                            && !incomingUserId.equals(previousUserId));
+                    if (seatOwnerChanged || resetPending) {
+                        cancelPendingBotAnswer(opponent.id);
+                        opponent.submitted = false;
+                        opponent.submittedAnswerKey = 0;
+                        opponent.displayedAnswer = 0;
+                        opponent.answerElapsedMs = QUESTION_TIMEOUT_MS;
+                        Log.d("RoomGameSync",
+                                "Seat " + opponent.id
+                                        + " now belongs to human user=" + opponent.userId
+                                        + " botDisabled=true"
+                                        + " resetPending=" + resetPending);
+                    }
+                    refreshOpponentPanels();
                 }
 
                 @Override
@@ -2676,7 +3393,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             myStatusRef = FirebaseDatabase.getInstance().getReference()
                     .child("Games")
                     .child(gameID)
-                    .child(myID)
+                    .child(getLocalMatchPlayerId())
                     .child("status");
         }
         myStatusRef.setValue(status);
@@ -3030,13 +3747,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             return;
         }
         opponent.left = true;
+        opponent.userId = opponent.id;
         applyBotIdentity(opponent, true);
-        if (opponent.statusRef != null && opponent.statusListener != null) {
-            opponent.statusRef.removeEventListener(opponent.statusListener);
-        }
-        opponent.statusRef = null;
-        opponent.statusListener = null;
+        cancelPendingBotAnswer(opponent.id);
         refreshOpponentPanels();
+        syncLocalSeatState("game_state_updated");
         if (currentQuestion >= 0 && !opponent.submitted && shouldScheduleBotAnswers()) {
             scheduleBotAnswer(opponent);
         }
@@ -3072,7 +3787,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             payload.put("matchMode", roomMatchMode);
             payload.put("score", gameScoreMe);
             payload.put("answeredCount", answeredCount);
-            payload.put("winnerId", getMatchLeaderId());
+            payload.put("winnerId", resolveActualUserIdForSeat(getMatchLeaderId()));
             payload.put("mySets", setMe);
             payload.put("myCorrectAnswers", myTotalCorrectAnswers);
             payload.put("myEliminated", localPlayerEliminated);
@@ -3088,7 +3803,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         try {
             for (MatchOpponent opponent : opponents) {
                 JSONObject object = new JSONObject();
-                object.put("id", opponent.id);
+                object.put("id", resolveActualUserIdForSeat(opponent.id));
+                object.put("seatId", opponent.id);
+                object.put("userId", resolveActualUserIdForSeat(opponent.id));
                 object.put("name", opponent.name);
                 object.put("photo", opponent.photo);
                 object.put("score", opponent.gameScore);
@@ -3151,6 +3868,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             txtSetsMe.setText(String.valueOf(setMe));
             txtScoreMe.setText("0");
             refreshOpponentPanels();
+            syncLocalSeatState("game_state_updated");
             boolean myTeamWon = winningTeam.equals(myTeam);
             if (myTeamWon) {
                 person.like(1000);
@@ -3165,7 +3883,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
 
         String setWinnerId = getSetLeaderId();
-        if (myID.equals(setWinnerId)) {
+        if (isLocalMatchPlayer(setWinnerId)) {
             setMe++;
         } else {
             MatchOpponent winner = findOpponentById(setWinnerId);
@@ -3184,7 +3902,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         txtSetsMe.setText(String.valueOf(setMe));
         txtScoreMe.setText("0");
         refreshOpponentPanels();
-        if (myID.equals(setWinnerId)) {
+        syncLocalSeatState("game_state_updated");
+        if (isLocalMatchPlayer(setWinnerId)) {
             person.like(1000);
             person.raiseEyeBrowsUp(1000, false, true);
             showDialog("انتهت الجولة " + setNumLabelResolved + " وحسمتها لصالحك", "", 2000, 3000, R.drawable.mouth_01, false);
@@ -3223,7 +3942,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         boolean tiedOnSets = finalRoundResolved && leaderSetsResolved < getSeriesTarget();
 
         int resolvedResult;
-        if (myID.equals(leaderIdResolved)) {
+        if (isLocalMatchPlayer(leaderIdResolved)) {
             resolvedResult = 1;
             person.moveShow2Hands(2000);
             person.raiseEyeBrowsUp(1000, false, true);
@@ -3281,7 +4000,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private String getSetLeaderId() {
-        String leaderId = myID;
+        String leaderId = getLocalMatchPlayerId();
         for (MatchOpponent opponent : opponents) {
             if (compareSetStanding(opponent.id, leaderId) < 0) {
                 leaderId = opponent.id;
@@ -3291,7 +4010,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private String getMatchLeaderId() {
-        String leaderId = myID;
+        String leaderId = getLocalMatchPlayerId();
         for (MatchOpponent opponent : opponents) {
             if (compareMatchStanding(opponent.id, leaderId) < 0) {
                 leaderId = opponent.id;
@@ -3337,7 +4056,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private int getSetsForPlayer(String playerId) {
-        if (myID.equals(playerId)) {
+        if (isLocalMatchPlayer(playerId)) {
             return setMe;
         }
         MatchOpponent opponent = findOpponentById(playerId);
@@ -3345,7 +4064,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private int getSetScoreForPlayer(String playerId) {
-        if (myID.equals(playerId)) {
+        if (isLocalMatchPlayer(playerId)) {
             return setScoreMe;
         }
         MatchOpponent opponent = findOpponentById(playerId);
@@ -3353,7 +4072,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private int getGameScoreForPlayer(String playerId) {
-        if (myID.equals(playerId)) {
+        if (isLocalMatchPlayer(playerId)) {
             return gameScoreMe;
         }
         MatchOpponent opponent = findOpponentById(playerId);
@@ -3361,7 +4080,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private int getSetCorrectAnswersForPlayer(String playerId) {
-        if (myID.equals(playerId)) {
+        if (isLocalMatchPlayer(playerId)) {
             return mySetCorrectAnswers;
         }
         MatchOpponent opponent = findOpponentById(playerId);
@@ -3369,7 +4088,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private int getTotalCorrectAnswersForPlayer(String playerId) {
-        if (myID.equals(playerId)) {
+        if (isLocalMatchPlayer(playerId)) {
             return myTotalCorrectAnswers;
         }
         MatchOpponent opponent = findOpponentById(playerId);
@@ -3377,7 +4096,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private long getSetAnswerTimeForPlayer(String playerId) {
-        if (myID.equals(playerId)) {
+        if (isLocalMatchPlayer(playerId)) {
             return mySetAnswerTimeMs;
         }
         MatchOpponent opponent = findOpponentById(playerId);
@@ -3385,7 +4104,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private long getTotalAnswerTimeForPlayer(String playerId) {
-        if (myID.equals(playerId)) {
+        if (isLocalMatchPlayer(playerId)) {
             return myTotalAnswerTimeMs;
         }
         MatchOpponent opponent = findOpponentById(playerId);
@@ -3393,7 +4112,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private String getPlayerDisplayName(String playerId) {
-        if (myID.equals(playerId)) {
+        if (isLocalMatchPlayer(playerId)) {
             return "أنت";
         }
         MatchOpponent opponent = findOpponentById(playerId);
@@ -3412,13 +4131,24 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         return "q" + questionIndex;
     }
 
-    private DatabaseReference getQuestionSyncRef(int questionIndex) {
+    private DatabaseReference getGameRootRef() {
         if (gameID == null || gameID.trim().isEmpty()) {
             return null;
         }
         return FirebaseDatabase.getInstance().getReference()
                 .child("Games")
-                .child(gameID)
+                .child(gameID);
+    }
+
+    private DatabaseReference getQuestionSyncRef(int questionIndex) {
+        if (gameID == null || gameID.trim().isEmpty()) {
+            return null;
+        }
+        DatabaseReference gameRef = getGameRootRef();
+        if (gameRef == null) {
+            return null;
+        }
+        return gameRef
                 .child("questionSync")
                 .child(getRoundKey(questionIndex));
     }
@@ -3427,9 +4157,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (gameID == null || gameID.trim().isEmpty()) {
             return null;
         }
-        return FirebaseDatabase.getInstance().getReference()
-                .child("Games")
-                .child(gameID)
+        DatabaseReference gameRef = getGameRootRef();
+        if (gameRef == null) {
+            return null;
+        }
+        return gameRef
                 .child("rounds")
                 .child(getRoundKey(questionIndex));
     }
@@ -3447,10 +4179,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         // answer, causing the game to freeze waiting for a re-submission that
         // will never come.
         HashMap<String, Object> payload = new HashMap<>();
-        payload.put("players/" + myID + "/answerKey", 0);
-        payload.put("players/" + myID + "/submitted", false);
-        payload.put("players/" + myID + "/correct", false);
-        payload.put("players/" + myID + "/elapsedMs", QUESTION_TIMEOUT_MS);
+        String localSeatId = getLocalMatchPlayerId();
+        payload.put("players/" + localSeatId + "/answerKey", 0);
+        payload.put("players/" + localSeatId + "/submitted", false);
+        payload.put("players/" + localSeatId + "/correct", false);
+        payload.put("players/" + localSeatId + "/elapsedMs", QUESTION_TIMEOUT_MS);
         roundSyncRef.updateChildren(payload);
     }
 
@@ -3592,6 +4325,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 }
                 for (MatchOpponent opponent : opponents) {
                     DataSnapshot opponentSnapshot = snapshot.child("players").child(opponent.id);
+                    boolean wasSubmitted = opponent.submitted;
                     Long answerValue = opponentSnapshot.child("answerKey").getValue(Long.class);
                     Long elapsedValue = opponentSnapshot.child("elapsedMs").getValue(Long.class);
                     Boolean submittedValue = opponentSnapshot.child("submitted").getValue(Boolean.class);
@@ -3619,6 +4353,20 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         opponent.submitted = nowSubmitted;
                         opponent.displayedAnswer = getDisplayedIndexForAnswerKey(opponent.submittedAnswerKey);
                         opponent.answerElapsedMs = newElapsed;
+                    }
+
+                    if (nowSubmitted && !wasSubmitted) {
+                        Log.d("RoomGameSync",
+                                "Observed remote answer seat=" + opponent.id
+                                        + " user=" + resolveActualUserIdForSeat(opponent.id)
+                                        + " answerKey=" + newAnswerKey
+                                        + " elapsedMs=" + newElapsed
+                                        + " question=" + questionIndex);
+                    } else if (!nowSubmitted && wasSubmitted) {
+                        Log.d("RoomGameSync",
+                                "Reopened remote seat=" + opponent.id
+                                        + " user=" + resolveActualUserIdForSeat(opponent.id)
+                                        + " for question=" + questionIndex);
                     }
                 }
 
@@ -3656,14 +4404,20 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         myAnswerElapsedMs = answerKey == 0 ? QUESTION_TIMEOUT_MS : getCurrentAnswerElapsedMs();
 
         HashMap<String, Object> payload = new HashMap<>();
-        payload.put("players/" + myID + "/answerKey", answerKey);
-        payload.put("players/" + myID + "/submitted", true);
-        payload.put("players/" + myID + "/correct", answerKey == ANSWER_KEY_RIGHT);
-        payload.put("players/" + myID + "/elapsedMs", myAnswerElapsedMs);
+        String localSeatId = getLocalMatchPlayerId();
+        payload.put("players/" + localSeatId + "/answerKey", answerKey);
+        payload.put("players/" + localSeatId + "/submitted", true);
+        payload.put("players/" + localSeatId + "/correct", answerKey == ANSWER_KEY_RIGHT);
+        payload.put("players/" + localSeatId + "/elapsedMs", myAnswerElapsedMs);
         roundSyncRef.updateChildren(payload, (error, ref) -> {
             if (error != null || EXITING) {
                 return;
             }
+            clearPendingSeatResetFlag();
+            Log.d("RoomGameSync",
+                    "Submitted answer seat=" + localSeatId
+                            + " answerKey=" + answerKey
+                            + " elapsedMs=" + myAnswerElapsedMs);
             if (resolvingRound) {
                 resolveOnlineRoundIfReady();
             }
@@ -3689,30 +4443,80 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (roundSyncRef == null) {
             roundSyncRef = getRoundSyncRef(currentQuestion);
         }
-        if (roundSyncRef == null) {
+        DatabaseReference gameRef = getGameRootRef();
+        if (roundSyncRef == null || gameRef == null) {
             return;
         }
         resolvingFinal = true;  // prevent duplicate Firebase reads
 
-        roundSyncRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        gameRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 if (EXITING || roundResolved) {
                     resolvingFinal = false;
                     return;
                 }
-                DataSnapshot mySnapshot = snapshot.child("players").child(myID);
+                String localSeatId = getLocalMatchPlayerId();
+                DataSnapshot mySeatSnapshot = snapshot.child(localSeatId);
+                Boolean mySeatResetPending =
+                        mySeatSnapshot.child("resetSubmissionPending").getValue(Boolean.class);
+                if (mySeatResetPending != null && mySeatResetPending) {
+                    resolvingFinal = false;
+                    Log.d("RoomGameSync",
+                            "Delaying resolve because local seat "
+                                    + localSeatId
+                                    + " is still reopening for question=" + currentQuestion);
+                    return;
+                }
+
+                DataSnapshot roundSnapshot = snapshot
+                        .child("rounds")
+                        .child(getRoundKey(currentQuestion));
+                DataSnapshot mySnapshot = roundSnapshot.child("players").child(localSeatId);
                 Long myAnswerKeyValue = mySnapshot.child("answerKey").getValue(Long.class);
                 Long myElapsedValue = mySnapshot.child("elapsedMs").getValue(Long.class);
+                Boolean mySubmittedValue = mySnapshot.child("submitted").getValue(Boolean.class);
                 mySubmittedAnswerKey = myAnswerKeyValue == null ? 0 : myAnswerKeyValue.intValue();
                 myAnswerElapsedMs = myElapsedValue == null ? QUESTION_TIMEOUT_MS : myElapsedValue;
+                if (mySubmittedValue == null || !mySubmittedValue) {
+                    resolvingFinal = false;
+                    Log.d("RoomGameSync",
+                            "Delaying resolve because local seat "
+                                    + localSeatId + " is no longer submitted.");
+                    return;
+                }
 
                 ArrayList<RoundRankEntry> rankedCorrectAnswers = new ArrayList<>();
                 if (mySubmittedAnswerKey == ANSWER_KEY_RIGHT) {
-                    rankedCorrectAnswers.add(new RoundRankEntry(myID, myAnswerElapsedMs));
+                    rankedCorrectAnswers.add(new RoundRankEntry(localSeatId, myAnswerElapsedMs));
                 }
                 for (MatchOpponent opponent : opponents) {
-                    DataSnapshot opponentSnapshot = snapshot.child("players").child(opponent.id);
+                    DataSnapshot opponentSeatSnapshot = snapshot.child(opponent.id);
+                    Boolean resetPendingValue =
+                            opponentSeatSnapshot.child("resetSubmissionPending").getValue(Boolean.class);
+                    boolean resetPending = resetPendingValue != null && resetPendingValue;
+                    if (!opponent.eliminated && resetPending) {
+                        resolvingFinal = false;
+                        Log.d("RoomGameSync",
+                                "Delaying resolve because seat "
+                                        + opponent.id
+                                        + " user=" + resolveActualUserIdForSeat(opponent.id)
+                                        + " is flagged for reset on question=" + currentQuestion);
+                        return;
+                    }
+
+                    DataSnapshot opponentSnapshot = roundSnapshot.child("players").child(opponent.id);
+                    Boolean submittedValue = opponentSnapshot.child("submitted").getValue(Boolean.class);
+                    boolean snapshotSubmitted = submittedValue != null && submittedValue;
+                    if (!opponent.eliminated && !snapshotSubmitted) {
+                        resolvingFinal = false;
+                        Log.d("RoomGameSync",
+                                "Delaying resolve because seat "
+                                        + opponent.id
+                                        + " user=" + resolveActualUserIdForSeat(opponent.id)
+                                        + " is pending for question=" + currentQuestion);
+                        return;
+                    }
                     Long answerValue = opponentSnapshot.child("answerKey").getValue(Long.class);
                     Long elapsedValue = opponentSnapshot.child("elapsedMs").getValue(Long.class);
                     opponent.submittedAnswerKey = answerValue == null ? 0 : answerValue.intValue();
@@ -3737,7 +4541,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                     }
                 });
 
-                myRoundPoints = getSpeedPoints(myID, rankedCorrectAnswers);
+                myRoundPoints = getSpeedPoints(localSeatId, rankedCorrectAnswers);
                 for (MatchOpponent opponent : opponents) {
                     opponent.roundPoints = getSpeedPoints(opponent.id, rankedCorrectAnswers);
                 }
@@ -3880,7 +4684,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         break;
                     case 3:
                         if (modeOnline) {
-                            requestSynchronizedQuestion(0);
+                            if (resumeExistingRoomGame) {
+                                resumeExistingRoomMatch();
+                            } else {
+                                requestSynchronizedQuestion(0);
+                            }
                         } else {
                             nextQuestion();
                         }
@@ -4387,7 +5195,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                                     questionStartTimeMs = System.currentTimeMillis();
                                     startTimer(true);
                                     if(modeOnline) {
-                                        Data.initQuestionPlayer(gameID, myID, currentQuestion);
+                                        Data.initQuestionPlayer(gameID, getLocalMatchPlayerId(), currentQuestion);
                                         for (MatchOpponent opponent : opponents) {
                                             Data.initQuestionPlayer(gameID, opponent.id, currentQuestion);
                                         }

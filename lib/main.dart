@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -133,8 +136,79 @@ class MillionaireOnlineApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const AuthGate(),
+        home: const _ConnectivityWrapper(child: AuthGate()),
       ),
+    );
+  }
+}
+
+// ─── Connectivity banner ───────────────────────────────────────────────────────
+
+class _ConnectivityWrapper extends StatefulWidget {
+  const _ConnectivityWrapper({required this.child});
+  final Widget child;
+
+  @override
+  State<_ConnectivityWrapper> createState() => _ConnectivityWrapperState();
+}
+
+class _ConnectivityWrapperState extends State<_ConnectivityWrapper> {
+  late final StreamSubscription<List<ConnectivityResult>> _sub;
+  bool _isOffline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkNow();
+    _sub = Connectivity()
+        .onConnectivityChanged
+        .listen(_update);
+  }
+
+  Future<void> _checkNow() async {
+    _update(await Connectivity().checkConnectivity());
+  }
+
+  void _update(List<ConnectivityResult> results) {
+    final offline =
+        results.isEmpty || results.every((r) => r == ConnectivityResult.none);
+    if (mounted && offline != _isOffline) setState(() => _isOffline = offline);
+  }
+
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 350),
+          height: _isOffline ? 38 : 0,
+          color: const Color(0xFFDC2626),
+          child: _isOffline
+              ? const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.wifi_off_rounded, color: Colors.white, size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      'لا يوجد اتصال بالإنترنت',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        ),
+        Expanded(child: widget.child),
+      ],
     );
   }
 }

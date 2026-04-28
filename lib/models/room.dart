@@ -26,6 +26,7 @@ class RoomPlayer {
     this.roundWins = 0,
     this.teamId,
     this.disconnected = false,
+    this.seatSourceId,
   });
 
   final int score;
@@ -46,6 +47,7 @@ class RoomPlayer {
 
   /// true when the player left an active game — they keep their slot and can rejoin.
   final bool disconnected;
+  final String? seatSourceId;
 
   factory RoomPlayer.fromMap(
     Map<String, dynamic> map, {
@@ -62,6 +64,7 @@ class RoomPlayer {
         roundWins: (map['roundWins'] as num?)?.toInt() ?? 0,
         teamId: Room.normalizeTeamId(map['teamId'] as String?),
         disconnected: map['disconnected'] == true,
+        seatSourceId: map['seatSourceId'] as String?,
       );
 
   Map<String, dynamic> toMap() => <String, dynamic>{
@@ -76,6 +79,7 @@ class RoomPlayer {
         if (roundWins > 0) 'roundWins': roundWins,
         if (teamId != null) 'teamId': Room.normalizeTeamId(teamId),
         if (disconnected) 'disconnected': disconnected,
+        if (seatSourceId != null) 'seatSourceId': seatSourceId,
       };
 
   RoomPlayer copyWith({
@@ -89,6 +93,7 @@ class RoomPlayer {
     int? roundWins,
     String? teamId,
     bool? disconnected,
+    String? seatSourceId,
   }) {
     return RoomPlayer(
       score: score ?? this.score,
@@ -101,6 +106,7 @@ class RoomPlayer {
       roundWins: roundWins ?? this.roundWins,
       teamId: Room.normalizeTeamId(teamId ?? this.teamId),
       disconnected: disconnected ?? this.disconnected,
+      seatSourceId: seatSourceId ?? this.seatSourceId,
     );
   }
 
@@ -378,6 +384,10 @@ class Room {
   bool containsPlayer(String userId) => players.containsKey(userId);
 
   List<String> get playerIds => players.keys.toList(growable: false);
+
+  bool get hasActiveHumanPlayer => players.entries.any(
+        (e) => !isBotUserId(e.key) && !e.value.disconnected,
+      );
 
   bool get isRoundBasedMode =>
       mode == modeElimination || mode == modeSurvival || mode == modeSeries;

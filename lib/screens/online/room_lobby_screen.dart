@@ -19,10 +19,19 @@ class RoomLobbyScreen extends StatefulWidget {
     super.key,
     required this.roomId,
     this.createdByCurrentUser = false,
+    this.isSpectator = false,
+    this.isJoiningMidGame = false,
   });
 
   final String roomId;
   final bool createdByCurrentUser;
+
+  /// True when the user navigated here to watch without joining as a player.
+  final bool isSpectator;
+
+  /// True when the user joined a room that was already started (bot replacement
+  /// or reconnect), so the native layer resumes the current match state.
+  final bool isJoiningMidGame;
 
   @override
   State<RoomLobbyScreen> createState() => _RoomLobbyScreenState();
@@ -96,7 +105,16 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
   Future<void> _leaveRoom() async {
     if (_leaving) return;
     final userId = context.read<AppState>().user?.uid;
-    if (userId == null) return;
+
+    // Spectator or unauthenticated — just pop with no Firestore call.
+    final isSpectator = widget.isSpectator ||
+        userId == null ||
+        (_latestRoom != null && !_latestRoom!.containsPlayer(userId));
+    if (isSpectator) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+
     setState(() => _leaving = true);
     try {
       await context.read<RoomService>().leaveRoom(
@@ -225,9 +243,13 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     required Map<String, PlayerProfile> profiles,
     required String currentUserId,
     required String matchMode,
+    required bool isResumingMidGame,
   }) async {
     final profileService = context.read<ProfileService>();
     final nativeBridgeService = context.read<NativeBridgeService>();
+    final appUser = context.read<AppState>().user;
+    final currentPlayer = room.players[currentUserId];
+    final currentProfile = profiles[currentUserId];
     final opponentIds = room.playerIds
         .where((id) => id != currentUserId)
         .toList(growable: false);
@@ -239,6 +261,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
         final botProfile = Room.botProfile(opponentId);
         opponents.add(<String, dynamic>{
           'id': opponentId,
+          'seatId': opponentId,
+          'userId': opponentId,
           'name': botProfile.displayName,
           'photo': botProfile.nativePhoto,
           'level': (botProfile.intelligence / 10).ceil(),
@@ -246,6 +270,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
           'score': roomPlayer?.score ?? 0,
           'bot': true,
           'teamId': roomPlayer?.teamId ?? '',
+          'sets': roomPlayer?.roundWins ?? 0,
+          'livesRemaining': roomPlayer?.lives ?? 0,
+          'eliminated': roomPlayer?.eliminated ?? false,
         });
         continue;
       }
@@ -260,20 +287,30 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
         } catch (_) {}
       }
       final roomPlayer = room.players[opponentId];
+      final seatId = (roomPlayer?.seatSourceId?.trim().isNotEmpty ?? false)
+          ? roomPlayer!.seatSourceId!.trim()
+          : opponentId;
       opponents.add(<String, dynamic>{
         'id': opponentId,
+        'seatId': seatId,
+        'userId': opponentId,
         'name': opponentProfile?.username ?? _fallbackName(opponentId),
         'photo': opponentProfile?.photoUrl ?? '',
         'level': 1,
         'score': roomPlayer?.score ?? 0,
         'bot': false,
         'teamId': roomPlayer?.teamId ?? '',
+        'sets': roomPlayer?.roundWins ?? 0,
+        'livesRemaining': roomPlayer?.lives ?? 0,
+        'eliminated': roomPlayer?.eliminated ?? false,
       });
     }
 
     if (opponents.isEmpty) {
       opponents.add(const <String, dynamic>{
         'id': 'fictitious',
+        'seatId': 'fictitious',
+        'userId': 'fictitious',
         'name': 'خصم آلي',
         'photo': '',
         'level': 1,
@@ -284,6 +321,34 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     }
 
     if (!mounted) return;
+    final seatId = currentPlayer?.seatSourceId?.trim().isNotEmpty == true
+        ? currentPlayer!.seatSourceId!.trim()
+        : currentUserId;
+    if (isResumingMidGame &&
+        currentPlayer?.seatSourceId?.trim().isNotEmpty == true) {
+      try {
+        await nativeBridgeService.announceRoomSeatClaim(
+          roomId: room.id,
+          matchMode: matchMode,
+          roomRoundNumber: room.roundNumber,
+          seatId: seatId,
+          userId: currentUserId,
+          username: currentProfile?.username.trim().isNotEmpty == true
+              ? currentProfile!.username.trim()
+              : (appUser?.displayName?.trim().isNotEmpty == true
+                  ? appUser!.displayName!.trim()
+                  : _fallbackName(currentUserId)),
+          photoUrl: (currentProfile?.photoUrl ?? '').trim().isNotEmpty
+              ? currentProfile!.photoUrl!.trim()
+              : (appUser?.photoURL ?? ''),
+          teamId: currentPlayer?.teamId ?? 'A',
+          initialScore: currentPlayer?.score ?? 0,
+          initialRoundWins: currentPlayer?.roundWins ?? 0,
+          initialLivesRemaining: currentPlayer?.lives ?? 0,
+          initiallyEliminated: currentPlayer?.eliminated ?? false,
+        );
+      } catch (_) {}
+    }
     await nativeBridgeService.launchLegacyRoomMatch(
       roomId: room.id,
       opponents: opponents,
@@ -292,6 +357,14 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       seriesTarget: room.seriesTarget,
       roundDurationSeconds: room.roundDurationSeconds,
       myTeam: room.players[currentUserId]?.teamId ?? 'A',
+      roomRoundNumber: room.roundNumber,
+      resumeExistingGame: isResumingMidGame,
+      seatSourceId: currentPlayer?.seatSourceId ?? '',
+      initialScore: currentPlayer?.score ?? 0,
+      initialAnsweredCount: currentPlayer?.answeredCount ?? 0,
+      initialRoundWins: currentPlayer?.roundWins ?? 0,
+      initialLivesRemaining: currentPlayer?.lives ?? 0,
+      initiallyEliminated: currentPlayer?.eliminated ?? false,
     );
   }
 
@@ -314,6 +387,14 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
 
   Future<bool> _confirmLeave() async {
     if (_leaving) return false;
+    final userId = context.read<AppState>().user?.uid;
+    final isSpectator = widget.isSpectator ||
+        userId == null ||
+        (_latestRoom != null && !_latestRoom!.containsPlayer(userId));
+    if (isSpectator) {
+      unawaited(_leaveRoom());
+      return false;
+    }
     final gameInProgress = _latestRoom != null &&
         _latestRoom!.started &&
         _latestRoom!.phase != Room.phaseFinished;
@@ -463,12 +544,9 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                   // Keep _latestRoom in sync for the leave-confirmation dialog.
                   _latestRoom = room;
 
-                  if (!room.containsPlayer(currentUserId)) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (!mounted) return;
-                      Navigator.of(context).pop();
-                    });
-                  }
+                  // Spectator: user navigated here to watch, not to play.
+                  final isSpectator =
+                      widget.isSpectator || !room.containsPlayer(currentUserId);
 
                   final playerIds = room.playerIds;
 
@@ -497,8 +575,12 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                         'series'
                       };
                       final isRoundBased = roundBasedModes.contains(room.mode);
-                      // Don't re-launch if the game is already finished.
-                      final shouldLaunch = room.started &&
+                      const isMidGameWaiting = false;
+
+                      // Don't re-launch if the game is already finished, if the
+                      // user is only spectating.
+                      final shouldLaunch = !isSpectator &&
+                          room.started &&
                           room.phase != Room.phaseFinished &&
                           ((!isRoundBased && !_navigatedToGame) ||
                               (isRoundBased &&
@@ -515,6 +597,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                             profiles: profiles,
                             currentUserId: currentUserId,
                             matchMode: room.mode,
+                            isResumingMidGame: widget.isJoiningMidGame,
                           );
                         });
                       }
@@ -528,6 +611,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                           _scheduleBlitzFinalization(room);
                         });
                       }
+
                       return Column(
                         children: [
                           // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Header ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
@@ -558,6 +642,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                   profiles: profiles,
                                   currentUserId: currentUserId,
                                   isHost: isHost,
+                                  isSpectator: isSpectator,
+                                  isMidGameWaiting: isMidGameWaiting,
                                   readyValue: readyValue,
                                   starting: _starting,
                                   leaving: _leaving,
@@ -1596,6 +1682,8 @@ class _ControlsPanel extends StatelessWidget {
     required this.profiles,
     required this.currentUserId,
     required this.isHost,
+    required this.isSpectator,
+    required this.isMidGameWaiting,
     required this.readyValue,
     required this.starting,
     required this.leaving,
@@ -1610,6 +1698,8 @@ class _ControlsPanel extends StatelessWidget {
   final Map<String, PlayerProfile> profiles;
   final String currentUserId;
   final bool isHost;
+  final bool isSpectator;
+  final bool isMidGameWaiting;
   final bool readyValue;
   final bool starting;
   final bool leaving;
@@ -1621,6 +1711,12 @@ class _ControlsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isSpectator) {
+      return _SpectatorPanel(room: room, onLeaveRoom: onLeaveRoom);
+    }
+    if (isMidGameWaiting) {
+      return _MidGameWaitingPanel(room: room, onLeaveRoom: onLeaveRoom);
+    }
     return _ControlsPanelBody(
       room: room,
       profiles: profiles,
@@ -1875,6 +1971,232 @@ class _ControlsPanel extends StatelessWidget {
 }
 
 // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Loading / Closed states ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+
+class _MidGameWaitingPanel extends StatelessWidget {
+  const _MidGameWaitingPanel({required this.room, required this.onLeaveRoom});
+
+  final Room room;
+  final Future<bool> Function() onLeaveRoom;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRoundBased = room.isRoundBasedMode;
+    final message = isRoundBased
+        ? 'ستنضم تلقائياً في الجولة القادمة عند انتهاء الجولة الحالية'
+        : 'ستظهر نتائجك عند انتهاء اللعبة الحالية';
+    final phaseColor = _roomPhaseColor(room.phase);
+    final phaseLabel = _roomPhaseLabel(room.phase);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1C1207), Color(0xFF3B1F08)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.45),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.hourglass_top_rounded,
+                    color: Color(0xFFFACC15), size: 28),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'في انتظار الجولة القادمة',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: phaseColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  phaseLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: phaseColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.5),
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: onLeaveRoom,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.exit_to_app_rounded,
+                    color: Colors.white70, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'مغادرة الغرفة',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SpectatorPanel extends StatelessWidget {
+  const _SpectatorPanel({required this.room, required this.onLeaveRoom});
+
+  final Room room;
+  final Future<bool> Function() onLeaveRoom;
+
+  @override
+  Widget build(BuildContext context) {
+    final phaseLabel = _roomPhaseLabel(room.phase);
+    final phaseColor = _roomPhaseColor(room.phase);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E3A8A), Color(0xFF1E1B4B)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFF38BDF8).withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.visibility_rounded,
+                    color: Color(0xFF38BDF8), size: 28),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'أنت تشاهد الآن',
+                style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: phaseColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: phaseColor.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  phaseLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: phaseColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'يمكنك متابعة اللعبة ومشاهدة النتائج في الوقت الفعلي',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.5),
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: onLeaveRoom,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 13),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.exit_to_app_rounded,
+                    color: Colors.white70, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'مغادرة المشاهدة',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _ControlsPanelBody extends StatelessWidget {
   const _ControlsPanelBody({

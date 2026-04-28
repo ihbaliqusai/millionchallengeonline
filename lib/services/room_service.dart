@@ -5,8 +5,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/room.dart';
 
+class JoinRoomResult {
+  const JoinRoomResult({
+    required this.joinedMidGame,
+    this.seatSourceId,
+  });
+
+  final bool joinedMidGame;
+  final String? seatSourceId;
+}
+
 class RoomService {
   static const Duration roomExpiry = Duration(minutes: 20);
+  static const Duration startedRoomExpiry = Duration(hours: 2);
   static const int _defaultDirectScoreQuestionCount = 15;
 
   RoomService({FirebaseFirestore? firestore})
@@ -21,22 +32,25 @@ class RoomService {
   Stream<List<Room>> watchOpenRooms({String? userId}) {
     _scheduleStaleRoomCleanup();
     return _rooms.snapshots().map((snapshot) {
-      final cutoff = DateTime.now().subtract(roomExpiry);
+      final now = DateTime.now();
+      final cutoff = now.subtract(roomExpiry);
+      final startedCutoff = now.subtract(startedRoomExpiry);
       final rooms = snapshot.docs
           .map(Room.fromSnapshot)
           .where(
             (room) =>
-                // Open lobby rooms (not yet started).
-                (!room.started &&
-                    room.playerCount > 0 &&
-                    !_isExpiredOpenRoom(room, cutoff: cutoff)) ||
-                // In-progress rooms where the current user was disconnected —
-                // kept visible so the player can find and rejoin the game.
-                (userId != null &&
-                    userId.isNotEmpty &&
-                    room.started &&
-                    room.phase != Room.phaseFinished &&
-                    room.players[userId]?.disconnected == true),
+                // Skip rooms with no active human players (bot-only or ghost rooms).
+                room.hasActiveHumanPlayer &&
+                ( // Open lobby rooms (not yet started).
+                    (!room.started &&
+                            room.playerCount > 0 &&
+                            !_isExpiredOpenRoom(room, cutoff: cutoff)) ||
+                        // In-progress rooms — shown to everyone (like poker tables).
+                        // Excludes finished, abandoned (>2 h old), or missing startedAt.
+                        (room.started &&
+                            room.phase != Room.phaseFinished &&
+                            room.startedAt != null &&
+                            room.startedAt!.isAfter(startedCutoff))),
           )
           .toList(growable: false)
         ..sort((a, b) {
@@ -56,12 +70,7 @@ class RoomService {
     _scheduleStaleRoomCleanup();
     return _rooms.doc(roomId).snapshots().map((snapshot) {
       if (!snapshot.exists) return null;
-      final room = Room.fromSnapshot(snapshot);
-      if (_isExpiredOpenRoom(room)) {
-        unawaited(_deleteRoomSilently(room.id));
-        return null;
-      }
-      return room;
+      return Room.fromSnapshot(snapshot);
     });
   }
 
@@ -74,14 +83,32 @@ class RoomService {
     }
 
     _lastPurgeAt = now;
-    final snapshot = await _rooms.get();
+    // Read from local cache only — avoids a server round-trip that would compete
+    // with concurrent writes (e.g. createRoom) on the same Firestore connection.
+    // The stream in watchOpenRooms keeps the cache up-to-date.
+    QuerySnapshot<Map<String, dynamic>> snapshot;
+    try {
+      snapshot = await _rooms.get(const GetOptions(source: Source.cache));
+    } catch (_) {
+      return; // Cache not populated yet — skip this purge cycle.
+    }
     final cutoff = now.subtract(roomExpiry);
+    final startedCutoff = now.subtract(startedRoomExpiry);
+    final toDelete = <String>[];
     for (final doc in snapshot.docs) {
       final room = Room.fromSnapshot(doc);
-      if (_isExpiredOpenRoom(room, cutoff: cutoff)) {
-        await _deleteRoomSilently(doc.id);
+      final isExpired = _isExpiredOpenRoom(
+        room,
+        cutoff: cutoff,
+        startedCutoff: startedCutoff,
+      );
+      final isBotOnly = !room.hasActiveHumanPlayer;
+      if (isExpired || isBotOnly) {
+        toDelete.add(doc.id);
       }
     }
+    // Delete all stale rooms in parallel instead of sequentially.
+    await Future.wait(toDelete.map(_deleteRoomSilently));
   }
 
   Future<String> createRoom({
@@ -90,53 +117,50 @@ class RoomService {
     String mode = Room.modeBattle,
     int roundDurationSeconds = 60,
     int seriesTarget = 2,
-  }) =>
-      _guard(() async {
-        _validateCreateRoomOptions(mode: mode, maxPlayers: maxPlayers);
-        await purgeStaleRooms(force: true);
-        final doc = _rooms.doc();
-        await doc.set(<String, dynamic>{
-          'hostId': hostId,
-          'maxPlayers': maxPlayers,
-          'mode': mode,
-          'phase': Room.phaseLobby,
-          'started': false,
-          'players': <String, dynamic>{
-            hostId: RoomPlayer(
-              score: 0,
-              ready: true,
-              teamId: mode == Room.modeTeamBattle ? Room.teamA : null,
-            ).toMap(),
-          },
-          'createdAt': FieldValue.serverTimestamp(),
-          if (mode == Room.modeBlitz)
-            'roundDurationSeconds': roundDurationSeconds,
-          if (mode == Room.modeSeries) 'seriesTarget': seriesTarget,
-        });
-        return doc.id;
-      });
+  }) async {
+    _validateCreateRoomOptions(mode: mode, maxPlayers: maxPlayers);
+    final doc = _rooms.doc();
+    // Fire-and-forget: offline persistence writes to local cache instantly so
+    // watchRoom() emits the room before the server round-trip completes.
+    // Any server-side failure (e.g. permission-denied) will be surfaced via
+    // the watchRoom stream (room disappears → lobby auto-closes).
+    unawaited(doc.set(<String, dynamic>{
+      'hostId': hostId,
+      'maxPlayers': maxPlayers,
+      'mode': mode,
+      'phase': Room.phaseLobby,
+      'started': false,
+      'players': <String, dynamic>{
+        hostId: RoomPlayer(
+          score: 0,
+          ready: true,
+          teamId: mode == Room.modeTeamBattle ? Room.teamA : null,
+        ).toMap(),
+      },
+      'createdAt': FieldValue.serverTimestamp(),
+      if (mode == Room.modeBlitz) 'roundDurationSeconds': roundDurationSeconds,
+      if (mode == Room.modeSeries) 'seriesTarget': seriesTarget,
+    }).catchError((_) {}));
+    return doc.id;
+  }
 
-  Future<void> joinRoom({
+  Future<JoinRoomResult> joinRoom({
     required String roomId,
     required String userId,
   }) =>
       _guard(() async {
-        await purgeStaleRooms(force: true);
         final ref = _rooms.doc(roomId);
-        await _firestore.runTransaction((transaction) async {
+        return _firestore.runTransaction<JoinRoomResult>((transaction) async {
           final snapshot = await transaction.get(ref);
           if (!snapshot.exists) {
             throw StateError('هذه الغرفة لم تعد موجودة.');
           }
 
           final room = Room.fromSnapshot(snapshot);
-          if (_isExpiredOpenRoom(room)) {
-            transaction.delete(ref);
-            throw StateError(
-              'انتهت صلاحية هذه الغرفة بعد 20 دقيقة من دون بدء.',
-            );
-          }
           if (room.started) {
+            if (room.phase == Room.phaseFinished) {
+              throw StateError('هذه الغرفة انتهت بالفعل.');
+            }
             // Allow a previously disconnected player to reconnect.
             final existingPlayer = room.players[userId];
             if (existingPlayer != null) {
@@ -145,12 +169,41 @@ class RoomService {
                   'players.$userId.disconnected': false,
                 });
               }
-              return; // Already in room (connected or just reconnected).
+              return JoinRoomResult(
+                joinedMidGame: true,
+                seatSourceId: existingPlayer.seatSourceId,
+              );
             }
-            throw StateError('هذه الغرفة بدأت بالفعل.');
+            // Allow joining a playing room that has bot slots — human replaces
+            // the lexicographically first bot and inherits its game state.
+            final botIds = room.playerIds.where(Room.isBotUserId).toList()
+              ..sort();
+            if (botIds.isEmpty) {
+              throw StateError('هذه الغرفة بدأت بالفعل ولا توجد مقاعد متاحة.');
+            }
+            final botId = botIds.first;
+            final botPlayer = room.players[botId]!;
+            transaction.update(ref, <String, dynamic>{
+              'players.$botId': FieldValue.delete(),
+              'players.$userId': RoomPlayer(
+                score: botPlayer.score,
+                ready: true,
+                eliminated: botPlayer.eliminated,
+                lives: botPlayer.lives,
+                teamId: botPlayer.teamId,
+                roundWins: botPlayer.roundWins,
+                answeredCount: botPlayer.answeredCount,
+                completedAt: botPlayer.completedAt,
+                seatSourceId: botId,
+              ).toMap(),
+            });
+            return JoinRoomResult(
+              joinedMidGame: true,
+              seatSourceId: botId,
+            );
           }
           if (room.containsPlayer(userId)) {
-            return;
+            return const JoinRoomResult(joinedMidGame: false);
           }
           if (room.isFull) {
             throw StateError('هذه الغرفة ممتلئة بالفعل.');
@@ -208,6 +261,7 @@ class RoomService {
           }
 
           transaction.update(ref, updates);
+          return const JoinRoomResult(joinedMidGame: false);
         });
       });
 
@@ -228,7 +282,6 @@ class RoomService {
     List<int>? eliminationQuestionIds,
   }) =>
       _guard(() async {
-        await purgeStaleRooms(force: true);
         final ref = _rooms.doc(roomId);
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
@@ -237,12 +290,6 @@ class RoomService {
           }
 
           final room = Room.fromSnapshot(snapshot);
-          if (_isExpiredOpenRoom(room)) {
-            transaction.delete(ref);
-            throw StateError(
-              'انتهت صلاحية هذه الغرفة بعد 20 دقيقة من دون بدء.',
-            );
-          }
           if (room.hostId != userId) {
             throw StateError('فقط المضيف يمكنه بدء الغرفة.');
           }
@@ -1311,6 +1358,19 @@ class RoomService {
           // If the game is active, mark the player as disconnected instead of
           // removing them — they keep their slot and can rejoin while the game runs.
           if (room.started && room.phase != Room.phaseFinished) {
+            // Check whether any other active human player remains.
+            // If not, clean up the room so it doesn't linger as a bot-only ghost.
+            final anyActiveHumanRemaining = room.players.entries.any(
+              (entry) =>
+                  !Room.isBotUserId(entry.key) &&
+                  entry.key != userId &&
+                  !entry.value.disconnected,
+            );
+            if (!anyActiveHumanRemaining) {
+              transaction.delete(ref);
+              return;
+            }
+
             final player = room.players[userId]!;
             final updates = <String, dynamic>{
               'players.$userId.disconnected': true,
@@ -1322,9 +1382,10 @@ class RoomService {
                   .where((id) => !Room.isBotUserId(id) && id != userId)
                   .toList()
                 ..sort();
-              final otherIds =
-                  room.players.keys.where((id) => id != userId).toList()
-                    ..sort();
+              final otherIds = room.players.keys
+                  .where((id) => id != userId)
+                  .toList()
+                ..sort();
               final nextHostId = candidates.isNotEmpty
                   ? candidates.first
                   : otherIds.isNotEmpty
@@ -1543,8 +1604,18 @@ class RoomService {
   bool _isExpiredOpenRoom(
     Room room, {
     DateTime? cutoff,
+    DateTime? startedCutoff,
   }) {
-    if (room.started) return false;
+    if (room.started) {
+      // Always purge finished rooms.
+      if (room.phase == Room.phaseFinished) return true;
+      // Purge abandoned/stuck started rooms after 2 hours.
+      final startedAt = room.startedAt;
+      if (startedAt == null) return false;
+      final effectiveCutoff =
+          startedCutoff ?? DateTime.now().subtract(startedRoomExpiry);
+      return !startedAt.isAfter(effectiveCutoff);
+    }
     final createdAt = room.createdAt;
     if (createdAt == null) return false;
     final effectiveCutoff = cutoff ?? DateTime.now().subtract(roomExpiry);

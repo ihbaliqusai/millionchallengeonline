@@ -17,11 +17,21 @@ class NativeBridgeService {
     int seriesTarget = 2,
     int roundDurationSeconds = 30,
     String myTeam = '',
+    int roomRoundNumber = 1,
+    bool resumeExistingGame = false,
+    String seatSourceId = '',
+    int initialScore = 0,
+    int initialAnsweredCount = 0,
+    int initialRoundWins = 0,
+    int initialLivesRemaining = 0,
+    bool initiallyEliminated = false,
   }) async {
     final safeOpponents = opponents
         .map(
           (opponent) => <String, dynamic>{
             'id': (opponent['id'] ?? '').toString(),
+            'seatId': (opponent['seatId'] ?? opponent['id'] ?? '').toString(),
+            'userId': (opponent['userId'] ?? opponent['id'] ?? '').toString(),
             'name': (opponent['name'] ?? '').toString(),
             'photo': (opponent['photo'] ?? '').toString(),
             'level': (opponent['level'] as num?)?.toInt() ?? 1,
@@ -29,6 +39,10 @@ class NativeBridgeService {
             'score': (opponent['score'] as num?)?.toInt() ?? 0,
             'bot': opponent['bot'] == true,
             'teamId': (opponent['teamId'] ?? '').toString(),
+            'sets': (opponent['sets'] as num?)?.toInt() ?? 0,
+            'livesRemaining':
+                (opponent['livesRemaining'] as num?)?.toInt() ?? 0,
+            'eliminated': opponent['eliminated'] == true,
           },
         )
         .toList(growable: false);
@@ -41,6 +55,44 @@ class NativeBridgeService {
       'seriesTarget': seriesTarget,
       'roundDurationSeconds': roundDurationSeconds,
       'myTeam': myTeam,
+      'roomRoundNumber': roomRoundNumber,
+      'resumeExistingGame': resumeExistingGame,
+      'seatSourceId': seatSourceId,
+      'initialScore': initialScore,
+      'initialAnsweredCount': initialAnsweredCount,
+      'initialRoundWins': initialRoundWins,
+      'initialLivesRemaining': initialLivesRemaining,
+      'initiallyEliminated': initiallyEliminated,
+    });
+  }
+
+  Future<void> announceRoomSeatClaim({
+    required String roomId,
+    required String matchMode,
+    required int roomRoundNumber,
+    required String seatId,
+    required String userId,
+    required String username,
+    required String photoUrl,
+    required String teamId,
+    int initialScore = 0,
+    int initialRoundWins = 0,
+    int initialLivesRemaining = 0,
+    bool initiallyEliminated = false,
+  }) async {
+    await _channel.invokeMethod('announceRoomSeatClaim', <String, dynamic>{
+      'roomId': roomId,
+      'matchMode': matchMode,
+      'roomRoundNumber': roomRoundNumber,
+      'seatId': seatId,
+      'userId': userId,
+      'username': username,
+      'photoUrl': photoUrl,
+      'teamId': teamId,
+      'initialScore': initialScore,
+      'initialRoundWins': initialRoundWins,
+      'initialLivesRemaining': initialLivesRemaining,
+      'initiallyEliminated': initiallyEliminated,
     });
   }
 

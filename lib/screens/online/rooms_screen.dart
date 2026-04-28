@@ -50,7 +50,10 @@ class _RoomsScreenState extends State<RoomsScreen>
 
   Future<void> _createRoom() async {
     final userId = context.read<AppState>().user?.uid;
-    if (userId == null) return;
+    if (userId == null) {
+      _showError(StateError('يجب تسجيل الدخول أولاً لإنشاء غرفة.'));
+      return;
+    }
     setState(() => _creatingRoom = true);
     try {
       final roomId = await context.read<RoomService>().createRoom(
@@ -74,20 +77,23 @@ class _RoomsScreenState extends State<RoomsScreen>
     }
   }
 
-  Future<void> _joinRoom(String roomId) async {
+  Future<void> _joinRoom(String roomId, {bool isJoiningMidGame = false}) async {
     final trimmedId = roomId.trim();
     final userId = context.read<AppState>().user?.uid;
     if (trimmedId.isEmpty || userId == null) return;
     setState(() => _joiningRoom = true);
     try {
-      await context.read<RoomService>().joinRoom(
+      final joinResult = await context.read<RoomService>().joinRoom(
             roomId: trimmedId,
             userId: userId,
           );
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => RoomLobbyScreen(roomId: trimmedId),
+          builder: (_) => RoomLobbyScreen(
+            roomId: trimmedId,
+            isJoiningMidGame: isJoiningMidGame || joinResult.joinedMidGame,
+          ),
         ),
       );
     } catch (e) {
@@ -97,11 +103,26 @@ class _RoomsScreenState extends State<RoomsScreen>
     }
   }
 
+  Future<void> _spectateRoom(String roomId) async {
+    setState(() => _joiningRoom = true);
+    try {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => RoomLobbyScreen(roomId: roomId, isSpectator: true),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _joiningRoom = false);
+    }
+  }
+
   void _showError(Object error) {
     if (!mounted) return;
+    final message = error is StateError ? error.message : error.toString();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(error.toString()),
+        content: Text(message),
         backgroundColor: const Color(0xFF7F1D1D),
         behavior: SnackBarBehavior.floating,
       ),
@@ -168,6 +189,7 @@ class _RoomsScreenState extends State<RoomsScreen>
                           _roomCodeController.text = id;
                           _joinRoom(id);
                         },
+                        onSpectateRoom: _spectateRoom,
                         joiningRoomId:
                             _joiningRoom ? _roomCodeController.text.trim() : '',
                       );
@@ -691,12 +713,14 @@ class _LiveRoomsPanel extends StatelessWidget {
     required this.pulseCtrl,
     required this.userId,
     required this.onJoinRoom,
+    required this.onSpectateRoom,
     required this.joiningRoomId,
   });
 
   final AnimationController pulseCtrl;
   final String userId;
   final ValueChanged<String> onJoinRoom;
+  final ValueChanged<String> onSpectateRoom;
   final String joiningRoomId;
 
   @override
@@ -809,16 +833,34 @@ class _LiveRoomsPanel extends StatelessWidget {
                       itemBuilder: (_, i) {
                         final room = rooms[i];
                         final host = profiles[room.hostId];
+                        final alreadyInRoom = userId.isNotEmpty &&
+                            room.containsPlayer(userId) &&
+                            room.players[userId]?.disconnected != true;
                         final canRejoin = room.started &&
                             userId.isNotEmpty &&
                             room.players[userId]?.disconnected == true;
+                        final hasBotSlot = room.started &&
+                            room.phase != Room.phaseFinished &&
+                            !alreadyInRoom &&
+                            !canRejoin &&
+                            room.playerIds.any(Room.isBotUserId);
+                        final canJoinLobby =
+                            !room.started && !room.isFull && !alreadyInRoom;
+                        final canSpectate = room.started &&
+                            room.phase != Room.phaseFinished &&
+                            !alreadyInRoom &&
+                            !canRejoin &&
+                            !hasBotSlot;
                         return _RoomCard(
                           room: room,
                           hostName: host?.username ?? _short(room.hostId),
                           isJoining: joiningRoomId == room.id,
                           canRejoin: canRejoin,
-                          onJoin: (canRejoin || !room.isFull)
+                          onJoin: (canRejoin || canJoinLobby || hasBotSlot)
                               ? () => onJoinRoom(room.id)
+                              : null,
+                          onSpectate: canSpectate
+                              ? () => onSpectateRoom(room.id)
                               : null,
                         );
                       },
@@ -846,6 +888,7 @@ class _RoomCard extends StatelessWidget {
     required this.isJoining,
     required this.canRejoin,
     required this.onJoin,
+    this.onSpectate,
   });
 
   final Room room;
@@ -853,10 +896,15 @@ class _RoomCard extends StatelessWidget {
   final bool isJoining;
   final bool canRejoin;
   final VoidCallback? onJoin;
+  final VoidCallback? onSpectate;
 
   @override
   Widget build(BuildContext context) {
     final isFull = room.isFull;
+    final isPlaying = room.started;
+    final canJoin = onJoin != null;
+    final hasBotSlot =
+        isPlaying && !canRejoin && room.playerIds.any(Room.isBotUserId);
     final modeLabel = switch (room.mode) {
       Room.modeElimination => 'إقصاء',
       Room.modeSurvival => 'نجاة',
@@ -879,9 +927,11 @@ class _RoomCard extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isFull
-              ? Colors.white.withValues(alpha: 0.07)
-              : const Color(0xFF7C3AED).withValues(alpha: 0.4),
+          color: isPlaying && !canRejoin
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+              : isFull
+                  ? Colors.white.withValues(alpha: 0.07)
+                  : const Color(0xFF7C3AED).withValues(alpha: 0.4),
         ),
       ),
       child: Row(
@@ -892,9 +942,11 @@ class _RoomCard extends StatelessWidget {
             height: 46,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: isFull
-                    ? [const Color(0xFF374151), const Color(0xFF1F2937)]
-                    : [const Color(0xFF7C3AED), const Color(0xFF2563EB)],
+                colors: isPlaying && !canRejoin
+                    ? [const Color(0xFFF97316), const Color(0xFFEF4444)]
+                    : isFull
+                        ? [const Color(0xFF374151), const Color(0xFF1F2937)]
+                        : [const Color(0xFF7C3AED), const Color(0xFF2563EB)],
               ),
               borderRadius: BorderRadius.circular(13),
             ),
@@ -1010,49 +1062,97 @@ class _RoomCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          // Join / Rejoin button
-          GestureDetector(
-            onTap: onJoin,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                gradient: (canRejoin || !isFull)
-                    ? LinearGradient(
-                        colors: canRejoin
-                            ? const [Color(0xFF10B981), Color(0xFF059669)]
-                            : const [Color(0xFFF8D34C), Color(0xFFF59E0B)],
-                      )
-                    : null,
-                color: (canRejoin || !isFull)
-                    ? null
-                    : Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: canRejoin
-                      ? const Color(0xFF6EE7B7)
-                      : isFull
-                          ? Colors.white.withValues(alpha: 0.1)
-                          : const Color(0xFFFFF3A3),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Primary action: join / rejoin / replace-bot / disabled
+              GestureDetector(
+                onTap: onJoin,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: canJoin
+                        ? LinearGradient(
+                            colors: canRejoin
+                                ? const [Color(0xFF10B981), Color(0xFF059669)]
+                                : hasBotSlot
+                                    ? const [
+                                        Color(0xFF7C3AED),
+                                        Color(0xFF2563EB)
+                                      ]
+                                    : const [
+                                        Color(0xFFF8D34C),
+                                        Color(0xFFF59E0B)
+                                      ],
+                          )
+                        : null,
+                    color:
+                        canJoin ? null : Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: canRejoin
+                          ? const Color(0xFF6EE7B7)
+                          : hasBotSlot
+                              ? const Color(0xFFA78BFA)
+                              : isPlaying
+                                  ? const Color(0xFFF59E0B)
+                                      .withValues(alpha: 0.3)
+                                  : isFull
+                                      ? Colors.white.withValues(alpha: 0.1)
+                                      : const Color(0xFFFFF3A3),
+                    ),
+                  ),
+                  child: Text(
+                    isJoining
+                        ? 'جارٍ...'
+                        : canRejoin
+                            ? 'العودة'
+                            : hasBotSlot
+                                ? 'انضمام'
+                                : isPlaying
+                                    ? 'بدأت'
+                                    : isFull
+                                        ? 'ممتلئة'
+                                        : 'انضمام',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: canJoin
+                          ? const Color(0xFF1F2937)
+                          : Colors.white.withValues(alpha: 0.4),
+                    ),
+                  ),
                 ),
               ),
-              child: Text(
-                isJoining
-                    ? 'جارٍ...'
-                    : canRejoin
-                        ? 'العودة'
-                        : isFull
-                            ? 'ممتلئة'
-                            : 'انضمام',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: (canRejoin || !isFull)
-                      ? const Color(0xFF1F2937)
-                      : Colors.white.withValues(alpha: 0.4),
+              // Secondary: spectate button (only when can't join)
+              if (onSpectate != null) ...[
+                const SizedBox(height: 5),
+                GestureDetector(
+                  onTap: onSpectate,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color:
+                              const Color(0xFF38BDF8).withValues(alpha: 0.4)),
+                    ),
+                    child: const Text(
+                      'مشاهدة',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF38BDF8),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              ],
+            ],
           ),
         ],
       ),
@@ -1127,13 +1227,9 @@ class _GradientButtonState extends State<_GradientButton> {
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
     return GestureDetector(
+      onTap: enabled ? widget.onTap : null,
       onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
-      onTapUp: enabled
-          ? (_) {
-              setState(() => _pressed = false);
-              widget.onTap!();
-            }
-          : null,
+      onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
         scale: _pressed ? 0.97 : 1.0,

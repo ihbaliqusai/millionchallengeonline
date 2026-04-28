@@ -572,6 +572,63 @@ void main() {
       expect(room.winnerTeamId, isNull);
     });
 
+    test('mid-game join stores the replaced bot seat id for resume', () async {
+      final roomId = await service.createRoom(
+        hostId: 'host',
+        maxPlayers: 2,
+        mode: Room.modeBattle,
+      );
+      await service.startRoom(roomId: roomId, userId: 'host');
+
+      var room = await _loadRoom(firestore, roomId);
+      final botEntry = room.players.entries
+          .firstWhere((entry) => Room.isBotUserId(entry.key));
+
+      await firestore.collection('rooms').doc(roomId).update({
+        'players.${botEntry.key}.score': 7,
+        'players.${botEntry.key}.answeredCount': 4,
+      });
+
+      final joinResult = await service.joinRoom(roomId: roomId, userId: 'p2');
+
+      room = await _loadRoom(firestore, roomId);
+      final joinedPlayer = room.players['p2']!;
+      expect(joinResult.joinedMidGame, isTrue);
+      expect(joinResult.seatSourceId, botEntry.key);
+      expect(joinedPlayer.seatSourceId, botEntry.key);
+      expect(joinedPlayer.score, 7);
+      expect(joinedPlayer.answeredCount, 4);
+      expect(room.players.containsKey(botEntry.key), isFalse);
+    });
+
+    test('purge removes rooms with no active human players', () async {
+      await firestore.collection('rooms').doc('bots_only').set({
+        'hostId': 'host',
+        'maxPlayers': 2,
+        'mode': Room.modeBattle,
+        'phase': Room.phasePlaying,
+        'started': true,
+        'startedAt': Timestamp.fromDate(DateTime.now()),
+        'players': {
+          'bot_room_bots_only_1': {
+            'score': 0,
+            'ready': false,
+          },
+          'host': {
+            'score': 0,
+            'ready': false,
+            'disconnected': true,
+          },
+        },
+      });
+
+      await service.purgeStaleRooms(force: true);
+
+      final snapshot =
+          await firestore.collection('rooms').doc('bots_only').get();
+      expect(snapshot.exists, isFalse);
+    });
+
     test('blitz native result is persisted after the timer expires', () async {
       final roomId = await service.createRoom(
         hostId: 'host',

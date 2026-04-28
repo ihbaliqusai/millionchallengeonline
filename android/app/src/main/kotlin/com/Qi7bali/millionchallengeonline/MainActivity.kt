@@ -86,10 +86,35 @@ class MainActivity : FlutterActivity() {
                             putExtra("seriesTarget", call.argument<Int>("seriesTarget") ?: 2)
                             putExtra("roundDurationSeconds", call.argument<Int>("roundDurationSeconds") ?: 30)
                             putExtra("myTeam", call.argument<String>("myTeam") ?: "")
+                            putExtra("roomRoundNumber", call.argument<Int>("roomRoundNumber") ?: 1)
+                            putExtra("resumeExistingGame", call.argument<Boolean>("resumeExistingGame") ?: false)
+                            putExtra("seatSourceId", call.argument<String>("seatSourceId") ?: "")
+                            putExtra("initialScore", call.argument<Int>("initialScore") ?: 0)
+                            putExtra("initialAnsweredCount", call.argument<Int>("initialAnsweredCount") ?: 0)
+                            putExtra("initialRoundWins", call.argument<Int>("initialRoundWins") ?: 0)
+                            putExtra("initialLivesRemaining", call.argument<Int>("initialLivesRemaining") ?: 0)
+                            putExtra("initiallyEliminated", call.argument<Boolean>("initiallyEliminated") ?: false)
                         }
                         startActivity(intent)
                         result.success(true)
                         finish()
+                    }
+                    "announceRoomSeatClaim" -> {
+                        Data.announceRoomSeatClaim(
+                            call.argument<String>("roomId") ?: "",
+                            call.argument<String>("matchMode") ?: "battle",
+                            call.argument<Int>("roomRoundNumber") ?: 1,
+                            call.argument<String>("seatId") ?: "",
+                            call.argument<String>("userId") ?: "",
+                            call.argument<String>("username") ?: "لاعب",
+                            call.argument<String>("photoUrl") ?: "",
+                            call.argument<String>("teamId") ?: "",
+                            call.argument<Int>("initialScore") ?: 0,
+                            call.argument<Int>("initialRoundWins") ?: 0,
+                            call.argument<Int>("initialLivesRemaining") ?: 0,
+                            call.argument<Boolean>("initiallyEliminated") ?: false
+                        )
+                        result.success(true)
                     }
                     "consumePendingRoomMatchResult" -> {
                         result.success(AppPrefs.consumePendingRoomMatchResult(this))

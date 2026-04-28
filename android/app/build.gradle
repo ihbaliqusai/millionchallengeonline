@@ -28,7 +28,7 @@ android {
 
     defaultConfig {
         applicationId 'net.androidgaming.millionaire2024'
-        minSdkVersion 23
+        minSdkVersion flutter.minSdkVersion
         targetSdkVersion 35
         versionCode flutter.versionCode
         versionName flutter.versionName
