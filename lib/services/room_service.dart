@@ -2,8 +2,21 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/room.dart';
+
+// ── Debug logging ─────────────────────────────────────────────────────────────
+
+void _log(String event, {Map<String, Object?> data = const {}}) {
+  if (!kDebugMode) return;
+  final parts = StringBuffer('[RoomService] $event');
+  if (data.isNotEmpty) {
+    parts.write(' | ');
+    parts.write(data.entries.map((e) => '${e.key}=${e.value}').join(', '));
+  }
+  debugPrint(parts.toString());
+}
 
 class JoinRoomResult {
   const JoinRoomResult({
@@ -39,9 +52,11 @@ class RoomService {
           .map(Room.fromSnapshot)
           .where(
             (room) =>
+                // Private rooms never appear in the public list.
+                !room.isPrivate &&
                 // Skip rooms with no active human players (bot-only or ghost rooms).
                 room.hasActiveHumanPlayer &&
-                ( // Open lobby rooms (not yet started).
+                ( // Open lobby rooms: waiting or full but not yet started.
                     (!room.started &&
                             room.playerCount > 0 &&
                             !_isExpiredOpenRoom(room, cutoff: cutoff)) ||
@@ -117,9 +132,18 @@ class RoomService {
     String mode = Room.modeBattle,
     int roundDurationSeconds = 60,
     int seriesTarget = 2,
+    bool isPrivate = false,
+    String? roomName,
   }) async {
     _validateCreateRoomOptions(mode: mode, maxPlayers: maxPlayers);
     final doc = _rooms.doc();
+    _log('room_created', data: {
+      'roomId': doc.id,
+      'hostId': hostId,
+      'mode': mode,
+      'maxPlayers': maxPlayers,
+      'isPrivate': isPrivate,
+    });
     // Fire-and-forget: offline persistence writes to local cache instantly so
     // watchRoom() emits the room before the server round-trip completes.
     // Any server-side failure (e.g. permission-denied) will be surfaced via
@@ -138,6 +162,9 @@ class RoomService {
         ).toMap(),
       },
       'createdAt': FieldValue.serverTimestamp(),
+      if (isPrivate) 'isPrivate': true,
+      if (roomName != null && roomName.trim().isNotEmpty)
+        'roomName': roomName.trim(),
       if (mode == Room.modeBlitz) 'roundDurationSeconds': roundDurationSeconds,
       if (mode == Room.modeSeries) 'seriesTarget': seriesTarget,
     }).catchError((_) {}));
@@ -149,24 +176,47 @@ class RoomService {
     required String userId,
   }) =>
       _guard(() async {
+        _log('player_join_requested', data: {'roomId': roomId, 'userId': userId});
         final ref = _rooms.doc(roomId);
         return _firestore.runTransaction<JoinRoomResult>((transaction) async {
           final snapshot = await transaction.get(ref);
           if (!snapshot.exists) {
+            _log('player_join_failed', data: {
+              'roomId': roomId,
+              'userId': userId,
+              'reason': 'room_not_found',
+            });
             throw StateError('هذه الغرفة لم تعد موجودة.');
           }
 
           final room = Room.fromSnapshot(snapshot);
+
           if (room.started) {
             if (room.phase == Room.phaseFinished) {
+              _log('player_join_failed', data: {
+                'roomId': roomId,
+                'userId': userId,
+                'reason': 'room_finished',
+              });
               throw StateError('هذه الغرفة انتهت بالفعل.');
             }
+
             // Allow a previously disconnected player to reconnect.
             final existingPlayer = room.players[userId];
             if (existingPlayer != null) {
               if (existingPlayer.disconnected) {
+                _log('player_reconnected', data: {
+                  'roomId': roomId,
+                  'userId': userId,
+                  'phase': room.phase,
+                });
                 transaction.update(ref, <String, dynamic>{
                   'players.$userId.disconnected': false,
+                });
+              } else {
+                _log('player_join_already_in_room', data: {
+                  'roomId': roomId,
+                  'userId': userId,
                 });
               }
               return JoinRoomResult(
@@ -174,15 +224,52 @@ class RoomService {
                 seatSourceId: existingPlayer.seatSourceId,
               );
             }
+
             // Allow joining a playing room that has bot slots — human replaces
-            // the lexicographically first bot and inherits its game state.
+            // the lexicographically first bot and inherits its accumulated state.
             final botIds = room.playerIds.where(Room.isBotUserId).toList()
               ..sort();
             if (botIds.isEmpty) {
+              _log('player_join_failed', data: {
+                'roomId': roomId,
+                'userId': userId,
+                'reason': 'no_bot_seats_available',
+                'phase': room.phase,
+              });
               throw StateError('هذه الغرفة بدأت بالفعل ولا توجد مقاعد متاحة.');
             }
+
             final botId = botIds.first;
             final botPlayer = room.players[botId]!;
+            _log('bot_replaced_by_real_player', data: {
+              'roomId': roomId,
+              'userId': userId,
+              'botId': botId,
+              'mode': room.mode,
+              'phase': room.phase,
+              'currentQuestionIndex': room.currentQuestionIndex,
+              'botHadCurrentRoundAnswer': botPlayer.currentAnswer != null,
+              'botCompletedAt': botPlayer.completedAt?.toIso8601String(),
+            });
+
+            // In round-based modes (elimination/survival), if the bot already
+            // answered the current question/round, clear that per-round state so
+            // the joining real player can answer it themselves. Accumulated state
+            // across rounds (score, lives, roundWins, eliminated) is preserved.
+            final isRoundBased = room.mode == Room.modeElimination ||
+                room.mode == Room.modeSurvival;
+            final botAlreadyAnsweredCurrentRound = isRoundBased &&
+                (botPlayer.completedAt != null ||
+                    botPlayer.currentAnswer != null ||
+                    botPlayer.answeredCount > 0);
+
+            _log('bot_disabled_after_replacement', data: {
+              'roomId': roomId,
+              'botId': botId,
+              'isRoundBased': isRoundBased,
+              'clearingRoundState': botAlreadyAnsweredCurrentRound,
+            });
+
             transaction.update(ref, <String, dynamic>{
               'players.$botId': FieldValue.delete(),
               'players.$userId': RoomPlayer(
@@ -192,20 +279,50 @@ class RoomService {
                 lives: botPlayer.lives,
                 teamId: botPlayer.teamId,
                 roundWins: botPlayer.roundWins,
-                answeredCount: botPlayer.answeredCount,
-                completedAt: botPlayer.completedAt,
+                // Clear per-round answer tracking so the player can answer the
+                // current question. Accumulated score/lives carry over from the bot.
+                answeredCount:
+                    botAlreadyAnsweredCurrentRound ? 0 : botPlayer.answeredCount,
+                completedAt:
+                    botAlreadyAnsweredCurrentRound ? null : botPlayer.completedAt,
                 seatSourceId: botId,
+                // currentAnswer intentionally not set — new player hasn't answered.
               ).toMap(),
             });
+
+            _log('player_joined_success', data: {
+              'roomId': roomId,
+              'userId': userId,
+              'replacedBotId': botId,
+              'joinedMidGame': true,
+              'playerCount': room.playerCount,
+              'mode': room.mode,
+              'currentQuestionIndex': room.currentQuestionIndex,
+            });
+
             return JoinRoomResult(
               joinedMidGame: true,
               seatSourceId: botId,
             );
           }
+
+          // ── Lobby join ────────────────────────────────────────────────────
+
           if (room.containsPlayer(userId)) {
+            _log('player_join_already_in_lobby', data: {
+              'roomId': roomId,
+              'userId': userId,
+            });
             return const JoinRoomResult(joinedMidGame: false);
           }
           if (room.isFull) {
+            _log('player_join_failed', data: {
+              'roomId': roomId,
+              'userId': userId,
+              'reason': 'room_full',
+              'playerCount': room.playerCount,
+              'maxPlayers': room.maxPlayers,
+            });
             throw StateError('هذه الغرفة ممتلئة بالفعل.');
           }
 
@@ -257,10 +374,25 @@ class RoomService {
                     FieldValue.delete();
                 updates['players.$playerId.score'] = 0;
               }
+              _log('game_started_success', data: {
+                'roomId': roomId,
+                'trigger': 'room_full_on_join',
+                'mode': room.mode,
+                'playerCount': nextPlayerCount,
+              });
             }
           }
 
           transaction.update(ref, updates);
+
+          _log('player_joined_success', data: {
+            'roomId': roomId,
+            'userId': userId,
+            'joinedMidGame': false,
+            'playerCount': nextPlayerCount,
+            'mode': room.mode,
+          });
+
           return const JoinRoomResult(joinedMidGame: false);
         });
       });
@@ -282,6 +414,24 @@ class RoomService {
     List<int>? eliminationQuestionIds,
   }) =>
       _guard(() async {
+        _log('game_start_requested', data: {
+          'roomId': roomId,
+          'userId': userId,
+          'eliminationQuestionIdsProvided': eliminationQuestionIds != null,
+          'questionCount': eliminationQuestionIds?.length ?? 0,
+        });
+
+        // Validate question IDs for modes that require them.
+        if (eliminationQuestionIds != null &&
+            eliminationQuestionIds.isEmpty) {
+          _log('game_start_failed_missing_questions', data: {
+            'roomId': roomId,
+            'reason': 'eliminationQuestionIds_empty',
+          });
+          throw StateError(
+              'فشل تحميل الأسئلة. لا يمكن بدء اللعبة بدون أسئلة.');
+        }
+
         final ref = _rooms.doc(roomId);
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
@@ -297,6 +447,20 @@ class RoomService {
             return;
           }
 
+          // Guard: round-based modes need question IDs before starting.
+          final needsQuestions = room.mode == Room.modeElimination ||
+              room.mode == Room.modeSurvival;
+          if (needsQuestions && (eliminationQuestionIds == null ||
+              eliminationQuestionIds.isEmpty)) {
+            _log('game_start_failed_missing_questions', data: {
+              'roomId': roomId,
+              'mode': room.mode,
+              'reason': 'no_question_ids_for_round_based_mode',
+            });
+            throw StateError(
+                'يجب تحميل الأسئلة أولاً قبل بدء هذا الوضع.');
+          }
+
           final updates = <String, dynamic>{
             'started': true,
             'startedAt': FieldValue.serverTimestamp(),
@@ -309,6 +473,11 @@ class RoomService {
             updates['questionIds'] = eliminationQuestionIds;
             updates['currentQuestionIndex'] = 0;
             updates['questionStartedAt'] = FieldValue.delete();
+            _log('questions_loaded_success', data: {
+              'roomId': roomId,
+              'questionCount': eliminationQuestionIds.length,
+              'mode': room.mode,
+            });
           }
 
           final existingPlayerIds = <String>[...room.playerIds];
@@ -395,6 +564,16 @@ class RoomService {
               updates['players.$playerId.score'] = 0;
             }
           }
+
+          _log('game_started_success', data: {
+            'roomId': roomId,
+            'mode': room.mode,
+            'playerCount': room.playerCount,
+            'maxPlayers': room.maxPlayers,
+            'phase': updates['phase'] as String? ?? room.phase,
+            'questionCount':
+                (updates['questionIds'] as List?)?.length ?? 0,
+          });
 
           transaction.update(ref, updates);
         });
@@ -617,6 +796,13 @@ class RoomService {
     required int answeredCount,
   }) =>
       _guard(() async {
+        _log('answer_submitted', data: {
+          'roomId': roomId,
+          'userId': userId,
+          'score': score,
+          'answeredCount': answeredCount,
+          'type': 'final_score',
+        });
         final ref = _rooms.doc(roomId);
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
@@ -958,6 +1144,14 @@ class RoomService {
             updates['players.$userId.eliminated'] = true;
           }
 
+          _log('answer_submitted', data: {
+            'roomId': roomId,
+            'userId': userId,
+            'mode': room.mode,
+            'isCorrect': isCorrect,
+            'currentQuestionIndex': room.currentQuestionIndex,
+          });
+
           transaction.update(ref, updates);
         });
       });
@@ -988,6 +1182,14 @@ class RoomService {
           final player = room.players[userId]!;
           if (!_isActiveSurvivalPlayer(player)) return;
           if (_hasSubmittedRound(player)) return;
+
+          _log('answer_submitted', data: {
+            'roomId': roomId,
+            'userId': userId,
+            'mode': room.mode,
+            'isCorrect': isCorrect,
+            'roundNumber': room.roundNumber,
+          });
 
           final updates = <String, dynamic>{};
           final playersAfter = Map<String, RoomPlayer>.from(room.players);
@@ -1259,6 +1461,15 @@ class RoomService {
           if (room.currentQuestionIndex != fromIndex) return;
           if (room.phase != Room.phasePlayingRound) return;
 
+          _log('next_question_triggered', data: {
+            'roomId': roomId,
+            'fromIndex': fromIndex,
+            'totalQuestions': totalQuestions,
+            'activePlayers': room.players.values
+                .where((p) => !p.eliminated)
+                .length,
+          });
+
           final updates = <String, dynamic>{};
 
           // Eliminate players who didn't answer in time
@@ -1347,6 +1558,7 @@ class RoomService {
     required String userId,
   }) =>
       _guard(() async {
+        _log('player_left', data: {'roomId': roomId, 'userId': userId});
         final ref = _rooms.doc(roomId);
         await _firestore.runTransaction((transaction) async {
           final snapshot = await transaction.get(ref);
@@ -1367,6 +1579,10 @@ class RoomService {
                   !entry.value.disconnected,
             );
             if (!anyActiveHumanRemaining) {
+              _log('room_closed', data: {
+                'roomId': roomId,
+                'reason': 'last_human_left_during_game',
+              });
               transaction.delete(ref);
               return;
             }
@@ -1393,11 +1609,17 @@ class RoomService {
                       : userId;
               if (nextHostId != userId) {
                 updates['hostId'] = nextHostId;
+                _log('host_reassigned', data: {
+                  'roomId': roomId,
+                  'oldHostId': userId,
+                  'newHostId': nextHostId,
+                });
               }
             }
 
             // If the player hasn't submitted yet, forfeit their turn so the
             // room can finalize without waiting for a disconnected client.
+            // This also corrects all_players_answered after the disconnect.
             if (player.completedAt == null) {
               updates['players.$userId.completedAt'] =
                   FieldValue.serverTimestamp();
@@ -1405,6 +1627,19 @@ class RoomService {
                   room.mode == Room.modeSurvival) {
                 updates['players.$userId.eliminated'] = true;
               }
+              _log('player_disconnected', data: {
+                'roomId': roomId,
+                'userId': userId,
+                'forfeitedTurn': true,
+                'mode': room.mode,
+                'phase': room.phase,
+              });
+            } else {
+              _log('player_disconnected', data: {
+                'roomId': roomId,
+                'userId': userId,
+                'forfeitedTurn': false,
+              });
             }
 
             transaction.update(ref, updates);
@@ -1416,6 +1651,10 @@ class RoomService {
             ..remove(userId);
 
           if (remainingPlayers.isEmpty) {
+            _log('room_closed', data: {
+              'roomId': roomId,
+              'reason': 'all_players_left_lobby',
+            });
             transaction.delete(ref);
             return;
           }
@@ -1432,6 +1671,11 @@ class RoomService {
             nextHostId = candidates.isNotEmpty
                 ? candidates.first
                 : (remainingPlayers.keys.toList()..sort()).first;
+            _log('host_reassigned', data: {
+              'roomId': roomId,
+              'oldHostId': userId,
+              'newHostId': nextHostId,
+            });
           }
 
           transaction.update(ref, <String, dynamic>{
@@ -1878,6 +2122,19 @@ class RoomService {
     required Map<String, dynamic> updates,
     required int totalQuestions,
   }) {
+    final humanPlayers = players.entries
+        .where((e) => !Room.isBotUserId(e.key))
+        .toList();
+    final completedCount =
+        humanPlayers.where((e) => e.value.completedAt != null).length;
+    _log('all_players_answered_checked', data: {
+      'roomId': room.id,
+      'mode': room.mode,
+      'humanPlayerCount': humanPlayers.length,
+      'completedCount': completedCount,
+      'allCompleted': completedCount == humanPlayers.length,
+    });
+
     if (!_allHumanPlayersCompleted(players)) {
       return;
     }
@@ -1894,6 +2151,11 @@ class RoomService {
     }
 
     updates['phase'] = Room.phaseFinished;
+    _log('game_ended', data: {
+      'roomId': room.id,
+      'mode': room.mode,
+      'trigger': 'direct_score_all_completed',
+    });
 
     if (room.mode == Room.modeTeamBattle) {
       final scoreA = players.values

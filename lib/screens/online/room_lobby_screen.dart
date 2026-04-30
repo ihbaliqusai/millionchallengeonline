@@ -365,6 +365,10 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       initialRoundWins: currentPlayer?.roundWins ?? 0,
       initialLivesRemaining: currentPlayer?.lives ?? 0,
       initiallyEliminated: currentPlayer?.eliminated ?? false,
+      // Pass question state so the native game can resume at the correct question
+      // when a player joins mid-game or a new round begins in round-based modes.
+      questionIds: room.questionIds,
+      currentQuestionIndex: room.currentQuestionIndex,
     );
   }
 

@@ -256,6 +256,8 @@ class Room {
     this.roundDurationSeconds = 0,
     this.seriesTarget = 2,
     this.roundNumber = 1,
+    this.isPrivate = false,
+    this.roomName,
   });
 
   final String id;
@@ -293,6 +295,30 @@ class Room {
 
   /// series/survival: current round number (1-indexed).
   final int roundNumber;
+
+  /// When true, the room does not appear in the public rooms list.
+  final bool isPrivate;
+
+  /// Optional display name for the room (host-defined).
+  final String? roomName;
+
+  // ── Derived status ─────────────────────────────────────────────────────────
+
+  /// Canonical room status string used for UI and filtering.
+  /// Values: 'waiting' | 'playing' | 'full' | 'ended' | 'private'
+  String get roomStatus {
+    if (isPrivate) return 'private';
+    if (phase == phaseFinished) return 'ended';
+    if (!started) {
+      if (isFull) return 'full';
+      return 'waiting';
+    }
+    return 'playing';
+  }
+
+  /// True when the room is visible in the public lobby list.
+  bool get isPubliclyVisible =>
+      !isPrivate && phase != phaseFinished && hasActiveHumanPlayer;
 
   static const List<int> allowedBlitzDurations = [60, 90, 120];
 
@@ -374,6 +400,8 @@ class Room {
           (data['roundDurationSeconds'] as num?)?.toInt() ?? 0,
       seriesTarget: (data['seriesTarget'] as num?)?.toInt() ?? 2,
       roundNumber: (data['roundNumber'] as num?)?.toInt() ?? 1,
+      isPrivate: data['isPrivate'] == true,
+      roomName: data['roomName'] as String?,
     );
   }
 

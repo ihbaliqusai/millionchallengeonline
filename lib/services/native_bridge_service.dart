@@ -25,6 +25,10 @@ class NativeBridgeService {
     int initialRoundWins = 0,
     int initialLivesRemaining = 0,
     bool initiallyEliminated = false,
+    // Question state — used for round-based modes so joining/resuming players
+    // start at the correct question, not question 0.
+    List<int> questionIds = const [],
+    int currentQuestionIndex = 0,
   }) async {
     final safeOpponents = opponents
         .map(
@@ -63,6 +67,8 @@ class NativeBridgeService {
       'initialRoundWins': initialRoundWins,
       'initialLivesRemaining': initialLivesRemaining,
       'initiallyEliminated': initiallyEliminated,
+      'questionIds': questionIds,
+      'currentQuestionIndex': currentQuestionIndex,
     });
   }
 

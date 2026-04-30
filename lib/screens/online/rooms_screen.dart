@@ -23,6 +23,7 @@ class _RoomsScreenState extends State<RoomsScreen>
   String _mode = 'battle';
   int _roundDurationSeconds = 60;
   int _seriesTarget = 2;
+  bool _isPrivate = false;
   bool _creatingRoom = false;
   bool _joiningRoom = false;
   late final AnimationController _pulseCtrl;
@@ -62,6 +63,7 @@ class _RoomsScreenState extends State<RoomsScreen>
             mode: _mode,
             roundDurationSeconds: _roundDurationSeconds,
             seriesTarget: _seriesTarget,
+            isPrivate: _isPrivate,
           );
       if (!mounted) return;
       await Navigator.of(context).push(
@@ -164,6 +166,7 @@ class _RoomsScreenState extends State<RoomsScreen>
                         mode: _mode,
                         roundDurationSeconds: _roundDurationSeconds,
                         seriesTarget: _seriesTarget,
+                        isPrivate: _isPrivate,
                         creatingRoom: _creatingRoom,
                         joiningRoom: _joiningRoom,
                         roomCodeController: _roomCodeController,
@@ -179,6 +182,8 @@ class _RoomsScreenState extends State<RoomsScreen>
                             setState(() => _roundDurationSeconds = v),
                         onSeriesTargetChanged: (v) =>
                             setState(() => _seriesTarget = v),
+                        onIsPrivateChanged: (v) =>
+                            setState(() => _isPrivate = v),
                         onCreateRoom: _createRoom,
                         onJoinRoom: () => _joinRoom(_roomCodeController.text),
                       );
@@ -307,6 +312,7 @@ class _CreateJoinPanel extends StatelessWidget {
     required this.mode,
     required this.roundDurationSeconds,
     required this.seriesTarget,
+    required this.isPrivate,
     required this.creatingRoom,
     required this.joiningRoom,
     required this.roomCodeController,
@@ -314,6 +320,7 @@ class _CreateJoinPanel extends StatelessWidget {
     required this.onModeChanged,
     required this.onRoundDurationChanged,
     required this.onSeriesTargetChanged,
+    required this.onIsPrivateChanged,
     required this.onCreateRoom,
     required this.onJoinRoom,
   });
@@ -322,6 +329,7 @@ class _CreateJoinPanel extends StatelessWidget {
   final String mode;
   final int roundDurationSeconds;
   final int seriesTarget;
+  final bool isPrivate;
   final bool creatingRoom;
   final bool joiningRoom;
   final TextEditingController roomCodeController;
@@ -329,6 +337,7 @@ class _CreateJoinPanel extends StatelessWidget {
   final ValueChanged<String> onModeChanged;
   final ValueChanged<int> onRoundDurationChanged;
   final ValueChanged<int> onSeriesTargetChanged;
+  final ValueChanged<bool> onIsPrivateChanged;
   final VoidCallback onCreateRoom;
   final VoidCallback onJoinRoom;
 
@@ -619,6 +628,95 @@ class _CreateJoinPanel extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 16),
+              // ── Private room toggle ─────────────────────────────
+              GestureDetector(
+                onTap: () => onIsPrivateChanged(!isPrivate),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isPrivate
+                        ? const Color(0xFF7C3AED).withValues(alpha: 0.18)
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isPrivate
+                          ? const Color(0xFFA78BFA).withValues(alpha: 0.7)
+                          : Colors.white.withValues(alpha: 0.12),
+                      width: isPrivate ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isPrivate ? Icons.lock_rounded : Icons.lock_open_rounded,
+                        size: 18,
+                        color: isPrivate
+                            ? const Color(0xFFA78BFA)
+                            : Colors.white.withValues(alpha: 0.35),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'غرفة خاصة',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: isPrivate
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.45),
+                              ),
+                            ),
+                            Text(
+                              'لا تظهر في قائمة الغرف العامة',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isPrivate
+                                    ? const Color(0xFFA78BFA)
+                                        .withValues(alpha: 0.9)
+                                    : Colors.white.withValues(alpha: 0.28),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 40,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: isPrivate
+                              ? const Color(0xFF7C3AED)
+                              : Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: AnimatedAlign(
+                          duration: const Duration(milliseconds: 200),
+                          alignment: isPrivate
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            width: 18,
+                            height: 18,
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               _GradientButton(
                 label: creatingRoom ? 'جاري الإنشاء...' : 'إنشاء غرفة جديدة',
                 icon: Icons.add_circle_outline_rounded,
