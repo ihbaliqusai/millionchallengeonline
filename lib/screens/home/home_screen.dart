@@ -474,15 +474,13 @@ class _LeftSidebar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // STATS → Stats screen
+          // LEADERBOARD → Leaderboard screen
           _SideCard(
-            label: 'إحصاءات',
-            icon: Icons.bar_chart_rounded,
-            iconColor: const Color(0xFFF97316),
-            badge: 'جديد',
-            badgeColor: const Color(0xFF22C55E),
+            label: 'الصدارة',
+            icon: Icons.leaderboard_rounded,
+            iconColor: const Color(0xFFFACC15),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const StatsScreen()),
+              MaterialPageRoute<void>(builder: (_) => const LeaderboardScreen()),
             ),
           ),
           const SizedBox(height: 8),
@@ -524,70 +522,41 @@ class _SideCard extends StatelessWidget {
     required this.icon,
     required this.iconColor,
     required this.onTap,
-    this.badge,
-    this.badgeColor,
   });
   final String label;
   final IconData icon;
   final Color iconColor;
   final VoidCallback onTap;
-  final String? badge;
-  final Color? badgeColor;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 72,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.18), width: 1.5),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: iconColor, size: 26),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (badge != null)
-            Positioned(
-              top: -6,
-              right: -6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: badgeColor ?? const Color(0xFFF59E0B),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  badge!,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
-                ),
+      child: Container(
+        width: 72,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: Colors.white.withValues(alpha: 0.18), width: 1.5),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: iconColor, size: 26),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -612,8 +581,7 @@ class _ChestCounter extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.inventory_2_rounded,
-              color: Color(0xFF38BDF8), size: 22),
+          Image.asset('assets/ui/box1.png', width: 36, height: 36, fit: BoxFit.contain),
           const SizedBox(height: 4),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -756,8 +724,6 @@ class _CenterArena extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _RankingButton(),
-              const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -799,38 +765,6 @@ class _CastleWidget extends StatelessWidget {
   }
 }
 
-class _RankingButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const LeaderboardScreen()),
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.leaderboard_rounded, size: 18, color: Color(0xFFFACC15)),
-            SizedBox(width: 6),
-            Text(
-              'الصدارة',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _BattleButton extends StatefulWidget {
   const _BattleButton({
@@ -1149,34 +1083,23 @@ class _DailyChests extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: List.generate(7, (i) {
               final isOpened = i < opened;
-              final colors = [
-                const Color(0xFF22C55E),
-                const Color(0xFF60A5FA),
-                const Color(0xFFEC4899),
-                const Color(0xFF38BDF8),
-                const Color(0xFF60A5FA),
-                const Color(0xFFEC4899),
-                const Color(0xFFA855F7),
+              const closedBoxImages = [
+                'assets/ui/box1.png',
+                'assets/ui/box2.png',
+                'assets/ui/box3.png',
               ];
-              final color = colors[i];
-              return Container(
-                width: 26,
-                height: 30,
-                margin: const EdgeInsets.symmetric(horizontal: 2),
-                decoration: BoxDecoration(
-                  color: isOpened
-                      ? color.withValues(alpha: 0.5)
-                      : color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isOpened ? color : color.withValues(alpha: 0.3),
-                    width: 1.5,
+              final imagePath = isOpened
+                  ? 'assets/ui/box4.png'
+                  : closedBoxImages[i % closedBoxImages.length];
+              return Opacity(
+                opacity: isOpened ? 1.0 : 0.5,
+                child: SizedBox(
+                  width: 30,
+                  height: 34,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Image.asset(imagePath, fit: BoxFit.contain),
                   ),
-                ),
-                child: Icon(
-                  isOpened ? Icons.inventory_2_rounded : Icons.lock_rounded,
-                  size: 14,
-                  color: isOpened ? color : color.withValues(alpha: 0.3),
                 ),
               );
             }),

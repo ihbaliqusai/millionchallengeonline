@@ -52,6 +52,10 @@ flutter:
     - assets/ui/share.png
     - assets/ui/rate.png
     - assets/ui/dollar.png
+    - assets/ui/box1.png
+    - assets/ui/box2.png
+    - assets/ui/box3.png
+    - assets/ui/box4.png
   fonts:
     - family: Baloo
       fonts:
