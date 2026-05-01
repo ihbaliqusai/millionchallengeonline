@@ -2,13 +2,20 @@ package net.androidgaming.millionaire2024;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Intent;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.OvershootInterpolator;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -73,7 +80,15 @@ public class ResultActivity extends AppCompatActivity {
         TextView txtResultDetails = findViewById(R.id.txtResultDetails);
         TextView txtMySets = findViewById(R.id.txtMySets);
         TextView txtOpponentSets = findViewById(R.id.txtOpponentSets);
+        TextView txtOutcomeBadge = findViewById(R.id.txtOutcomeBadge);
+        TextView txtMySetsLabel = findViewById(R.id.txtMySetsLabel);
+        TextView txtOpponentSetsLabel = findViewById(R.id.txtOpponentSetsLabel);
         LinearLayout llyOpponentsSummary = findViewById(R.id.llyOpponentsSummary);
+        View cardMe = findViewById(R.id.cardMe);
+        View cardOpponent = findViewById(R.id.cardOpponent);
+        View resultPanel = findViewById(R.id.resultPanel);
+        View resultAura = findViewById(R.id.resultAura);
+        View resultActions = findViewById(R.id.resultActions);
 
         JSONArray opponents = parseOpponents(opponentsJson);
         JSONObject primaryOpponent = selectPrimaryOpponent(opponents, isTeamBattle, myTeam);
@@ -107,8 +122,10 @@ public class ResultActivity extends AppCompatActivity {
         }
 
         if (mySets == 0 && opponentSets == 0) {
-            txtMySets.setVisibility(View.GONE);
-            txtOpponentSets.setVisibility(View.GONE);
+            txtMySets.setText(String.valueOf(Math.max(0, myCorrectAnswers)));
+            txtOpponentSets.setText(String.valueOf(Math.max(0, estimateOpponentCorrect(primaryOpponent, opponentScore))));
+            txtMySetsLabel.setText("صحيحة");
+            txtOpponentSetsLabel.setText("صحيحة");
         }
 
         final String completionKey = (roomId == null || roomId.trim().isEmpty())
@@ -127,6 +144,9 @@ public class ResultActivity extends AppCompatActivity {
         final String resolvedWinner = winnerName == null || winnerName.trim().isEmpty()
                 ? opponentName
                 : winnerName;
+        final boolean isTie = isTieResult(matchMode, didWin, opponentLeft, myEliminated, winnerTeamId, myScore, opponentScore, mySets, opponentSets);
+        final boolean positiveResult = isPositiveResult(matchMode, didWin, opponentLeft, myTeam, winnerTeamId);
+        applyResultTheme(resultPanel, resultAura, txtOutcomeBadge, txtResult, positiveResult, isTie);
 
         txtResult.setText(resolveResultHeadline(matchMode, didWin, opponentLeft, myEliminated, winnerTeamId));
         txtScore.setText(resolvePerformanceLine(
@@ -169,13 +189,23 @@ public class ResultActivity extends AppCompatActivity {
                 true
         ));
 
-        for (int i = 0; i < opponents.length(); i++) {
+        final int maxOpponentRows = 3;
+        int shownOpponentRows = 0;
+        for (int i = 0; i < opponents.length() && shownOpponentRows < maxOpponentRows; i++) {
             JSONObject opponent = opponents.optJSONObject(i);
             if (opponent == null) {
                 continue;
             }
             llyOpponentsSummary.addView(buildSummaryTextView(
                     buildOpponentSummary(matchMode, opponent, anySetsNonZero),
+                    false
+            ));
+            shownOpponentRows++;
+        }
+        int remainingOpponents = Math.max(0, opponents.length() - shownOpponentRows);
+        if (remainingOpponents > 0) {
+            llyOpponentsSummary.addView(buildSummaryTextView(
+                    "+" + remainingOpponents + " لاعبين آخرين في تفاصيل الغرفة",
                     false
             ));
         }
@@ -200,6 +230,8 @@ public class ResultActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+
+        runEntranceMotion(cardMe, cardOpponent, resultPanel, resultActions, resultAura);
     }
 
     private JSONArray parseOpponents(String opponentsJson) {
@@ -255,18 +287,184 @@ public class ResultActivity extends AppCompatActivity {
 
     private TextView buildSummaryTextView(String text, boolean emphasize) {
         TextView summary = new TextView(this);
-        summary.setLayoutParams(new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-        summary.setTextColor(getResources().getColor(emphasize
-                ? android.R.color.holo_blue_light
-                : android.R.color.white));
-        summary.setTextSize(emphasize ? 19 : 18);
+                dp(34)
+        );
+        params.setMargins(0, emphasize ? dp(2) : dp(5), 0, 0);
+        summary.setLayoutParams(params);
+        summary.setBackgroundResource(R.drawable.result_summary_row);
+        summary.setGravity(android.view.Gravity.CENTER_VERTICAL | android.view.Gravity.RIGHT);
+        summary.setSingleLine(true);
+        summary.setEllipsize(TextUtils.TruncateAt.END);
+        summary.setIncludeFontPadding(false);
+        summary.setTextColor(emphasize ? Color.rgb(56, 189, 248) : Color.WHITE);
+        summary.setTextSize(emphasize ? 13 : 12);
         summary.setTypeface(summary.getTypeface(), emphasize ? Typeface.BOLD : Typeface.NORMAL);
-        summary.setPadding(16, emphasize ? 12 : 8, 16, 8);
+        summary.setPadding(dp(12), 0, dp(12), 0);
         summary.setText(text);
         return summary;
+    }
+
+    private void applyResultTheme(
+            View resultPanel,
+            View resultAura,
+            TextView txtOutcomeBadge,
+            TextView txtResult,
+            boolean positiveResult,
+            boolean isTie
+    ) {
+        if (positiveResult) {
+            resultPanel.setBackgroundResource(R.drawable.result_panel_win);
+            resultAura.setBackgroundResource(R.drawable.result_panel_win);
+            txtOutcomeBadge.setText("انتصار");
+            txtOutcomeBadge.setTextColor(Color.rgb(167, 243, 208));
+            txtResult.setTextColor(Color.WHITE);
+            return;
+        }
+        if (isTie) {
+            resultPanel.setBackgroundResource(R.drawable.result_panel_tie);
+            resultAura.setBackgroundResource(R.drawable.result_panel_tie);
+            txtOutcomeBadge.setText("تعادل");
+            txtOutcomeBadge.setTextColor(Color.rgb(191, 219, 254));
+            txtResult.setTextColor(Color.WHITE);
+            return;
+        }
+        resultPanel.setBackgroundResource(R.drawable.result_panel_loss);
+        resultAura.setBackgroundResource(R.drawable.result_panel_loss);
+        txtOutcomeBadge.setText("خسارة");
+        txtOutcomeBadge.setTextColor(Color.rgb(254, 202, 202));
+        txtResult.setTextColor(Color.WHITE);
+    }
+
+    private void runEntranceMotion(
+            View cardMe,
+            View cardOpponent,
+            View resultPanel,
+            View resultActions,
+            View resultAura
+    ) {
+        prepareForEntrance(cardMe, 42f);
+        prepareForEntrance(cardOpponent, -42f);
+        prepareForEntrance(resultPanel, 0f);
+        resultPanel.setScaleX(0.94f);
+        resultPanel.setScaleY(0.94f);
+        resultActions.setAlpha(0f);
+        resultActions.setTranslationY(dp(20));
+        resultAura.setAlpha(0f);
+        resultAura.setScaleX(0.7f);
+        resultAura.setScaleY(0.7f);
+
+        resultPanel.animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .translationY(0f)
+                .setDuration(520)
+                .setStartDelay(80)
+                .setInterpolator(new OvershootInterpolator(0.9f))
+                .start();
+        cardMe.animate()
+                .alpha(1f)
+                .translationX(0f)
+                .translationY(0f)
+                .setDuration(430)
+                .setStartDelay(180)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+        cardOpponent.animate()
+                .alpha(1f)
+                .translationX(0f)
+                .translationY(0f)
+                .setDuration(430)
+                .setStartDelay(220)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+        resultActions.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(360)
+                .setStartDelay(360)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+
+        AnimatorSet auraSet = new AnimatorSet();
+        ObjectAnimator alpha = ObjectAnimator.ofFloat(resultAura, View.ALPHA, 0f, 0.30f, 0.16f);
+        ObjectAnimator scaleX = ObjectAnimator.ofFloat(resultAura, View.SCALE_X, 0.7f, 1.08f);
+        ObjectAnimator scaleY = ObjectAnimator.ofFloat(resultAura, View.SCALE_Y, 0.7f, 1.08f);
+        alpha.setRepeatCount(ValueAnimator.INFINITE);
+        alpha.setRepeatMode(ValueAnimator.REVERSE);
+        scaleX.setRepeatCount(ValueAnimator.INFINITE);
+        scaleX.setRepeatMode(ValueAnimator.REVERSE);
+        scaleY.setRepeatCount(ValueAnimator.INFINITE);
+        scaleY.setRepeatMode(ValueAnimator.REVERSE);
+        auraSet.setDuration(1600);
+        auraSet.playTogether(alpha, scaleX, scaleY);
+        auraSet.setStartDelay(260);
+        auraSet.start();
+    }
+
+    private void prepareForEntrance(View view, float translationX) {
+        view.setAlpha(0f);
+        view.setTranslationX(dpFloat(translationX));
+        view.setTranslationY(dp(14));
+    }
+
+    private boolean isPositiveResult(
+            String matchMode,
+            boolean didWin,
+            boolean opponentLeft,
+            String myTeam,
+            String winnerTeamId
+    ) {
+        if (opponentLeft || didWin) {
+            return true;
+        }
+        return "team_battle".equals(matchMode)
+                && winnerTeamId != null
+                && myTeam != null
+                && winnerTeamId.trim().equalsIgnoreCase(myTeam.trim());
+    }
+
+    private boolean isTieResult(
+            String matchMode,
+            boolean didWin,
+            boolean opponentLeft,
+            boolean myEliminated,
+            String winnerTeamId,
+            int myScore,
+            int opponentScore,
+            int mySets,
+            int opponentSets
+    ) {
+        if (opponentLeft || didWin || myEliminated) {
+            return false;
+        }
+        if ("team_battle".equals(matchMode)) {
+            return winnerTeamId == null || winnerTeamId.trim().isEmpty();
+        }
+        if (mySets > 0 || opponentSets > 0) {
+            return mySets == opponentSets;
+        }
+        return myScore == opponentScore;
+    }
+
+    private int estimateOpponentCorrect(JSONObject primaryOpponent, int opponentScore) {
+        if (primaryOpponent != null) {
+            return primaryOpponent.optInt(
+                    "correctAnswers",
+                    primaryOpponent.optInt("answeredCount", Math.max(0, opponentScore / 10))
+            );
+        }
+        return Math.max(0, opponentScore / 10);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private float dpFloat(float value) {
+        return value * getResources().getDisplayMetrics().density;
     }
 
     private String resolveModeTitle(String matchMode) {

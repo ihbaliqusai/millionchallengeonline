@@ -480,7 +480,8 @@ class _LeftSidebar extends StatelessWidget {
             icon: Icons.leaderboard_rounded,
             iconColor: const Color(0xFFFACC15),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const LeaderboardScreen()),
+              MaterialPageRoute<void>(
+                  builder: (_) => const LeaderboardScreen()),
             ),
           ),
           const SizedBox(height: 8),
@@ -581,7 +582,8 @@ class _ChestCounter extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/ui/box1.png', width: 36, height: 36, fit: BoxFit.contain),
+          Image.asset('assets/ui/box1.png',
+              width: 36, height: 36, fit: BoxFit.contain),
           const SizedBox(height: 4),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -765,7 +767,6 @@ class _CastleWidget extends StatelessWidget {
   }
 }
 
-
 class _BattleButton extends StatefulWidget {
   const _BattleButton({
     required this.glowCtrl,
@@ -941,14 +942,7 @@ class _RightSidebar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              _NavButton(
-                label: 'إنجازات',
-                icon: Icons.emoji_events_rounded,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                      builder: (_) => const AchievementsScreen()),
-                ),
-              ),
+              const _AchievementNavButton(),
               const SizedBox(height: 4),
               _NavButton(
                 label: 'متجر',
@@ -999,6 +993,89 @@ class _RightSidebar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AchievementNavButton extends StatefulWidget {
+  const _AchievementNavButton();
+
+  @override
+  State<_AchievementNavButton> createState() => _AchievementNavButtonState();
+}
+
+class _AchievementNavButtonState extends State<_AchievementNavButton> {
+  int _pendingRewards = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshPendingRewards();
+  }
+
+  Future<void> _refreshPendingRewards() async {
+    try {
+      final data = await context.read<NativeBridgeService>().getAchievements();
+      if (!mounted) return;
+      setState(() {
+        _pendingRewards = (data['unclaimedAchievements'] as num?)?.toInt() ?? 0;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _pendingRewards = 0);
+    }
+  }
+
+  Future<void> _openAchievements() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const AchievementsScreen()),
+    );
+    if (mounted) {
+      await _refreshPendingRewards();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        _NavButton(
+          label: 'إنجازات',
+          icon: Icons.emoji_events_rounded,
+          onTap: _openAchievements,
+        ),
+        if (_pendingRewards > 0)
+          Positioned(
+            top: -4,
+            right: -4,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white, width: 1.5),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.45),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _pendingRewards > 9 ? '9+' : '$_pendingRewards',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

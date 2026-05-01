@@ -10,6 +10,8 @@ import java.util.Locale;
 public class PlayerProgress {
     private static final String PREF = "PlayerProgress";
     private static final int MATCH_COMPLETION_BONUS = 200;
+    private static final String KEY_ACHIEVEMENT_CLAIMS_MIGRATED = "achievementClaimsMigratedV1";
+    private static final String CLAIMED_PREFIX = "CLAIMED_";
 
     public static final String ACH_FIRST_GAME = "ACH_FIRST_GAME";
     public static final String ACH_FIRST_WIN = "ACH_FIRST_WIN";
@@ -274,13 +276,44 @@ public class PlayerProgress {
         return prefs(c).getBoolean(key, false);
     }
 
+    public static boolean isAchievementRewardClaimed(Context c, String key) {
+        migrateExistingAchievementClaims(c);
+        return prefs(c).getBoolean(claimKey(key), false);
+    }
+
+    public static int getUnclaimedAchievementCount(Context c) {
+        migrateExistingAchievementClaims(c);
+        int count = 0;
+        for (String key : getAllAchievementKeys()) {
+            if (isAchievementUnlocked(c, key) && !prefs(c).getBoolean(claimKey(key), false)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public static ClaimRewardResult claimAchievementReward(Context c, String key) {
+        migrateExistingAchievementClaims(c);
+        if (key == null || key.trim().isEmpty()) {
+            return new ClaimRewardResult(false, 0, 0, getCoins(c), getGems(c), getXp(c));
+        }
+        String safeKey = key.trim();
+        SharedPreferences p = prefs(c);
+        if (!p.getBoolean(safeKey, false) || p.getBoolean(claimKey(safeKey), false)) {
+            return new ClaimRewardResult(false, 0, 0, getCoins(c), getGems(c), getXp(c));
+        }
+        AchievementReward reward = rewardForAchievement(safeKey);
+        p.edit().putBoolean(claimKey(safeKey), true).apply();
+        addCoins(c, reward.coins);
+        addXp(c, reward.xp);
+        return new ClaimRewardResult(true, reward.coins, reward.xp, getCoins(c), getGems(c), getXp(c));
+    }
+
     public static void unlockAchievement(Context c, String key) {
+        migrateExistingAchievementClaims(c);
         SharedPreferences p = prefs(c);
         if (!p.getBoolean(key, false)) {
             p.edit().putBoolean(key, true).apply();
-            AchievementReward reward = rewardForAchievement(key);
-            addCoins(c, reward.coins);
-            addXp(c, reward.xp);
         }
     }
 
@@ -292,6 +325,7 @@ public class PlayerProgress {
     }
 
     public static void checkMilestoneAchievements(Context c) {
+        migrateExistingAchievementClaims(c);
         checkLevelAchievements(c);
         checkCurrencyAchievements(c);
         checkInventoryAchievements(c);
@@ -730,6 +764,24 @@ public class PlayerProgress {
         prefs(c).edit().clear().apply();
     }
 
+    private static void migrateExistingAchievementClaims(Context c) {
+        SharedPreferences p = prefs(c);
+        if (p.getBoolean(KEY_ACHIEVEMENT_CLAIMS_MIGRATED, false)) {
+            return;
+        }
+        SharedPreferences.Editor editor = p.edit();
+        for (String key : getAllAchievementKeys()) {
+            if (p.getBoolean(key, false)) {
+                editor.putBoolean(claimKey(key), true);
+            }
+        }
+        editor.putBoolean(KEY_ACHIEVEMENT_CLAIMS_MIGRATED, true).apply();
+    }
+
+    private static String claimKey(String key) {
+        return CLAIMED_PREFIX + key;
+    }
+
     private static final class AchievementReward {
         final int coins;
         final int xp;
@@ -737,6 +789,31 @@ public class PlayerProgress {
         AchievementReward(int coins, int xp) {
             this.coins = coins;
             this.xp = xp;
+        }
+    }
+
+    public static class ClaimRewardResult {
+        public final boolean success;
+        public final int coins;
+        public final int xp;
+        public final int totalCoins;
+        public final int totalGems;
+        public final int totalXp;
+
+        public ClaimRewardResult(
+                boolean success,
+                int coins,
+                int xp,
+                int totalCoins,
+                int totalGems,
+                int totalXp
+        ) {
+            this.success = success;
+            this.coins = coins;
+            this.xp = xp;
+            this.totalCoins = totalCoins;
+            this.totalGems = totalGems;
+            this.totalXp = totalXp;
         }
     }
 

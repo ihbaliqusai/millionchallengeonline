@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/app_state.dart';
 import '../../services/native_bridge_service.dart';
+import '../../widgets/currency_reward_overlay.dart';
 
 enum _AchStatus { done, progress, locked }
 
@@ -1059,6 +1061,7 @@ class AchievementsScreen extends StatefulWidget {
 class _AchievementsScreenState extends State<AchievementsScreen> {
   Map<String, dynamic> _data = <String, dynamic>{};
   bool _loading = true;
+  String? _claimingKey;
 
   @override
   void initState() {
@@ -1082,6 +1085,12 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
   }
 
   bool _isDone(_AchDef achievement) => _data[achievement.key] == true;
+
+  bool _isClaimed(_AchDef achievement) =>
+      _data['${achievement.key}_CLAIMED'] == true;
+
+  bool _canClaim(_AchDef achievement) =>
+      _isDone(achievement) && !_isClaimed(achievement);
 
   int _value(String key) => (_data[key] as num?)?.toInt() ?? 0;
 
@@ -1154,13 +1163,61 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       .where((achievement) => _status(achievement) == _AchStatus.locked)
       .length;
 
+  int get _unclaimedCount =>
+      (_data['unclaimedAchievements'] as num?)?.toInt() ??
+      _all.where(_canClaim).length;
+
   int get _earnedCoins => _all
-      .where(_isDone)
+      .where((achievement) => _isDone(achievement) && _isClaimed(achievement))
       .fold(0, (sum, achievement) => sum + achievement.rewardCoins);
 
   int get _earnedXp => _all
-      .where(_isDone)
+      .where((achievement) => _isDone(achievement) && _isClaimed(achievement))
       .fold(0, (sum, achievement) => sum + achievement.rewardXp);
+
+  Future<void> _claimReward(_AchDef achievement) async {
+    if (!_canClaim(achievement) || _claimingKey != null) return;
+    final native = context.read<NativeBridgeService>();
+    final appState = context.read<AppState>();
+    setState(() => _claimingKey = achievement.key);
+
+    final result = await native.claimAchievementReward(achievement.key);
+    if (!mounted) return;
+
+    if (result['success'] == 1) {
+      await appState.loadCurrency();
+      await _loadAchievements();
+      if (!mounted) return;
+      final coins = result['coins'] ?? achievement.rewardCoins;
+      final xp = result['xp'] ?? achievement.rewardXp;
+      showCurrencyRewardOverlay(context, coins: coins, gems: 0);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'تم تحصيل ${achievement.titleAr}: +${_compactNumber(coins)} كوين و +${_compactNumber(xp)} XP',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: const Color(0xFF047857),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تعذر تحصيل المكافأة الآن.',
+            textDirection: TextDirection.rtl,
+          ),
+          backgroundColor: Color(0xFFB91C1C),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+
+    if (mounted) {
+      setState(() => _claimingKey = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1202,10 +1259,15 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                               isDone: _isDone,
                               progressOf: _progress,
                               progressTextOf: _progressText,
+                              isClaimed: _isClaimed,
+                              canClaim: _canClaim,
+                              claimingKey: _claimingKey,
+                              onClaim: _claimReward,
                               done: _doneCount,
                               inProgress: _progressCount,
                               locked: _lockedCount,
                               total: _totalCount,
+                              unclaimed: _unclaimedCount,
                               earnedCoins: _earnedCoins,
                               earnedXp: _earnedXp,
                             ),
@@ -1228,10 +1290,15 @@ class _AchievementsDashboard extends StatelessWidget {
     required this.isDone,
     required this.progressOf,
     required this.progressTextOf,
+    required this.isClaimed,
+    required this.canClaim,
+    required this.claimingKey,
+    required this.onClaim,
     required this.done,
     required this.inProgress,
     required this.locked,
     required this.total,
+    required this.unclaimed,
     required this.earnedCoins,
     required this.earnedXp,
   });
@@ -1241,10 +1308,15 @@ class _AchievementsDashboard extends StatelessWidget {
   final bool Function(_AchDef achievement) isDone;
   final double Function(_AchDef achievement) progressOf;
   final String Function(_AchDef achievement) progressTextOf;
+  final bool Function(_AchDef achievement) isClaimed;
+  final bool Function(_AchDef achievement) canClaim;
+  final String? claimingKey;
+  final void Function(_AchDef achievement) onClaim;
   final int done;
   final int inProgress;
   final int locked;
   final int total;
+  final int unclaimed;
   final int earnedCoins;
   final int earnedXp;
 
@@ -1259,7 +1331,7 @@ class _AchievementsDashboard extends StatelessWidget {
                 : 1;
         final horizontalPadding = constraints.maxWidth < 760 ? 12.0 : 16.0;
         final gap = constraints.maxWidth < 760 ? 10.0 : 12.0;
-        final cardExtent = columns == 1 ? 174.0 : 158.0;
+        final cardExtent = columns == 1 ? 210.0 : 194.0;
 
         return CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -1277,6 +1349,7 @@ class _AchievementsDashboard extends StatelessWidget {
                   inProgress: inProgress,
                   locked: locked,
                   total: total,
+                  unclaimed: unclaimed,
                   earnedCoins: earnedCoins,
                   earnedXp: earnedXp,
                 ),
@@ -1316,6 +1389,10 @@ class _AchievementsDashboard extends StatelessWidget {
                         status: statusOf(achievement),
                         progress: progressOf(achievement),
                         progressText: progressTextOf(achievement),
+                        claimed: isClaimed(achievement),
+                        claimable: canClaim(achievement),
+                        claiming: claimingKey == achievement.key,
+                        onClaim: () => onClaim(achievement),
                       );
                     },
                     childCount: category.items.length,
@@ -1397,6 +1474,7 @@ class _OverviewPanel extends StatelessWidget {
     required this.inProgress,
     required this.locked,
     required this.total,
+    required this.unclaimed,
     required this.earnedCoins,
     required this.earnedXp,
   });
@@ -1405,6 +1483,7 @@ class _OverviewPanel extends StatelessWidget {
   final int inProgress;
   final int locked;
   final int total;
+  final int unclaimed;
   final int earnedCoins;
   final int earnedXp;
 
@@ -1508,15 +1587,21 @@ class _OverviewPanel extends StatelessWidget {
                       value: _compactNumber(locked),
                     ),
                     _SummaryChip(
+                      icon: Icons.redeem_rounded,
+                      color: const Color(0xFFEF4444),
+                      label: 'جاهزة للتحصيل',
+                      value: _compactNumber(unclaimed),
+                    ),
+                    _SummaryChip(
                       icon: Icons.monetization_on_rounded,
                       color: const Color(0xFFFACC15),
-                      label: 'جوائز كوين',
+                      label: 'كوين محصل',
                       value: _compactNumber(earnedCoins),
                     ),
                     _SummaryChip(
                       icon: Icons.bolt_rounded,
                       color: const Color(0xFFA78BFA),
-                      label: 'خبرة مكتسبة',
+                      label: 'خبرة محصلة',
                       value: _compactNumber(earnedXp),
                     ),
                   ],
@@ -1705,12 +1790,20 @@ class _AchievementCard extends StatelessWidget {
     required this.status,
     required this.progress,
     required this.progressText,
+    required this.claimed,
+    required this.claimable,
+    required this.claiming,
+    required this.onClaim,
   });
 
   final _AchDef achievement;
   final _AchStatus status;
   final double progress;
   final String progressText;
+  final bool claimed;
+  final bool claimable;
+  final bool claiming;
+  final VoidCallback onClaim;
 
   @override
   Widget build(BuildContext context) {
@@ -1727,12 +1820,16 @@ class _AchievementCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: done
-            ? color.withValues(alpha: 0.12)
+            ? claimable
+                ? const Color(0xFFEF4444).withValues(alpha: 0.10)
+                : color.withValues(alpha: 0.12)
             : const Color(0xFF071126).withValues(alpha: 0.76),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: done
-              ? color.withValues(alpha: 0.48)
+              ? claimable
+                  ? const Color(0xFFEF4444).withValues(alpha: 0.58)
+                  : color.withValues(alpha: 0.48)
               : inProgress
                   ? color.withValues(alpha: 0.32)
                   : Colors.white.withValues(alpha: 0.11),
@@ -1789,7 +1886,12 @@ class _AchievementCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _StatusPill(status: status, color: color),
+                    _StatusPill(
+                      status: status,
+                      color: color,
+                      claimable: claimable,
+                      claimed: claimed,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 5),
@@ -1818,6 +1920,11 @@ class _AchievementCard extends StatelessWidget {
                       value: '+${_compactNumber(achievement.rewardXp)} XP',
                       color: const Color(0xFFA78BFA),
                     ),
+                    const Spacer(),
+                    if (claimable)
+                      _ClaimButton(claiming: claiming, onTap: onClaim)
+                    else if (done && claimed)
+                      const _ClaimedPill(),
                   ],
                 ),
                 if (achievement.progressTarget != null) ...<Widget>[
@@ -1858,30 +1965,44 @@ class _StatusPill extends StatelessWidget {
   const _StatusPill({
     required this.status,
     required this.color,
+    required this.claimable,
+    required this.claimed,
   });
 
   final _AchStatus status;
   final Color color;
+  final bool claimable;
+  final bool claimed;
 
   @override
   Widget build(BuildContext context) {
     final done = status == _AchStatus.done;
     final inProgress = status == _AchStatus.progress;
-    final label = done
-        ? 'مكتمل'
-        : inProgress
-            ? 'تقدم'
-            : 'مغلق';
-    final icon = done
-        ? Icons.check_rounded
-        : inProgress
-            ? Icons.hourglass_top_rounded
-            : Icons.lock_rounded;
-    final pillColor = done
-        ? const Color(0xFF34D399)
-        : inProgress
-            ? color
-            : const Color(0xFF94A3B8);
+    final label = claimable
+        ? 'جاهز'
+        : done && claimed
+            ? 'محصل'
+            : done
+                ? 'مكتمل'
+                : inProgress
+                    ? 'تقدم'
+                    : 'مغلق';
+    final icon = claimable
+        ? Icons.redeem_rounded
+        : done && claimed
+            ? Icons.done_all_rounded
+            : done
+                ? Icons.check_rounded
+                : inProgress
+                    ? Icons.hourglass_top_rounded
+                    : Icons.lock_rounded;
+    final pillColor = claimable
+        ? const Color(0xFFEF4444)
+        : done
+            ? const Color(0xFF34D399)
+            : inProgress
+                ? color
+                : const Color(0xFF94A3B8);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
@@ -1899,6 +2020,91 @@ class _StatusPill extends StatelessWidget {
             label,
             style: TextStyle(
               color: pillColor,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClaimButton extends StatelessWidget {
+  const _ClaimButton({
+    required this.claiming,
+    required this.onTap,
+  });
+
+  final bool claiming;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: claiming ? null : onTap,
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEF4444),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (claiming)
+              const SizedBox(
+                width: 13,
+                height: 13,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            else
+              const Icon(Icons.redeem_rounded, color: Colors.white, size: 15),
+            const SizedBox(width: 5),
+            const Text(
+              'تحصيل',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClaimedPill extends StatelessWidget {
+  const _ClaimedPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF34D399).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: const Color(0xFF34D399).withValues(alpha: 0.24),
+        ),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.done_all_rounded, color: Color(0xFF34D399), size: 14),
+          SizedBox(width: 4),
+          Text(
+            'تم',
+            style: TextStyle(
+              color: Color(0xFF34D399),
               fontSize: 10.5,
               fontWeight: FontWeight.w900,
             ),

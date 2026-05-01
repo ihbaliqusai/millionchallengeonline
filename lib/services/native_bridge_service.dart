@@ -200,6 +200,28 @@ class NativeBridgeService {
     return result ?? {};
   }
 
+  Future<Map<String, int>> claimAchievementReward(String key) async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'claimAchievementReward',
+      <String, dynamic>{'key': key},
+    );
+    if (result == null) {
+      return <String, int>{
+        'success': 0,
+        'coins': 0,
+        'xp': 0,
+        'totalCoins': 0,
+        'totalGems': 0,
+        'totalXp': 0,
+        'unclaimedAchievements': 0,
+      };
+    }
+    return result.map((k, v) {
+      if (v is bool) return MapEntry(k, v ? 1 : 0);
+      return MapEntry(k, (v as num?)?.toInt() ?? 0);
+    });
+  }
+
   /// يُعيد {'coins': int, 'gems': int} من SharedPreferences الـ native
   Future<Map<String, int>> getUserCurrency() async {
     final result =

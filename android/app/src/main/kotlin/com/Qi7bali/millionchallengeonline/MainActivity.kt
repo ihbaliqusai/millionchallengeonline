@@ -323,7 +323,9 @@ class MainActivity : FlutterActivity() {
                         val map = mutableMapOf<String, Any>()
                         for (k in PlayerProgress.getAllAchievementKeys()) {
                             map[k] = PlayerProgress.isAchievementUnlocked(this, k)
+                            map["${k}_CLAIMED"] = PlayerProgress.isAchievementRewardClaimed(this, k)
                         }
+                        map["unclaimedAchievements"] = PlayerProgress.getUnclaimedAchievementCount(this)
 
                         map["gamesPlayed"]    = games
                         map["wins"]           = wins
@@ -349,6 +351,20 @@ class MainActivity : FlutterActivity() {
                         map["teamBattleWins"] = teamBattleWins
 
                         result.success(map)
+                    }
+                    "claimAchievementReward" -> {
+                        PlayerProgress.checkMilestoneAchievements(this)
+                        val key = call.argument<String>("key") ?: ""
+                        val claim = PlayerProgress.claimAchievementReward(this, key)
+                        result.success(mapOf(
+                            "success" to claim.success,
+                            "coins" to claim.coins,
+                            "xp" to claim.xp,
+                            "totalCoins" to claim.totalCoins,
+                            "totalGems" to claim.totalGems,
+                            "totalXp" to claim.totalXp,
+                            "unclaimedAchievements" to PlayerProgress.getUnclaimedAchievementCount(this)
+                        ))
                     }
                     "getInventory" -> {
                         result.success(mapOf(

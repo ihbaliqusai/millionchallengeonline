@@ -3,6 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/resultRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/darkBlueApp"
@@ -11,214 +12,423 @@
     <ImageView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:src="@drawable/bg_login"
+        android:alpha="0.34"
+        android:contentDescription="@string/todo57"
         android:scaleType="centerCrop"
-        android:alpha="0.3"
-        android:contentDescription="@string/todo57" />
+        android:src="@drawable/bg_login" />
 
-    <ScrollView
+    <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:background="@drawable/result_screen_scrim" />
+
+    <LinearLayout
+        android:id="@+id/resultContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layoutDirection="rtl"
+        android:orientation="vertical"
+        android:paddingStart="18dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="14dp">
 
         <LinearLayout
+            android:id="@+id/resultTopBar"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingBottom="24dp">
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <!-- Players row -->
-            <RelativeLayout
-                android:layout_width="match_parent"
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="40dp"
-                android:layout_marginBottom="12dp">
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-                <!-- My side -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/baloo"
+                    android:gravity="start"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:text="النتيجة النهائية"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="25sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtModeTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="start"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="#BDEAF6FF"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/txtOutcomeBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="34dp"
+                android:background="@drawable/result_metric_chip"
+                android:gravity="center"
+                android:minWidth="122dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:textColor="#FFFFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                tools:text="فوز" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/resultMainRow"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="8dp"
+            android:layout_weight="1"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:id="@+id/cardMe"
+                android:layout_width="248dp"
+                android:layout_height="match_parent"
+                android:background="@drawable/result_player_blue"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:text="أنت"
+                    android:textColor="#A9D7EEFF"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <de.hdodenhof.circleimageview.CircleImageView
+                    android:id="@+id/imgMe"
+                    android:layout_width="92dp"
+                    android:layout_height="92dp"
+                    android:layout_marginTop="8dp"
+                    app:civ_border_color="@color/player1"
+                    app:civ_border_width="4dp" />
+
                 <TextView
                     android:id="@+id/txtMyName"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_alignParentStart="true"
-                    android:layout_marginStart="16dp"
                     android:layout_marginTop="10dp"
-                    android:textColor="#fff"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
+                    android:ellipsize="end"
+                    android:fontFamily="@font/baloo"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="21sp"
+                    android:textStyle="bold"
+                    tools:text="Qusai" />
 
                 <TextView
                     android:id="@+id/txtMyScore"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_below="@id/txtMyName"
-                    android:layout_alignStart="@id/txtMyName"
-                    android:textColor="@color/stepSelected"
-                    android:textSize="24sp"
+                    android:layout_marginTop="4dp"
                     android:fontFamily="@font/baloo"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:textColor="#FF38BDF8"
+                    android:textSize="34sp"
+                    android:textStyle="bold"
+                    tools:text="120" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:text="النقاط"
+                    android:textColor="#8BFFFFFF"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
 
-                <!-- Center: photos + sets -->
                 <LinearLayout
-                    android:id="@+id/llyPlayers"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_centerHorizontal="true"
-                    android:gravity="center_vertical">
-
-                    <de.hdodenhof.circleimageview.CircleImageView
-                        android:id="@+id/imgMe"
-                        android:layout_width="80dp"
-                        android:layout_height="80dp"
-                        app:civ_border_color="@color/player1"
-                        app:civ_border_width="4dp"
-                        android:layout_marginEnd="6dp" />
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/result_metric_chip"
+                    android:gravity="center"
+                    android:orientation="vertical">
 
                     <TextView
                         android:id="@+id/txtMySets"
-                        android:layout_width="36dp"
-                        android:layout_height="80dp"
-                        android:gravity="center"
-                        android:textColor="@color/lightBlueApp"
-                        android:textSize="36sp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
                         android:fontFamily="@font/baloo"
-                        android:textStyle="bold" />
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        tools:text="2" />
 
                     <TextView
-                        android:id="@+id/txtOpponentSets"
-                        android:layout_width="36dp"
-                        android:layout_height="80dp"
+                        android:id="@+id/txtMySetsLabel"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
                         android:gravity="center"
-                        android:textColor="@color/lightBlueApp"
-                        android:textSize="36sp"
-                        android:fontFamily="@font/baloo"
+                        android:includeFontPadding="false"
+                        android:text="الجولات"
+                        android:textColor="#88FFFFFF"
+                        android:textSize="9sp"
                         android:textStyle="bold" />
-
-                    <de.hdodenhof.circleimageview.CircleImageView
-                        android:id="@+id/imgOpponent"
-                        android:layout_width="80dp"
-                        android:layout_height="80dp"
-                        app:civ_border_color="@color/player2"
-                        app:civ_border_width="4dp"
-                        android:layout_marginStart="6dp" />
                 </LinearLayout>
+            </LinearLayout>
 
-                <!-- Opponent side -->
+            <FrameLayout
+                android:id="@+id/resultCenterWrap"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:layout_weight="1">
+
+                <View
+                    android:id="@+id/resultAura"
+                    android:layout_width="210dp"
+                    android:layout_height="210dp"
+                    android:layout_gravity="top|center_horizontal"
+                    android:layout_marginTop="-54dp"
+                    android:alpha="0.24"
+                    android:background="@drawable/result_panel_win" />
+
+                <LinearLayout
+                    android:id="@+id/resultPanel"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/result_panel_tie"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:paddingStart="18dp"
+                    android:paddingTop="14dp"
+                    android:paddingEnd="18dp"
+                    android:paddingBottom="14dp">
+
+                    <TextView
+                        android:id="@+id/txtModeSubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:textColor="#BDEAF6FF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        tools:text="أفضل أداء عبر الجولات هو الذي يصنع الفارق" />
+
+                    <TextView
+                        android:id="@+id/txtResult"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="9dp"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/baloo"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:maxLines="2"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="29sp"
+                        android:textStyle="bold"
+                        tools:text="مبروك، لقد فزت بالمباراة" />
+
+                    <TextView
+                        android:id="@+id/txtScore"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:ellipsize="end"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:textColor="#FFEAF6FF"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        tools:text="إجاباتك الصحيحة: 8 | النقاط: 120" />
+
+                    <TextView
+                        android:id="@+id/txtResultDetails"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:ellipsize="end"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:maxLines="2"
+                        android:textColor="#CCFFFFFF"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        tools:text="رصيدك الجديد: 1500" />
+
+                    <LinearLayout
+                        android:id="@+id/llyOpponentsSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_marginTop="12dp"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <LinearLayout
+                android:id="@+id/cardOpponent"
+                android:layout_width="248dp"
+                android:layout_height="match_parent"
+                android:background="@drawable/result_player_red"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:text="الخصم"
+                    android:textColor="#F4A8D4E8"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <de.hdodenhof.circleimageview.CircleImageView
+                    android:id="@+id/imgOpponent"
+                    android:layout_width="92dp"
+                    android:layout_height="92dp"
+                    android:layout_marginTop="8dp"
+                    app:civ_border_color="@color/player2"
+                    app:civ_border_width="4dp" />
+
                 <TextView
                     android:id="@+id/txtOpponentName"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_alignParentEnd="true"
-                    android:layout_marginEnd="16dp"
                     android:layout_marginTop="10dp"
-                    android:textColor="#fff"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
+                    android:ellipsize="end"
+                    android:fontFamily="@font/baloo"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:maxLines="1"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="21sp"
+                    android:textStyle="bold"
+                    tools:text="المنافس" />
 
                 <TextView
                     android:id="@+id/txtOpponentScore"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_below="@id/txtOpponentName"
-                    android:layout_alignEnd="@id/txtOpponentName"
-                    android:textColor="@color/stepSelected"
-                    android:textSize="24sp"
+                    android:layout_marginTop="4dp"
                     android:fontFamily="@font/baloo"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:textColor="#FFFF4D8D"
+                    android:textSize="34sp"
+                    android:textStyle="bold"
+                    tools:text="90" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:text="النقاط"
+                    android:textColor="#8BFFFFFF"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
-            </RelativeLayout>
 
-            <!-- Result text -->
-            <TextView
-                android:id="@+id/txtModeTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="8dp"
-                android:textColor="@color/lightBlueApp"
-                android:textStyle="bold"
-                android:textSize="20sp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/result_metric_chip"
+                    android:gravity="center"
+                    android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/txtModeSubtitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="4dp"
-                android:layout_marginStart="24dp"
-                android:layout_marginEnd="24dp"
-                android:gravity="center"
-                android:textColor="#CCFFFFFF"
-                android:textSize="16sp" />
+                    <TextView
+                        android:id="@+id/txtOpponentSets"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/baloo"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        tools:text="1" />
 
-            <TextView
-                android:id="@+id/txtResult"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="8dp"
-                android:layout_marginStart="24dp"
-                android:layout_marginEnd="24dp"
-                android:gravity="center"
-                android:textColor="#fff"
-                android:textStyle="bold"
-                android:textSize="28sp" />
+                    <TextView
+                        android:id="@+id/txtOpponentSetsLabel"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:text="الجولات"
+                        android:textColor="#88FFFFFF"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
 
-            <TextView
-                android:id="@+id/txtScore"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="4dp"
-                android:layout_marginStart="24dp"
-                android:layout_marginEnd="24dp"
-                android:gravity="center"
-                android:textColor="#fff"
-                android:textStyle="bold"
-                android:textSize="26sp" />
+        <LinearLayout
+            android:id="@+id/resultActions"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:orientation="horizontal">
 
-            <TextView
-                android:id="@+id/txtResultDetails"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="6dp"
-                android:layout_marginStart="24dp"
-                android:layout_marginEnd="24dp"
-                android:gravity="center"
-                android:textColor="#DDE7FF"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <!-- Opponents summary -->
-            <LinearLayout
-                android:id="@+id/llyOpponentsSummary"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:layout_marginStart="24dp"
-                android:layout_marginEnd="24dp"
-                android:orientation="vertical" />
-
-            <!-- Buttons always visible -->
             <Button
                 android:id="@+id/btnNewGame"
-                android:layout_width="200dp"
+                android:layout_width="210dp"
                 android:layout_height="50dp"
+                android:background="@drawable/result_button_primary"
+                android:fontFamily="@font/baloo"
+                android:gravity="center"
+                android:minHeight="0dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:stateListAnimator="@null"
                 android:text="@string/btnNewGame"
-                style="@style/button_main_menu"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="16dp" />
+                android:textAllCaps="false"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/btnHome"
-                android:layout_width="200dp"
+                android:layout_width="210dp"
                 android:layout_height="50dp"
+                android:layout_marginStart="12dp"
+                android:background="@drawable/result_button_secondary"
+                android:fontFamily="@font/baloo"
+                android:gravity="center"
+                android:minHeight="0dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:stateListAnimator="@null"
                 android:text="@string/btnHome"
-                style="@style/button_main_menu"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="10dp" />
-
+                android:textAllCaps="false"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
         </LinearLayout>
-    </ScrollView>
-
+    </LinearLayout>
 </FrameLayout>
