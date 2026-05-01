@@ -151,8 +151,8 @@ public class PlayerProgress {
     public static int getLevel(Context c) {
         int xp = getXp(c);
         int lv = 1;
-        while (xp >= lv * 100) {
-            xp -= lv * 100;
+        while (xp >= xpNeededForLevel(lv)) {
+            xp -= xpNeededForLevel(lv);
             lv++;
         }
         return lv;
@@ -161,15 +161,15 @@ public class PlayerProgress {
     public static int getXpIntoLevel(Context c) {
         int xp = getXp(c);
         int lv = 1;
-        while (xp >= lv * 100) {
-            xp -= lv * 100;
+        while (xp >= xpNeededForLevel(lv)) {
+            xp -= xpNeededForLevel(lv);
             lv++;
         }
         return xp;
     }
 
     public static int getXpNeededForNextLevel(Context c) {
-        return getLevel(c) * 100;
+        return xpNeededForLevel(getLevel(c));
     }
 
     public static String getRankTitle(int level) {
@@ -180,6 +180,17 @@ public class PlayerProgress {
         if (level >= 10) return "Silver";
         if (level >= 5) return "Bronze";
         return "Rookie";
+    }
+
+    private static int xpNeededForLevel(int level) {
+        int safeLevel = Math.max(1, level);
+        if (safeLevel < 5) return 120 + (safeLevel - 1) * 40;
+        if (safeLevel < 10) return 320 + (safeLevel - 5) * 55;
+        if (safeLevel < 20) return 620 + (safeLevel - 10) * 80;
+        if (safeLevel < 30) return 1450 + (safeLevel - 20) * 130;
+        if (safeLevel < 45) return 2850 + (safeLevel - 30) * 210;
+        if (safeLevel < 60) return 6000 + (safeLevel - 45) * 360;
+        return 11500 + (safeLevel - 60) * 550;
     }
 
     public static void addInventory(Context c, String type, int amount) {

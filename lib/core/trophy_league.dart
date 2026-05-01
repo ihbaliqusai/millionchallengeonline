@@ -33,6 +33,20 @@ class TrophyLeague {
   String rangeLabel() => max == null ? '$min+' : '$min-${max!}';
 }
 
+class TrophyRule {
+  const TrophyRule({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+}
+
 class TrophyProgression {
   static const List<TrophyLeague> leagues = [
     TrophyLeague(
@@ -41,55 +55,106 @@ class TrophyProgression {
       color: Color(0xFF94A3B8),
       icon: Icons.star_outline_rounded,
       min: 0,
-      max: 149,
+      max: 199,
     ),
     TrophyLeague(
       name: 'Bronze',
       nameAr: 'برونزي',
       color: Color(0xFFCD7F32),
       icon: Icons.shield_rounded,
-      min: 150,
-      max: 399,
+      min: 200,
+      max: 499,
     ),
     TrophyLeague(
       name: 'Silver',
       nameAr: 'فضي',
       color: Color(0xFFCBD5E1),
       icon: Icons.shield_moon_rounded,
-      min: 400,
-      max: 799,
+      min: 500,
+      max: 999,
     ),
     TrophyLeague(
       name: 'Gold',
       nameAr: 'ذهبي',
       color: Color(0xFFFACC15),
       icon: Icons.military_tech_rounded,
-      min: 800,
-      max: 1399,
+      min: 1000,
+      max: 1799,
     ),
     TrophyLeague(
       name: 'Diamond',
       nameAr: 'ماسي',
       color: Color(0xFF38BDF8),
       icon: Icons.diamond_rounded,
-      min: 1400,
-      max: 2299,
+      min: 1800,
+      max: 2999,
     ),
     TrophyLeague(
       name: 'Master',
       nameAr: 'خبير',
       color: Color(0xFF8B5CF6),
       icon: Icons.workspace_premium_rounded,
-      min: 2300,
-      max: 3499,
+      min: 3000,
+      max: 4999,
     ),
     TrophyLeague(
       name: 'Legend',
       nameAr: 'أسطورة',
       color: Color(0xFFEF4444),
       icon: Icons.local_fire_department_rounded,
-      min: 3500,
+      min: 5000,
       max: null,
+    ),
+  ];
+
+  static const List<TrophyRule> rules = [
+    TrophyRule(
+      label: 'إنهاء مباراة',
+      value: '+4',
+      icon: Icons.sports_esports_rounded,
+      color: Color(0xFF38BDF8),
+    ),
+    TrophyRule(
+      label: 'فوز',
+      value: '+18',
+      icon: Icons.emoji_events_rounded,
+      color: Color(0xFFFACC15),
+    ),
+    TrophyRule(
+      label: 'فوز أونلاين',
+      value: '+12',
+      icon: Icons.public_rounded,
+      color: Color(0xFF22D3EE),
+    ),
+    TrophyRule(
+      label: '10 إجابات صحيحة',
+      value: '+1',
+      icon: Icons.check_circle_rounded,
+      color: Color(0xFF34D399),
+    ),
+    TrophyRule(
+      label: 'أفضل تتابع',
+      value: '+4',
+      icon: Icons.bolt_rounded,
+      color: Color(0xFFF97316),
+    ),
+    TrophyRule(
+      label: 'أفضل سلسلة فوز',
+      value: '+10',
+      icon: Icons.local_fire_department_rounded,
+      color: Color(0xFFFFB020),
+    ),
+    TrophyRule(
+      label: 'الخسارة',
+      value: '-6',
+      icon: Icons.flag_rounded,
+      color: Color(0xFFFB7185),
+    ),
+    TrophyRule(
+      label: '12 إجابة خاطئة',
+      value: '-1',
+      icon: Icons.cancel_rounded,
+      color: Color(0xFFF87171),
     ),
   ];
 
@@ -100,23 +165,56 @@ class TrophyProgression {
   static int computeTrophies(Map<String, int> stats) {
     final gamesPlayed = stats['gamesPlayed'] ?? 0;
     final wins = stats['wins'] ?? 0;
+    final losses = stats['losses'] ?? 0;
     final onlineWins = stats['onlineWins'] ?? 0;
     final correctAnswers = stats['correctAnswers'] ?? 0;
+    final wrongAnswers = stats['wrongAnswers'] ?? 0;
     final bestStreak = stats['bestStreak'] ?? 0;
     final bestWinStreak = stats['bestWinStreak'] ?? 0;
     final totalEarnings = stats['totalEarnings'] ?? 0;
+    final totalAnswered = correctAnswers + wrongAnswers;
 
-    final trophies = gamesPlayed * 8 +
-        wins * 16 +
-        onlineWins * 8 +
-        (correctAnswers ~/ 20) +
-        bestStreak * 2 +
-        bestWinStreak * 5 +
-        (totalEarnings ~/ 20000).clamp(0, 120);
+    final participation = gamesPlayed * 4;
+    final winScore = wins * 18;
+    final onlineScore = onlineWins * 12;
+    final answerScore = correctAnswers ~/ 10;
+    final streakScore = bestStreak * 4 + bestWinStreak * 10;
+    final earningsScore = (totalEarnings ~/ 25000).clamp(0, 300);
+    final winRateBonus = _winRateBonus(gamesPlayed, wins);
+    final accuracyBonus = _accuracyBonus(totalAnswered, correctAnswers);
+    final penalties = losses * 6 + wrongAnswers ~/ 12;
+
+    final trophies = participation +
+        winScore +
+        onlineScore +
+        answerScore +
+        streakScore +
+        earningsScore +
+        winRateBonus +
+        accuracyBonus -
+        penalties;
 
     return trophies.clamp(0, 999999);
   }
 
+  static int _winRateBonus(int gamesPlayed, int wins) {
+    if (gamesPlayed < 10) return 0;
+    final rate = wins / gamesPlayed;
+    if (rate >= 0.75) return 180;
+    if (rate >= 0.60) return 100;
+    if (rate >= 0.45) return 45;
+    return 0;
+  }
+
+  static int _accuracyBonus(int totalAnswered, int correctAnswers) {
+    if (totalAnswered < 40) return 0;
+    final accuracy = correctAnswers / totalAnswered;
+    if (accuracy >= 0.85) return 140;
+    if (accuracy >= 0.75) return 80;
+    if (accuracy >= 0.65) return 35;
+    return 0;
+  }
+
   static const String trophyBasisLabelAr =
-      'الإنهاء، الفوز، الأداء، والنتائج الأونلاين';
+      'الفوز، الاستمرار، الدقة، والأداء الأونلاين';
 }

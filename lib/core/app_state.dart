@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import '../services/auth_service.dart';
 import '../services/native_bridge_service.dart';
+import 'player_rank.dart';
 import 'trophy_league.dart';
 
 class AppState extends ChangeNotifier {
@@ -124,23 +125,11 @@ class AppState extends ChangeNotifier {
   bool _checkingXp = false;
 
   static int _computeLevel(int totalXp) {
-    int lv = 1;
-    int remaining = totalXp;
-    while (remaining >= lv * 100) {
-      remaining -= lv * 100;
-      lv++;
-    }
-    return lv;
+    return PlayerRank.levelForXp(totalXp);
   }
 
   static int _computeXpInLevel(int totalXp) {
-    int lv = 1;
-    int remaining = totalXp;
-    while (remaining >= lv * 100) {
-      remaining -= lv * 100;
-      lv++;
-    }
-    return remaining;
+    return PlayerRank.xpIntoLevel(totalXp);
   }
 
   Future<void> loadLevelData() async {
@@ -155,7 +144,7 @@ class AppState extends ChangeNotifier {
       _lastKnownWins = (data['lastKnownWins'] as num?)?.toInt() ?? -1;
       level = _computeLevel(xp);
       xpInCurrentLevel = _computeXpInLevel(xp);
-      xpNeededForLevel = level * 100;
+      xpNeededForLevel = PlayerRank.xpNeededForLevel(level);
       trophies = (data['trophies'] as num?)?.toInt() ?? 0;
 
       // Streak data
@@ -207,20 +196,21 @@ class AppState extends ChangeNotifier {
       final gamesPlayed = stats['gamesPlayed'] ?? 0;
       final wins = stats['wins'] ?? 0;
       final nativeXp = stats['xp'] ?? xp;
-      final nativeLevel = stats['level'] ?? _computeLevel(nativeXp);
+      final effectiveXp = nativeXp > xp ? nativeXp : xp;
+      final computedLevel = _computeLevel(effectiveXp);
       final computedTrophies = TrophyProgression.computeTrophies(stats);
       final statsChanged =
           gamesPlayed != _lastKnownGamesPlayed || wins != _lastKnownWins;
-      final xpChanged = xp != nativeXp;
-      final levelChanged = level != nativeLevel;
+      final xpChanged = xp != effectiveXp;
+      final levelChanged = level != computedLevel;
       final trophiesChanged = trophies != computedTrophies;
 
       _lastKnownGamesPlayed = gamesPlayed;
       _lastKnownWins = wins;
-      xp = nativeXp;
-      level = nativeLevel;
-      xpInCurrentLevel = _computeXpInLevel(nativeXp);
-      xpNeededForLevel = level * 100;
+      xp = effectiveXp;
+      level = computedLevel;
+      xpInCurrentLevel = _computeXpInLevel(effectiveXp);
+      xpNeededForLevel = PlayerRank.xpNeededForLevel(level);
       trophies = computedTrophies;
 
       if (xpChanged || levelChanged || trophiesChanged) {
@@ -284,8 +274,9 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> updateUsername(String username) async {
-    await _runBusy(() => _authService.updateUsername(username));
+    await _authService.updateUsername(username);
     await _syncLegacyUser();
+    notifyListeners();
   }
 
   Future<void> signOut() async {
@@ -441,7 +432,7 @@ class AppState extends ChangeNotifier {
     level = 1;
     xp = 0;
     xpInCurrentLevel = 0;
-    xpNeededForLevel = 100;
+    xpNeededForLevel = PlayerRank.xpNeededForLevel(1);
     _lastKnownGamesPlayed = -1;
     _lastKnownWins = -1;
   }

@@ -7,132 +7,6 @@ import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
 import '../../services/native_bridge_service.dart';
 
-Future<void> _showEditUsernameDialog(BuildContext context) async {
-  final appState = context.read<AppState>();
-  final controller = TextEditingController(
-    text: appState.user?.displayName ?? '',
-  );
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF152055),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Row(
-        children: [
-          Icon(Icons.edit_rounded, color: Color(0xFFFACC15), size: 20),
-          SizedBox(width: 8),
-          Text(
-            'تغيير الاسم',
-            style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16),
-          ),
-        ],
-      ),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        maxLength: 20,
-        style: const TextStyle(color: Colors.white, fontSize: 15),
-        decoration: InputDecoration(
-          hintText: 'اسم اللاعب الجديد',
-          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-          counterStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('إلغاء', style: TextStyle(color: Colors.white54)),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFACC15),
-            foregroundColor: const Color(0xFF1F2937),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-          onPressed: () => Navigator.pop(ctx, true),
-          child:
-              const Text('حفظ', style: TextStyle(fontWeight: FontWeight.w900)),
-        ),
-      ],
-    ),
-  );
-  final newName = controller.text.trim();
-  controller.dispose();
-  if (confirmed != true || !context.mounted) return;
-  if (newName.isEmpty) return;
-  try {
-    await context.read<AppState>().updateUsername(newName);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم تحديث الاسم بنجاح ✓'),
-          backgroundColor: Color(0xFF16A34A),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  } catch (_) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('فشل تحديث الاسم، حاول مرة أخرى'),
-          backgroundColor: Color(0xFFDC2626),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-}
-
-// ── Trophy League Definitions ─────────────────────────────────────────────────
-
-class _League {
-  final String name;
-  final String nameAr;
-  final Color color;
-  final IconData icon;
-  final int min;
-  final int? max; // null = no cap (top league)
-
-  const _League(
-      this.name, this.nameAr, this.color, this.icon, this.min, this.max);
-
-  bool contains(int trophies) =>
-      trophies >= min && (max == null || trophies <= max!);
-
-  double progress(int trophies) {
-    if (max == null) return 1.0;
-    return ((trophies - min) / (max! - min + 1)).clamp(0.0, 1.0);
-  }
-
-  int trophiesLeft(int trophies) {
-    if (max == null) return 0;
-    return (max! + 1 - trophies).clamp(0, max! + 1);
-  }
-}
-
-const List<_League> _leagues = [
-  _League(
-      'Rookie', 'مبتدئ', Color(0xFF94A3B8), Icons.star_outline_rounded, 0, 149),
-  _League('Bronze', 'برونز', Color(0xFFCD7F32), Icons.shield_rounded, 150, 399),
-  _League('Silver', 'فضة', Color(0xFFCBD5E1), Icons.shield_rounded, 400, 799),
-  _League(
-      'Gold', 'ذهب', Color(0xFFFACC15), Icons.military_tech_rounded, 800, 1399),
-  _League('Diamond', 'دايموند', Color(0xFF38BDF8), Icons.diamond_rounded, 1400,
-      2299),
-  _League('Master', 'ماستر', Color(0xFF8B5CF6), Icons.workspace_premium_rounded,
-      2300, 3499),
-  _League('Legend', 'أسطورة', Color(0xFFEF4444),
-      Icons.local_fire_department_rounded, 3500, null),
-];
-
-_League _leagueFor(int trophies) =>
-    _leagues.lastWhere((l) => trophies >= l.min, orElse: () => _leagues.first);
-
-// ── Screen ────────────────────────────────────────────────────────────────────
-
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -167,175 +41,362 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _showEditUsernameDialog() async {
+    final appState = context.read<AppState>();
+    final initialName = appState.user?.displayName ?? '';
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _EditUsernameDialog(initialName: initialName),
+    );
+
+    if (newName == null || newName.isEmpty || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await appState.updateUsername(newName);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('تم تحديث الاسم بنجاح'),
+          backgroundColor: Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('فشل تحديث الاسم، حاول مرة أخرى'),
+          backgroundColor: Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
-    final user = appState.user;
-    final username =
-        (user?.displayName ?? user?.email?.split('@').first ?? 'لاعب').trim();
-    final uid = user?.uid ?? '';
-    final level = appState.level;
 
-    final totalMatches = _stats['gamesPlayed'] ?? 0;
-    final wins = _stats['wins'] ?? 0;
-    final rawLosses = totalMatches - wins;
-    final losses = rawLosses < 0 ? 0 : rawLosses;
-    final winRate = totalMatches > 0 ? (wins / totalMatches * 100).round() : 0;
-    final winStreak = _stats['winStreak'] ?? 0;
-    final bestStreak = _stats['bestWinStreak'] ?? 0;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF071126),
+        resizeToAvoidBottomInset: false,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset('assets/ui/bg_main.png', fit: BoxFit.cover),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      const Color(0xFF040914).withValues(alpha: 0.58),
+                      const Color(0xFF071126).withValues(alpha: 0.93),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  _Header(onBack: () => Navigator.pop(context)),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      child: _loading
+                          ? const _LoadingState()
+                          : _ProfileDashboard(
+                              appState: appState,
+                              stats: _stats,
+                              onEditName: _showEditUsernameDialog,
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    // ── Trophy formula: total earnings ÷ 1000 (كل 1000 ريال = كأس) ──────────
-    final trophies = appState.trophies;
+class _ProfileDashboard extends StatelessWidget {
+  const _ProfileDashboard({
+    required this.appState,
+    required this.stats,
+    required this.onEditName,
+  });
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D1B4B),
-      body: SafeArea(
-        child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFFFACC15)))
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+  final AppState appState;
+  final Map<String, int> stats;
+  final VoidCallback onEditName;
+
+  int _value(String key) => stats[key] ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final games = _value('gamesPlayed');
+    final wins = _value('wins');
+    final losses = (_value('losses') > 0 ? _value('losses') : games - wins)
+        .clamp(0, 999999);
+    final correct = _value('correctAnswers');
+    final wrong = _value('wrongAnswers');
+    final totalAnswered =
+        _value('totalAnswered') > 0 ? _value('totalAnswered') : correct + wrong;
+    final accuracy = _value('accuracy') > 0
+        ? _value('accuracy')
+        : (totalAnswered > 0 ? (correct * 100 / totalAnswered).round() : 0);
+    final winRate = _value('winPercent') > 0
+        ? _value('winPercent')
+        : (games > 0 ? (wins * 100 / games).round() : 0);
+    final rank = PlayerRank.tierForLevel(appState.level);
+    final nextRank = PlayerRank.nextTierForLevel(appState.level);
+    final league = TrophyProgression.leagueFor(appState.trophies);
+
+    final metrics = <_MetricItem>[
+      _MetricItem(
+        icon: Icons.sports_esports_rounded,
+        color: const Color(0xFF38BDF8),
+        label: 'المباريات',
+        value: _compactNumber(games),
+      ),
+      _MetricItem(
+        icon: Icons.emoji_events_rounded,
+        color: const Color(0xFFFACC15),
+        label: 'الفوز',
+        value: _compactNumber(wins),
+      ),
+      _MetricItem(
+        icon: Icons.flag_rounded,
+        color: const Color(0xFFFB7185),
+        label: 'الخسائر',
+        value: _compactNumber(losses),
+      ),
+      _MetricItem(
+        icon: Icons.task_alt_rounded,
+        color: const Color(0xFF34D399),
+        label: 'الدقة',
+        value: '$accuracy%',
+      ),
+      _MetricItem(
+        icon: Icons.public_rounded,
+        color: const Color(0xFF22D3EE),
+        label: 'أونلاين',
+        value: _compactNumber(_value('onlineWins')),
+      ),
+      _MetricItem(
+        icon: Icons.local_fire_department_rounded,
+        color: const Color(0xFFFFB020),
+        label: 'سلسلة الفوز',
+        value: _compactNumber(_value('winStreak')),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact =
+            constraints.maxHeight < 300 || constraints.maxWidth < 820;
+        final gap = compact ? 8.0 : 12.0;
+        final sideWidth = constraints.maxWidth < 760
+            ? 220.0
+            : constraints.maxWidth < 980
+                ? 248.0
+                : 286.0;
+        final rulesWidth = constraints.maxWidth < 760
+            ? 230.0
+            : constraints.maxWidth < 980
+                ? 260.0
+                : 300.0;
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            compact ? 10 : 16,
+            0,
+            compact ? 10 : 16,
+            compact ? 10 : 14,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: sideWidth,
+                child: _IdentityPanel(
+                  appState: appState,
+                  rank: rank,
+                  league: league,
+                  onEditName: onEditName,
+                  compact: compact,
+                ),
+              ),
+              SizedBox(width: gap),
+              Expanded(
+                child: Column(
                   children: [
-                    // ── Left: Profile + Account ───────────────────────────────
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildBackButton(),
-                          const SizedBox(height: 12),
-                          _sectionLabel('الملف الشخصي'),
-                          const SizedBox(height: 8),
-                          _buildProfileCard(
-                              username, level, trophies, user?.photoURL),
-                          const SizedBox(height: 12),
-                          _sectionLabel('الحساب'),
-                          const SizedBox(height: 8),
-                          _buildAccountCard(uid),
-                        ],
+                    SizedBox(
+                      height: compact ? 112 : 128,
+                      child: _LevelPanel(
+                        appState: appState,
+                        rank: rank,
+                        nextRank: nextRank,
+                        compact: compact,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    // ── Center: Battle Record ─────────────────────────────────
+                    SizedBox(height: gap),
                     Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 48),
-                          _sectionLabel('سجل المواجهات'),
-                          const SizedBox(height: 8),
-                          _buildBattleRecord(
-                            totalMatches: totalMatches,
-                            wins: wins,
-                            losses: losses,
-                            winRate: winRate,
-                            winStreak: winStreak,
-                            bestStreak: bestStreak,
-                            trophies: trophies,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // ── Right: Trophy League ──────────────────────────────────
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 48),
-                          _sectionLabel('دوري الكؤوس'),
-                          const SizedBox(height: 8),
-                          _buildTrophyLeagueCard(trophies),
-                        ],
+                      child: _MetricsGrid(
+                        metrics: metrics,
+                        compact: compact,
+                        gap: gap,
                       ),
                     ),
                   ],
                 ),
               ),
-      ),
-    );
-  }
-
-  // ── Back button ─────────────────────────────────────────────────────────────
-
-  Widget _buildBackButton() {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E3A8A).withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-        ),
-        child: const Icon(Icons.home_rounded, color: Colors.white, size: 20),
-      ),
-    );
-  }
-
-  Widget _sectionLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w900,
-        color: Colors.white54,
-        letterSpacing: 1.5,
-      ),
-    );
-  }
-
-  // ── Profile Card ─────────────────────────────────────────────────────────────
-
-  Widget _buildProfileCard(
-      String username, int level, int trophies, String? photoUrl) {
-    final rank = PlayerRank.titleForLevel(level);
-    final rankClr = PlayerRank.colorForLevel(level);
-    final league = _leagueFor(trophies);
-    final nextIdx = _leagues.indexOf(league) + 1;
-    final hasNext = nextIdx < _leagues.length;
-    final progress = league.progress(trophies);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF152055),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => _showEditUsernameDialog(context),
-                child: Icon(Icons.edit_rounded,
-                    size: 14, color: Colors.white.withValues(alpha: 0.5)),
+              SizedBox(width: gap),
+              SizedBox(
+                width: rulesWidth,
+                child: _ProgressionPanel(
+                  appState: appState,
+                  league: league,
+                  winRate: winRate,
+                  correct: correct,
+                  wrong: wrong,
+                  compact: compact,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+        );
+      },
+    );
+  }
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'الملف الشخصي',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'المستوى، الرتبة، ودوري الكؤوس',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          Tooltip(
+            message: 'رجوع',
+            child: IconButton(
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+              color: Colors.white,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white.withValues(alpha: 0.08),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IdentityPanel extends StatelessWidget {
+  const _IdentityPanel({
+    required this.appState,
+    required this.rank,
+    required this.league,
+    required this.onEditName,
+    required this.compact,
+  });
+
+  final AppState appState;
+  final PlayerRankTier rank;
+  final TrophyLeague league;
+  final VoidCallback onEditName;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = appState.user;
+    final username =
+        (user?.displayName ?? user?.email?.split('@').first ?? 'لاعب').trim();
+    final uid = user?.uid ?? '';
+    final xpProgress = appState.xpNeededForLevel > 0
+        ? (appState.xpInCurrentLevel / appState.xpNeededForLevel)
+            .clamp(0.0, 1.0)
+        : 0.0;
+
+    return Container(
+      padding: EdgeInsets.all(compact ? 12 : 14),
+      decoration: _panelDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
           Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: compact ? 52 : 60,
+                height: compact ? 52 : 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF7C3AED),
-                  border: Border.all(color: const Color(0xFFFACC15), width: 2),
+                  color: const Color(0xFF111827),
+                  border: Border.all(color: rank.color, width: 2),
                 ),
                 child: ClipOval(
-                  child: photoUrl?.isNotEmpty == true
-                      ? Image.network(photoUrl!, fit: BoxFit.cover)
-                      : const Icon(Icons.person_rounded,
-                          size: 28, color: Colors.white),
+                  child: user?.photoURL?.isNotEmpty == true
+                      ? Image.network(
+                          user!.photoURL!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.person_rounded,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.person_rounded,
+                          color: Colors.white,
+                          size: 30,
+                        ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -344,455 +405,952 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      username,
-                      style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white),
+                      username.isEmpty ? 'لاعب' : username,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: compact ? 16 : 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(Icons.circle, size: 8, color: rankClr),
-                        const SizedBox(width: 4),
-                        Text(rank,
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: rankClr)),
-                      ],
+                    const SizedBox(height: 3),
+                    _MiniBadge(
+                      icon: rank.icon,
+                      color: rank.color,
+                      text: rank.nameAr,
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Trophy count + league badge
-          Row(
-            children: [
-              Icon(league.icon, color: league.color, size: 20),
-              const SizedBox(width: 6),
-              Text(
-                '$trophies',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: league.color),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: league.color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                  border:
-                      Border.all(color: league.color.withValues(alpha: 0.4)),
-                ),
-                child: Text(
-                  league.nameAr,
-                  style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: league.color),
+              Tooltip(
+                message: 'تعديل الاسم',
+                child: IconButton(
+                  onPressed: onEditName,
+                  icon: const Icon(Icons.edit_rounded, size: 18),
+                  color: Colors.white70,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.07),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-
-          // Progress bar to next league
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.white.withValues(alpha: 0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(league.color),
-              minHeight: 5,
-            ),
+          _ProgressLine(
+            title: 'المستوى ${appState.level}',
+            value:
+                '${appState.xpInCurrentLevel}/${appState.xpNeededForLevel} XP',
+            progress: xpProgress,
+            color: rank.color,
+            compact: compact,
           ),
-          const SizedBox(height: 4),
-          Text(
-            hasNext
-                ? '${league.trophiesLeft(trophies)} كأس للدوري التالي'
-                : 'أعلى دوري!',
-            style: TextStyle(
-                fontSize: 9, color: Colors.white.withValues(alpha: 0.45)),
+          _ProgressLine(
+            title: league.nameAr,
+            value: '${_compactNumber(appState.trophies)} كأس',
+            progress: league.progress(appState.trophies),
+            color: league.color,
+            compact: compact,
           ),
-
-          // Avatar showcase row (decorative)
-          const SizedBox(height: 8),
-          Row(
-            children: List.generate(5, (i) {
-              final colors = [
-                const Color(0xFF22C55E),
-                const Color(0xFFEC4899),
-                const Color(0xFF7C3AED),
-                const Color(0xFFF97316),
-                const Color(0xFF38BDF8),
-              ];
-              return Container(
-                width: 28,
-                height: 28,
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colors[i].withValues(alpha: 0.3),
-                  border: Border.all(color: colors[i].withValues(alpha: 0.7)),
-                ),
-                child: Icon(Icons.person_rounded, size: 14, color: colors[i]),
-              );
-            }),
-          ),
+          _AccountStrip(uid: uid, compact: compact),
         ],
       ),
     );
   }
+}
 
-  // ── Account Card ─────────────────────────────────────────────────────────────
+class _LevelPanel extends StatelessWidget {
+  const _LevelPanel({
+    required this.appState,
+    required this.rank,
+    required this.nextRank,
+    required this.compact,
+  });
 
-  Widget _buildAccountCard(String uid) {
-    final shortId = uid.length > 20 ? '${uid.substring(0, 20)}...' : uid;
+  final AppState appState;
+  final PlayerRankTier rank;
+  final PlayerRankTier? nextRank;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final xpProgress = appState.xpNeededForLevel > 0
+        ? (appState.xpInCurrentLevel / appState.xpNeededForLevel)
+            .clamp(0.0, 1.0)
+        : 0.0;
+    final nextText = nextRank == null
+        ? 'أعلى رتبة'
+        : 'المستوى ${nextRank!.minLevel}: ${nextRank!.nameAr}';
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF152055),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
+      padding: EdgeInsets.all(compact ? 10 : 12),
+      decoration: _panelDecoration(accent: rank.color),
       child: Row(
         children: [
           Container(
-            width: 28,
-            height: 28,
+            width: compact ? 64 : 76,
+            height: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFEC4899).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                  color: const Color(0xFFEC4899).withValues(alpha: 0.5)),
+              color: rank.color.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: rank.color.withValues(alpha: 0.5)),
             ),
-            child: const Icon(Icons.link_rounded,
-                color: Color(0xFFEC4899), size: 14),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(rank.icon, color: rank.color, size: compact ? 22 : 26),
+                const SizedBox(height: 4),
+                Text(
+                  '${appState.level}',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: compact ? 22 : 28,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+                Text(
+                  rank.nameAr,
+                  style: TextStyle(
+                    color: rank.color,
+                    fontSize: compact ? 9 : 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: compact ? 8 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('موصول',
-                    style: TextStyle(
-                        fontSize: 10,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'تقدم المستوى',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: compact ? 13 : 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      nextText,
+                      style: TextStyle(
+                        color: rank.color,
+                        fontSize: compact ? 9 : 10,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF22C55E))),
-                Text('المعرّف: $shortId',
-                    style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: xpProgress,
+                    minHeight: compact ? 5 : 6,
+                    backgroundColor: Colors.white.withValues(alpha: 0.10),
+                    valueColor: AlwaysStoppedAnimation<Color>(rank.color),
+                  ),
+                ),
+                const Spacer(),
+                _RankPath(currentLevel: appState.level, compact: compact),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RankPath extends StatelessWidget {
+  const _RankPath({required this.currentLevel, required this.compact});
+
+  final int currentLevel;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < PlayerRank.tiers.length; i++) ...[
+          Expanded(
+            child: _RankChip(
+              tier: PlayerRank.tiers[i],
+              active: currentLevel >= PlayerRank.tiers[i].minLevel,
+              compact: compact,
+            ),
+          ),
+          if (i != PlayerRank.tiers.length - 1) const SizedBox(width: 4),
+        ],
+      ],
+    );
+  }
+}
+
+class _RankChip extends StatelessWidget {
+  const _RankChip({
+    required this.tier,
+    required this.active,
+    required this.compact,
+  });
+
+  final PlayerRankTier tier;
+  final bool active;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: compact ? 24 : 28,
+      decoration: BoxDecoration(
+        color: active
+            ? tier.color.withValues(alpha: 0.18)
+            : Colors.white.withValues(alpha: 0.045),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: active
+              ? tier.color.withValues(alpha: 0.52)
+              : Colors.white.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Tooltip(
+        message: '${tier.nameAr} - مستوى ${tier.minLevel}',
+        child: Icon(
+          tier.icon,
+          color: active ? tier.color : Colors.white30,
+          size: compact ? 13 : 15,
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricsGrid extends StatelessWidget {
+  const _MetricsGrid({
+    required this.metrics,
+    required this.compact,
+    required this.gap,
+  });
+
+  final List<_MetricItem> metrics;
+  final bool compact;
+  final double gap;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = metrics.take(3).toList();
+    final second = metrics.skip(3).take(3).toList();
+
+    return Column(
+      children: [
+        Expanded(child: _MetricRow(items: first, compact: compact, gap: gap)),
+        SizedBox(height: gap),
+        Expanded(child: _MetricRow(items: second, compact: compact, gap: gap)),
+      ],
+    );
+  }
+}
+
+class _MetricRow extends StatelessWidget {
+  const _MetricRow({
+    required this.items,
+    required this.compact,
+    required this.gap,
+  });
+
+  final List<_MetricItem> items;
+  final bool compact;
+  final double gap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          Expanded(child: _MetricTile(item: items[i], compact: compact)),
+          if (i != items.length - 1) SizedBox(width: gap),
+        ],
+      ],
+    );
+  }
+}
+
+class _MetricTile extends StatelessWidget {
+  const _MetricTile({required this.item, required this.compact});
+
+  final _MetricItem item;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(compact ? 8 : 10),
+      decoration: _panelDecoration(accent: item.color, subtle: true),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(item.icon, color: item.color, size: compact ? 19 : 22),
+          SizedBox(height: compact ? 4 : 6),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              item.value,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: compact ? 19 : 23,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
+            ),
+          ),
+          SizedBox(height: compact ? 3 : 4),
+          Text(
+            item.label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.58),
+              fontSize: compact ? 9 : 10,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressionPanel extends StatelessWidget {
+  const _ProgressionPanel({
+    required this.appState,
+    required this.league,
+    required this.winRate,
+    required this.correct,
+    required this.wrong,
+    required this.compact,
+  });
+
+  final AppState appState;
+  final TrophyLeague league;
+  final int winRate;
+  final int correct;
+  final int wrong;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(compact ? 10 : 12),
+      decoration: _panelDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _LeagueSummary(
+            league: league,
+            trophies: appState.trophies,
+            compact: compact,
+          ),
+          SizedBox(height: compact ? 8 : 10),
+          _PerformanceStrip(
+            winRate: winRate,
+            correct: correct,
+            wrong: wrong,
+            compact: compact,
+          ),
+          SizedBox(height: compact ? 8 : 10),
+          Text(
+            'جدول الكؤوس',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: compact ? 12 : 13,
+              fontWeight: FontWeight.w900,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: _TrophyRulesList(compact: compact),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LeagueSummary extends StatelessWidget {
+  const _LeagueSummary({
+    required this.league,
+    required this.trophies,
+    required this.compact,
+  });
+
+  final TrophyLeague league;
+  final int trophies;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final nextIndex = TrophyProgression.leagues.indexOf(league) + 1;
+    final hasNext = nextIndex < TrophyProgression.leagues.length;
+    final next = hasNext ? TrophyProgression.leagues[nextIndex] : null;
+    final nextText = next == null
+        ? 'أعلى دوري'
+        : '${league.trophiesLeft(trophies)} كأس للـ ${next.nameAr}';
+
+    return Container(
+      padding: EdgeInsets.all(compact ? 9 : 10),
+      decoration: _panelDecoration(accent: league.color, subtle: true),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(league.icon, color: league.color, size: compact ? 18 : 20),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  league.nameAr,
+                  style: TextStyle(
+                    color: league.color,
+                    fontSize: compact ? 14 : 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                _compactNumber(trophies),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: league.progress(trophies),
+              minHeight: compact ? 5 : 6,
+              backgroundColor: Colors.white.withValues(alpha: 0.10),
+              valueColor: AlwaysStoppedAnimation<Color>(league.color),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            nextText,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.58),
+              fontSize: compact ? 9 : 10,
+              fontWeight: FontWeight.w800,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PerformanceStrip extends StatelessWidget {
+  const _PerformanceStrip({
+    required this.winRate,
+    required this.correct,
+    required this.wrong,
+    required this.compact,
+  });
+
+  final int winRate;
+  final int correct;
+  final int wrong;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _TinyStat(
+            icon: Icons.trending_up_rounded,
+            color: const Color(0xFF4ADE80),
+            label: 'فوز',
+            value: '$winRate%',
+            compact: compact,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _TinyStat(
+            icon: Icons.check_circle_rounded,
+            color: const Color(0xFF34D399),
+            label: 'صحيح',
+            value: _compactNumber(correct),
+            compact: compact,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _TinyStat(
+            icon: Icons.cancel_rounded,
+            color: const Color(0xFFF87171),
+            label: 'خطأ',
+            value: _compactNumber(wrong),
+            compact: compact,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TinyStat extends StatelessWidget {
+  const _TinyStat({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+    required this.compact,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 8,
+        vertical: compact ? 6 : 7,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.30)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: compact ? 14 : 16),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: compact ? 12 : 13,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.55),
+              fontSize: compact ? 8 : 9,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrophyRulesList extends StatelessWidget {
+  const _TrophyRulesList({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < TrophyProgression.rules.length; i++) ...[
+          Expanded(
+            child: _RuleRow(
+              rule: TrophyProgression.rules[i],
+              compact: compact,
+            ),
+          ),
+          if (i != TrophyProgression.rules.length - 1)
+            const SizedBox(height: 4),
+        ],
+      ],
+    );
+  }
+}
+
+class _RuleRow extends StatelessWidget {
+  const _RuleRow({required this.rule, required this.compact});
+
+  final TrophyRule rule;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: compact ? 7 : 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.045),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        children: [
+          Icon(rule.icon, color: rule.color, size: compact ? 13 : 15),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              rule.label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.70),
+                fontSize: compact ? 9 : 10,
+                fontWeight: FontWeight.w800,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            rule.value,
+            style: TextStyle(
+              color: rule.color,
+              fontSize: compact ? 10 : 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressLine extends StatelessWidget {
+  const _ProgressLine({
+    required this.title,
+    required this.value,
+    required this.progress,
+    required this.color,
+    required this.compact,
+  });
+
+  final String title;
+  final String value;
+  final double progress;
+  final Color color;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: compact ? 11 : 12,
+                  fontWeight: FontWeight.w900,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.58),
+                fontSize: compact ? 9 : 10,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: compact ? 5 : 6,
+            backgroundColor: Colors.white.withValues(alpha: 0.10),
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountStrip extends StatelessWidget {
+  const _AccountStrip({required this.uid, required this.compact});
+
+  final String uid;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final shortId = uid.length > 18 ? '${uid.substring(0, 18)}...' : uid;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: compact ? 7 : 9,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.link_rounded, color: Color(0xFFEC4899), size: 15),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              shortId.isEmpty ? 'حساب محلي' : shortId,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.68),
+                fontSize: compact ? 9 : 10,
+                fontWeight: FontWeight.w800,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           GestureDetector(
-            onTap: () => Clipboard.setData(ClipboardData(text: uid)),
+            onTap: uid.isEmpty
+                ? null
+                : () => Clipboard.setData(ClipboardData(text: uid)),
+            child: Icon(
+              Icons.copy_rounded,
+              size: 14,
+              color: Colors.white.withValues(alpha: uid.isEmpty ? 0.20 : 0.48),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniBadge extends StatelessWidget {
+  const _MiniBadge({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: color, size: 14),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoadingState extends StatelessWidget {
+  const _LoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: SizedBox(
+        width: 34,
+        height: 34,
+        child: CircularProgressIndicator(
+          strokeWidth: 3,
+          color: Color(0xFFFACC15),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditUsernameDialog extends StatefulWidget {
+  const _EditUsernameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_EditUsernameDialog> createState() => _EditUsernameDialogState();
+}
+
+class _EditUsernameDialogState extends State<_EditUsernameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.pop(context, _controller.text.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        backgroundColor: const Color(0xFF081328),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Row(
+          children: [
+            Icon(Icons.edit_rounded, color: Color(0xFFFACC15), size: 20),
+            SizedBox(width: 8),
+            Text(
+              'تغيير الاسم',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+        content: TextField(
+          controller: _controller,
+          autofocus: true,
+          maxLength: 20,
+          onSubmitted: (_) => _submit(),
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+          decoration: InputDecoration(
+            hintText: 'اسم اللاعب الجديد',
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+            counterStyle:
+                TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
             child:
-                const Icon(Icons.copy_rounded, size: 14, color: Colors.white38),
+                const Text('إلغاء', style: TextStyle(color: Colors.white54)),
           ),
-        ],
-      ),
-    );
-  }
-
-  // ── Battle Record ────────────────────────────────────────────────────────────
-
-  Widget _buildBattleRecord({
-    required int totalMatches,
-    required int wins,
-    required int losses,
-    required int winRate,
-    required int winStreak,
-    required int bestStreak,
-    required int trophies,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF152055),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        children: [
-          _battleRow(Icons.sports_esports_rounded, const Color(0xFF38BDF8),
-              'إجمالي المواجهات', '$totalMatches'),
-          const Divider(color: Colors.white12, height: 16),
-          Row(
-            children: [
-              Expanded(
-                  child: _battleTile(Icons.emoji_events_rounded,
-                      const Color(0xFFFACC15), 'الانتصارات', '$wins')),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: _battleTile(Icons.mood_bad_rounded,
-                      const Color(0xFFEF4444), 'الخسائر', '$losses')),
-            ],
-          ),
-          const SizedBox(height: 6),
-          _battleRow(Icons.shield_rounded, const Color(0xFF22C55E), 'نسبة الفوز',
-              '$winRate%'),
-          _battleRow(Icons.local_fire_department_rounded,
-              const Color(0xFFF97316), 'سلسلة الفوز', '$winStreak'),
-          _battleRow(Icons.military_tech_rounded, const Color(0xFFFACC15),
-              'أفضل سلسلة فوز', '$bestStreak'),
-          const Divider(color: Colors.white12, height: 16),
-          // Trophy change per game
-          _trophyChangeRow(),
-          _battleRow(Icons.emoji_events_rounded, const Color(0xFFFACC15),
-              'الكؤوس', '$trophies'),
-        ],
-      ),
-    );
-  }
-
-  Widget _trophyChangeRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          const Icon(Icons.monetization_on_rounded,
-              color: Color(0xFFFACC15), size: 16),
-          const SizedBox(width: 8),
-          const Text('أساس الكؤوس',
-              style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white54,
-                  fontWeight: FontWeight.w700)),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFACC15).withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: const Text(
-              TrophyProgression.trophyBasisLabelAr,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFFFACC15)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _battleRow(IconData icon, Color color, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 8),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.white54,
-                  fontWeight: FontWeight.w700)),
-          const Spacer(),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white)),
-        ],
-      ),
-    );
-  }
-
-  Widget _battleTile(IconData icon, Color color, String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 9,
-                      color: color.withValues(alpha: 0.8),
-                      fontWeight: FontWeight.w700)),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Trophy League Card ────────────────────────────────────────────────────────
-
-  Widget _buildTrophyLeagueCard(int trophies) {
-    final league = _leagueFor(trophies);
-    final lIdx = _leagues.indexOf(league);
-    final hasNext = lIdx + 1 < _leagues.length;
-    final next = hasNext ? _leagues[lIdx + 1] : null;
-    final progress = league.progress(trophies);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF152055),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        children: [
-          // Current league badge
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  league.color.withValues(alpha: 0.2),
-                  league.color.withValues(alpha: 0.05),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFACC15),
+              foregroundColor: const Color(0xFF111827),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: league.color.withValues(alpha: 0.35)),
             ),
-            child: Column(
-              children: [
-                Icon(league.icon, color: league.color, size: 36),
-                const SizedBox(height: 6),
-                Text(
-                  league.nameAr,
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: league.color),
-                ),
-                Text(
-                  league.max == null
-                      ? '${league.min}+ كأس'
-                      : '${league.min} – ${league.max} كأس',
-                  style: TextStyle(
-                      fontSize: 10, color: league.color.withValues(alpha: 0.7)),
-                ),
-                const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: Colors.white.withValues(alpha: 0.1),
-                      valueColor: AlwaysStoppedAnimation<Color>(league.color),
-                      minHeight: 7,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  next != null
-                      ? '${league.trophiesLeft(trophies)} كأس للـ ${next.nameAr}'
-                      : 'أعلى دوري! 🏆',
-                  style: TextStyle(
-                      fontSize: 10, color: Colors.white.withValues(alpha: 0.5)),
-                ),
-              ],
-            ),
+            onPressed: _submit,
+            child: const Text('حفظ',
+                style: TextStyle(fontWeight: FontWeight.w900)),
           ),
-          const SizedBox(height: 12),
-
-          // All leagues ladder
-          ..._leagues.reversed.map((l) {
-            final achieved = trophies >= l.min;
-            final isCurrent = l == league;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 5),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: isCurrent
-                    ? l.color.withValues(alpha: 0.18)
-                    : Colors.white.withValues(alpha: 0.03),
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(
-                  color: isCurrent
-                      ? l.color.withValues(alpha: 0.5)
-                      : Colors.white.withValues(alpha: 0.07),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(l.icon,
-                      color: achieved ? l.color : Colors.white24, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l.nameAr,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: achieved ? l.color : Colors.white30,
-                          ),
-                        ),
-                        Text(
-                          l.max == null ? '${l.min}+' : '${l.min}–${l.max}',
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: achieved
-                                ? l.color.withValues(alpha: 0.6)
-                                : Colors.white24,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isCurrent)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: l.color.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        'الآن',
-                        style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: l.color),
-                      ),
-                    )
-                  else if (achieved)
-                    Icon(Icons.check_circle_rounded,
-                        color: l.color.withValues(alpha: 0.7), size: 16)
-                  else
-                    const Icon(Icons.lock_rounded,
-                        color: Colors.white24, size: 14),
-                ],
-              ),
-            );
-          }),
         ],
       ),
     );
   }
+}
+
+class _MetricItem {
+  const _MetricItem({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+}
+
+BoxDecoration _panelDecoration({
+  Color? accent,
+  bool subtle = false,
+}) {
+  final borderColor = accent == null
+      ? Colors.white.withValues(alpha: 0.12)
+      : accent.withValues(alpha: subtle ? 0.26 : 0.34);
+
+  return BoxDecoration(
+    color: const Color(0xFF081328).withValues(alpha: subtle ? 0.82 : 0.88),
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(color: borderColor),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: subtle ? 0.16 : 0.24),
+        blurRadius: subtle ? 8 : 14,
+        offset: const Offset(0, 6),
+      ),
+    ],
+  );
+}
+
+String _compactNumber(int value) {
+  final abs = value.abs();
+  if (abs >= 1000000) {
+    final decimals = abs >= 10000000 ? 0 : 1;
+    return '${(value / 1000000).toStringAsFixed(decimals)}m';
+  }
+  if (abs >= 1000) {
+    final decimals = abs >= 10000 ? 0 : 1;
+    return '${(value / 1000).toStringAsFixed(decimals)}k';
+  }
+  return '$value';
 }
