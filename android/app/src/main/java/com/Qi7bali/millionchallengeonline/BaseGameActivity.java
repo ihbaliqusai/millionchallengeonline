@@ -21,6 +21,7 @@ import android.text.style.ForegroundColorSpan;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
+import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -252,6 +253,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             CAN_HOME = false,
             EXITING = false,
             SOUND_ON = true,
+            MUSIC_ON = true,
+            currentSoundIsMusic = false,
             modeOnline = false,
             eliminationMode = false,
             meOwner;
@@ -363,6 +366,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         myLevel = AppPrefs.getUserLevel(this);
         myScore = AppPrefs.getUserScore(this);
         SOUND_ON = AppPrefs.isSoundEnabled(this);
+        MUSIC_ON = AppPrefs.isMusicEnabled(this);
 
         String modeExtra = getIntent().getStringExtra("mode");
         String matchModeExtra = safeString(getIntent().getStringExtra("matchMode"));
@@ -606,6 +610,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         View.OnClickListener buttonListener = new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                gameHaptic(view);
                 if (CAN_PLAY) {
                     CAN_PLAY = false;
                     String viewName = getResources().getResourceName(view.getId());
@@ -630,6 +635,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         btnDialogYes.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                gameHaptic(view);
 
                 if (CAN_CLICK) {
                     CAN_CLICK = false;
@@ -782,6 +788,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         btnDialogNo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                gameHaptic(view);
 
                 if (CAN_CLICK) {
                     CAN_CLICK = false;
@@ -841,6 +848,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         imgHelp5050.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                gameHaptic(view);
                 if (CAN_PLAY) {
                     if (imgHelp5050.getTag().toString().equals("1")) {
                         stopTimer(true);
@@ -857,6 +865,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         imgHelpAudience.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                gameHaptic(view);
                 if (CAN_PLAY) {
                     if (imgHelpAudience.getTag().toString().equals("1")) {
                         stopTimer(true);
@@ -872,6 +881,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         btnCloseVote.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                gameHaptic(view);
                 rlyVotes.setVisibility(View.INVISIBLE);
                 btnCloseVote.setVisibility(View.INVISIBLE);
             }
@@ -881,6 +891,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         imgHelpCall.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                gameHaptic(view);
                 if (CAN_PLAY) {
                     if (imgHelpCall.getTag().toString().equals("1")) {
                         stopTimer(true);
@@ -896,14 +907,15 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         imgVolume.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                gameHaptic(view);
                 if (SOUND_ON) {
                     //mpSound.stop();
-                    mpSound.setVolume(0, 0);
+                    if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(0, 0);
                     SOUND_ON = false;
                     AppPrefs.setSoundEnabled(BaseGameActivity.this, false);
                     imgVolume.setImageResource(R.drawable.muted);
                 } else {
-                    mpSound.setVolume(1f, 1f);
+                    if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(1f, 1f);
                     SOUND_ON = true;
                     AppPrefs.setSoundEnabled(BaseGameActivity.this, true);
                     imgVolume.setImageResource(R.drawable.volume);
@@ -914,6 +926,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         View.OnClickListener getMoneyAndHome = new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                gameHaptic(view);
                 if (CAN_HOME) {
                     CAN_HOME = false;
                     confirmExit();
@@ -929,10 +942,21 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (imgVolume == null) return;
         if (SOUND_ON) {
             imgVolume.setImageResource(R.drawable.volume);
-            if (mpSound != null) mpSound.setVolume(1f, 1f);
+            if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(1f, 1f);
         } else {
             imgVolume.setImageResource(R.drawable.muted);
-            if (mpSound != null) mpSound.setVolume(0f, 0f);
+            if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(0f, 0f);
+        }
+        if (mpSound != null && currentSoundIsMusic && !MUSIC_ON) {
+            stopSound(mpSound);
+            mpSound = null;
+            currentSoundIsMusic = false;
+        }
+    }
+
+    private void gameHaptic(View view) {
+        if (view != null && AppPrefs.isHapticEnabled(this)) {
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
         }
     }
 
@@ -941,6 +965,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         SOUND_ON = AppPrefs.isSoundEnabled(this);
+        MUSIC_ON = AppPrefs.isMusicEnabled(this);
         applyVolumeUi();
     }
 
@@ -2494,11 +2519,15 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         return usedHelp5050 && usedHelpAudience && usedHelpCall;
     }
 
+    private boolean usedAnyHelp() {
+        return usedHelp5050 || usedHelpAudience || usedHelpCall;
+    }
+
     private void goToWinnerScreen(String amount) {
         try {
             int prize = Integer.parseInt(amount.replace("$", "").trim());
             PlayerStats.recordGameEnd(BaseGameActivity.this, true, prize);
-            PlayerProgress.onGameFinished(BaseGameActivity.this, true, prize, PlayerStats.getBestStreak(BaseGameActivity.this), usedAllHelps());
+            PlayerProgress.onGameFinished(BaseGameActivity.this, true, prize, PlayerStats.getBestStreak(BaseGameActivity.this), usedAllHelps(), usedAnyHelp());
         } catch (Exception ignored) {}
         Intent intent = new Intent(BaseGameActivity.this, WinnerActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -4718,7 +4747,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 try {
                     int prize = Integer.parseInt(txtAmount.getText().toString().replace("$", "").trim());
                     PlayerStats.recordGameEnd(BaseGameActivity.this, false, prize);
-                    PlayerProgress.onGameFinished(BaseGameActivity.this, false, prize, PlayerStats.getBestStreak(BaseGameActivity.this), usedAllHelps());
+                    PlayerProgress.onGameFinished(BaseGameActivity.this, false, prize, PlayerStats.getBestStreak(BaseGameActivity.this), usedAllHelps(), usedAnyHelp());
                 } catch (Exception ignored) {}
                 stopSound(mpSound);
                 if (cdtProgress != null) cdtProgress.cancel();
@@ -4763,9 +4792,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         if (pbText > 10)
                             pbTime.setRingProgressColor(getResources().getColor(R.color.progressGreen));
                         else if (pbText > 5) {
+                            if (SOUND_ON)
                             mpBeep.start();
                             pbTime.setRingProgressColor(getResources().getColor(R.color.progressOrange));
                         } else if (pbText > 0) {
+                            if (SOUND_ON)
                             mpBeep1.start();
                             pbTime.setRingProgressColor(getResources().getColor(R.color.progressRed));
                         } else {
@@ -4925,7 +4956,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                                         txtAmount.getText().toString().replace("$", "").trim());
                                     PlayerStats.recordGameEnd(BaseGameActivity.this, false, safeHavenPrize);
                                     PlayerProgress.onGameFinished(BaseGameActivity.this, false, safeHavenPrize,
-                                        PlayerStats.getBestStreak(BaseGameActivity.this), usedAllHelps());
+                                        PlayerStats.getBestStreak(BaseGameActivity.this), usedAllHelps(), usedAnyHelp());
                                 } catch (Exception ignored) {}
                             }
                             showInterstitialAd();
@@ -5298,8 +5329,23 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     private void playSound(int resID, boolean fading, boolean looping) {
         if(!EXITING) {
+            boolean targetIsMusic = isMusicTrack(resID, looping);
+            if (targetIsMusic) {
+                MUSIC_ON = AppPrefs.isMusicEnabled(this);
+                if (!MUSIC_ON) {
+                    stopSound(mpSound);
+                    mpSound = null;
+                    currentSoundIsMusic = false;
+                    return;
+                }
+            } else {
+                SOUND_ON = AppPrefs.isSoundEnabled(this);
+                if (!SOUND_ON) {
+                    return;
+                }
+            }
             if (fading) {
-                if (SOUND_ON) {
+                if (targetIsMusic ? MUSIC_ON : SOUND_ON) {
                     fadeSound(mpSound);
                 } else {
                     stopSound(mpSound);
@@ -5309,9 +5355,26 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             }
             //stopSound(mpSound);
             mpSound = MediaPlayer.create(BaseGameActivity.this, resID);
+            currentSoundIsMusic = targetIsMusic;
             mpSound.setLooping(looping);
             mpSound.start();
         }
+    }
+
+    private boolean isMusicTrack(int resID, boolean looping) {
+        return looping
+                || resID == R.raw.main_theme_0
+                || resID == R.raw.main_theme_1
+                || resID == R.raw.main_theme_2
+                || resID == R.raw.main_theme_3
+                || resID == R.raw.main_theme_4
+                || resID == R.raw.main_theme_5
+                || resID == R.raw.commerical_break
+                || resID == R.raw.s_32000
+                || resID == R.raw.s_64000
+                || resID == R.raw.s_250000
+                || resID == R.raw.s_5000000
+                || resID == R.raw.s_1000000;
     }
 
     private void fadeSound(MediaPlayer mpSound) {
@@ -5350,6 +5413,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                     mp.stop();
                 }
                 mp.release();
+                if (mp == mpSound) {
+                    currentSoundIsMusic = false;
+                }
             } catch (Exception ignored) {
             }
         }

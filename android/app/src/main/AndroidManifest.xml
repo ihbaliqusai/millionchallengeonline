@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:label="@string/app_name"
@@ -34,6 +36,14 @@
         <activity android:name=".SeriesGameActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".TeamBattleGameActivity" android:screenOrientation="sensorLandscape" />
         <activity android:name=".LoginActivity" android:screenOrientation="sensorLandscape" />
+
+        <receiver
+            android:name=".DailyReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".MainActivity"

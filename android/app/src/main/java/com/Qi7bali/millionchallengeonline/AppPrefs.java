@@ -92,6 +92,24 @@ public final class AppPrefs {
         return settingsPrefs(c).getBoolean("hapticEnabled", true);
     }
 
+    public static void setNotificationsEnabled(Context c, boolean enabled) {
+        settingsPrefs(c).edit().putBoolean("notificationsEnabled", enabled).apply();
+    }
+
+    public static boolean isNotificationsEnabled(Context c) {
+        return settingsPrefs(c).getBoolean("notificationsEnabled", true);
+    }
+
+    public static void setLanguageCode(Context c, String languageCode) {
+        String safeCode = "en".equals(languageCode) ? "en" : "ar";
+        settingsPrefs(c).edit().putString("languageCode", safeCode).apply();
+    }
+
+    public static String getLanguageCode(Context c) {
+        String code = settingsPrefs(c).getString("languageCode", "ar");
+        return "en".equals(code) ? "en" : "ar";
+    }
+
     public static void setDialogsEnabled(Context c, boolean enabled) {
         settingsPrefs(c).edit().putBoolean("dialogsEnabled", enabled).apply();
     }

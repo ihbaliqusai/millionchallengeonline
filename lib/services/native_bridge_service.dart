@@ -223,13 +223,17 @@ class NativeBridgeService {
   }
 
   /// يُعيد قيم الإعدادات المحفوظة من Android SharedPreferences
-  Future<Map<String, bool>> getSettings() async {
+  Future<Map<String, dynamic>> getSettings() async {
     final result =
         await _channel.invokeMapMethod<String, dynamic>('getSettings');
     return {
       'sfx': result?['sfx'] as bool? ?? true,
       'music': result?['music'] as bool? ?? true,
       'haptic': result?['haptic'] as bool? ?? true,
+      'notifications': result?['notifications'] as bool? ?? true,
+      'systemNotifications': result?['systemNotifications'] as bool? ?? true,
+      'dialogs': result?['dialogs'] as bool? ?? true,
+      'language': result?['language'] as String? ?? 'ar',
     };
   }
 
@@ -243,6 +247,20 @@ class NativeBridgeService {
 
   Future<void> setHapticEnabled(bool enabled) async {
     await _channel.invokeMethod<void>('setHapticEnabled', {'enabled': enabled});
+  }
+
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    await _channel
+        .invokeMethod<void>('setNotificationsEnabled', {'enabled': enabled});
+  }
+
+  Future<void> setDialogsEnabled(bool enabled) async {
+    await _channel
+        .invokeMethod<void>('setDialogsEnabled', {'enabled': enabled});
+  }
+
+  Future<void> setLanguage(String language) async {
+    await _channel.invokeMethod<void>('setLanguage', {'language': language});
   }
 
   Future<void> openNotificationSettings() async {

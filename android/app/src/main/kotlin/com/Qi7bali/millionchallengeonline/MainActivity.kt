@@ -1,7 +1,10 @@
 package net.androidgaming.millionaire2024
 
+import android.Manifest
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -188,9 +191,13 @@ class MainActivity : FlutterActivity() {
                     }
                     "getSettings" -> {
                         result.success(mapOf(
-                            "sfx"    to AppPrefs.isSoundEnabled(this),
-                            "music"  to AppPrefs.isMusicEnabled(this),
-                            "haptic" to AppPrefs.isHapticEnabled(this)
+                            "sfx"                 to AppPrefs.isSoundEnabled(this),
+                            "music"               to AppPrefs.isMusicEnabled(this),
+                            "haptic"              to AppPrefs.isHapticEnabled(this),
+                            "notifications"       to AppPrefs.isNotificationsEnabled(this),
+                            "systemNotifications" to NotificationManagerCompat.from(this).areNotificationsEnabled(),
+                            "dialogs"             to AppPrefs.isDialogsEnabled(this),
+                            "language"            to AppPrefs.getLanguageCode(this)
                         ))
                     }
                     "setSoundEnabled" -> {
@@ -206,6 +213,29 @@ class MainActivity : FlutterActivity() {
                     "setHapticEnabled" -> {
                         val enabled = call.argument<Boolean>("enabled") ?: true
                         AppPrefs.setHapticEnabled(this, enabled)
+                        result.success(true)
+                    }
+                    "setNotificationsEnabled" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: true
+                        AppPrefs.setNotificationsEnabled(this, enabled)
+                        if (enabled) {
+                            NotificationScheduler.scheduleDailyReminder(this)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7401)
+                            }
+                        } else {
+                            NotificationScheduler.cancelDailyReminder(this)
+                        }
+                        result.success(true)
+                    }
+                    "setDialogsEnabled" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: true
+                        AppPrefs.setDialogsEnabled(this, enabled)
+                        result.success(true)
+                    }
+                    "setLanguage" -> {
+                        val language = call.argument<String>("language") ?: "ar"
+                        AppPrefs.setLanguageCode(this, language)
                         result.success(true)
                     }
                     "openNotificationSettings" -> {
@@ -226,6 +256,7 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                             return@setMethodCallHandler
                         }
+                        var delivered = true
                         when (productId) {
                             "gems_80"    -> PlayerProgress.addGems(this, 80)
                             "gems_500"   -> PlayerProgress.addGems(this, 500)
@@ -251,16 +282,17 @@ class MainActivity : FlutterActivity() {
                                 PlayerProgress.addInventory(this, "audience", 3)
                                 PlayerProgress.addInventory(this, "call", 2)
                             }
+                            else -> delivered = false
                         }
-                        if (deliveryKey.isNotBlank()) {
+                        if (delivered && deliveryKey.isNotBlank()) {
                             AppPrefs.markPurchaseDelivered(this, deliveryKey)
                         }
-                        result.success(true)
+                        result.success(delivered)
                     }
                     "buyCurrency" -> {
                         val coinAmount = call.argument<Int>("coinAmount") ?: 0
                         val gemCost    = call.argument<Int>("gemCost")    ?: 0
-                        val ok         = PlayerProgress.spendGems(this, gemCost)
+                        val ok         = coinAmount > 0 && gemCost > 0 && PlayerProgress.spendGems(this, gemCost)
                         if (ok) PlayerProgress.addCoins(this, coinAmount)
                         result.success(ok)
                     }
@@ -269,67 +301,46 @@ class MainActivity : FlutterActivity() {
                         result.success(false)
                     }
                     "getAchievements" -> {
-                        // Check count-based achievements before returning statuses
+                        PlayerProgress.checkMilestoneAchievements(this)
+
                         val games = PlayerStats.getGamesPlayed(this)
                         val wins  = PlayerStats.getWins(this)
+                        val losses = PlayerStats.getLosses(this)
                         val correct = PlayerStats.getCorrectAnswers(this)
+                        val wrong = PlayerStats.getWrongAnswers(this)
+                        val totalAnswered = PlayerStats.getTotalAnswered(this)
+                        val accuracy = if (totalAnswered > 0) (correct * 100 / totalAnswered) else 0
                         val onlineWins = PlayerProgress.getOnlineWins(this)
                         val blitzFinishes = PlayerProgress.getBlitzFinishes(this)
                         val eliminationWins = PlayerProgress.getEliminationWins(this)
                         val survivalWins = PlayerProgress.getSurvivalWins(this)
                         val seriesWins = PlayerProgress.getSeriesWins(this)
                         val teamBattleWins = PlayerProgress.getTeamBattleWins(this)
-                        if (games >= 10)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_10)
-                        if (games >= 25)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_25)
-                        if (games >= 50)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_50)
-                        if (games >= 100) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_GAMES_100)
-                        if (wins >= 5)    PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_5)
-                        if (wins >= 10)   PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_10)
-                        if (wins >= 25)   PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_25)
-                        if (wins >= 50)   PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_50)
-                        if (wins >= 100)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_WIN_100)
-                        if (correct >= 50)   PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_50)
-                        if (correct >= 100)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_100)
-                        if (correct >= 500)  PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_500)
-                        if (correct >= 1000) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_1000)
-                        if (correct >= 5000) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_CORRECT_5000)
-                        if (onlineWins >= 5) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_ONLINE_WIN_5)
-                        if (onlineWins >= 10) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_ONLINE_WIN_10)
-                        if (blitzFinishes >= 5) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_BLITZ_FINISH_5)
-                        if (eliminationWins >= 3) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_ELIMINATION_WIN_3)
-                        if (survivalWins >= 3) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_SURVIVAL_WIN_3)
-                        if (seriesWins >= 3) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_SERIES_WIN_3)
-                        if (teamBattleWins >= 5) PlayerProgress.unlockAchievement(this, PlayerProgress.ACH_TEAM_BATTLE_WIN_5)
-
-                        // Check ACH_ALL_DONE after updating
-                        PlayerProgress.checkAllDone(this)
-
-                        val allKeys = listOf(
-                            "ACH_FIRST_GAME", "ACH_FIRST_WIN", "ACH_FIRST_ONLINE", "ACH_BUY_POWERUP",
-                            "ACH_LEVEL_5", "ACH_LEVEL_10", "ACH_LEVEL_20", "ACH_LEVEL_30", "ACH_LEVEL_50",
-                            "ACH_WIN_5", "ACH_WIN_10", "ACH_WIN_25", "ACH_WIN_50", "ACH_WIN_100",
-                            "ACH_CORRECT_50", "ACH_CORRECT_100", "ACH_CORRECT_500", "ACH_CORRECT_1000", "ACH_CORRECT_5000",
-                            "ACH_PRIZE_1000", "ACH_PRIZE_32000", "ACH_PRIZE_500000", "ACH_PRIZE_1000000",
-                            "ACH_STREAK_3", "ACH_STREAK_5", "ACH_STREAK_10", "ACH_STREAK_15",
-                            "ACH_GAMES_10", "ACH_GAMES_25", "ACH_GAMES_50", "ACH_GAMES_100",
-                            "ACH_COINS_1000", "ACH_COINS_5000", "ACH_COINS_10000", "ACH_GEMS_50", "ACH_GEMS_500",
-                            "ACH_USE_5050", "ACH_USE_AUDIENCE", "ACH_USE_CALL", "ACH_USE_ALL_HELPS",
-                            "ACH_PERFECT_GAME", "ACH_ONLINE_WIN_5", "ACH_ONLINE_WIN_10",
-                            "ACH_BLITZ_FINISH_5", "ACH_ELIMINATION_WIN_3", "ACH_SURVIVAL_WIN_3",
-                            "ACH_SERIES_WIN_3", "ACH_TEAM_BATTLE_WIN_5", "ACH_ALL_DONE"
-                        )
+                        val inventoryTotal =
+                            PlayerProgress.getInventory5050(this) +
+                            PlayerProgress.getInventoryAudience(this) +
+                            PlayerProgress.getInventoryCall(this)
                         val map = mutableMapOf<String, Any>()
-                        for (k in allKeys) map[k] = PlayerProgress.isAchievementUnlocked(this, k)
+                        for (k in PlayerProgress.getAllAchievementKeys()) {
+                            map[k] = PlayerProgress.isAchievementUnlocked(this, k)
+                        }
 
-                        // Progress counters
                         map["gamesPlayed"]    = games
                         map["wins"]           = wins
+                        map["losses"]          = losses
                         map["correctAnswers"] = correct
+                        map["wrongAnswers"]   = wrong
+                        map["totalAnswered"]  = totalAnswered
+                        map["accuracy"]       = accuracy
                         map["bestStreak"]     = PlayerStats.getBestStreak(this)
+                        map["winStreak"]      = PlayerStats.getCurrentWinStreak(this)
+                        map["bestWinStreak"]  = PlayerStats.getBestWinStreak(this)
                         map["coins"]          = PlayerProgress.getCoins(this)
                         map["gems"]           = PlayerProgress.getGems(this)
                         map["level"]          = PlayerProgress.getLevel(this)
-                        map["totalEarnings"]  = PlayerStats.getTotalEarnings(this).toInt()
+                        map["highestMoney"]   = PlayerStats.getHighestMoney(this)
+                        map["totalEarnings"]  = PlayerStats.getTotalEarnings(this)
+                        map["inventoryTotal"] = inventoryTotal
                         map["onlineWins"]     = onlineWins
                         map["blitzFinishes"]  = blitzFinishes
                         map["eliminationWins"] = eliminationWins
@@ -351,6 +362,10 @@ class MainActivity : FlutterActivity() {
                         val quantity = call.argument<Int>("quantity")    ?: 1
                         val payWith  = call.argument<String>("payWith")  ?: "coins"
                         val cost     = call.argument<Int>("cost")        ?: 0
+                        if (!isValidPowerUp(type) || quantity <= 0 || cost <= 0 || (payWith != "coins" && payWith != "gems")) {
+                            result.success(false)
+                            return@setMethodCallHandler
+                        }
                         val success  = if (payWith == "coins") {
                             PlayerProgress.spendCoins(this, cost)
                         } else {
@@ -364,15 +379,19 @@ class MainActivity : FlutterActivity() {
                     "grantPowerUp" -> {
                         val type     = call.argument<String>("type") ?: ""
                         val quantity = call.argument<Int>("quantity") ?: 1
-                        if (type.isBlank() || quantity <= 0) {
+                        if (!isValidPowerUp(type) || quantity <= 0) {
                             result.success(false)
                         } else {
-                            PlayerProgress.addInventory(this, type, quantity)
+                            PlayerProgress.grantInventory(this, type, quantity)
                             result.success(true)
                         }
                     }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private fun isValidPowerUp(type: String): Boolean {
+        return type == "5050" || type == "audience" || type == "call"
     }
 }

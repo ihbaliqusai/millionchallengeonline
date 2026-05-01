@@ -61,8 +61,10 @@ public class WinnerActivity extends AppCompatActivity {
 
         amount = getIntent().getStringExtra("amount");
 
-        mpSound = MediaPlayer.create(this, R.raw.main_theme_4);
-        mpSound.start();
+        if (AppPrefs.isMusicEnabled(this)) {
+            mpSound = MediaPlayer.create(this, R.raw.main_theme_4);
+            mpSound.start();
+        }
         showDialog("ألف مبروك\nأنت الفائز بمبلغ "+amount, "", 0, 3000, 0);
         animMoney = true;
         final Handler handler = new Handler();

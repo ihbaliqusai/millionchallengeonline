@@ -37,18 +37,7 @@ public class PlayerStats {
         PlayerProgress.addXp(c, 10);
         PlayerProgress.addCoins(c, 20);
 
-        // Streak achievements
-        if (best >= 3)  PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_3);
-        if (best >= 5)  PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_5);
-        if (best >= 10) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_10);
-        if (best >= 15) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_STREAK_15);
-
-        // Correct-answer milestones
-        if (correct >= 50)   PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_50);
-        if (correct >= 100)  PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_100);
-        if (correct >= 500)  PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_500);
-        if (correct >= 1000) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_1000);
-        if (correct >= 5000) PlayerProgress.unlockAchievement(c, PlayerProgress.ACH_CORRECT_5000);
+        PlayerProgress.checkMilestoneAchievements(c);
     }
 
     public static void recordWrongAnswer(Context c) {
@@ -58,6 +47,7 @@ public class PlayerStats {
                 .putInt("currentStreak", 0)
                 .apply();
         PlayerProgress.addXp(c, 3);
+        PlayerProgress.checkMilestoneAchievements(c);
     }
 
     public static void recordGameEnd(Context c, boolean won, int prizeMoney) {
@@ -80,6 +70,7 @@ public class PlayerStats {
             e.putInt("losses", p.getInt("losses", 0) + 1);
         }
         e.apply();
+        PlayerProgress.checkMilestoneAchievements(c);
     }
 
     public static void reset(Context c) {
