@@ -340,33 +340,56 @@ class _RewardPanel extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: _panelDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _TodayBadge(
-            streakDay: streakDay,
-            claimedToday: claimedToday,
-            compact: compact,
-          ),
-          SizedBox(height: compact ? 8 : 12),
-          _RewardPreview(coins: coins, gems: gems, compact: compact),
-          SizedBox(height: compact ? 8 : 12),
-          _ProgressBlock(
-            streakDay: streakDay,
-            nextMilestone: nextMilestone,
-            progress: progress,
-            compact: compact,
-          ),
-          const Spacer(),
-          _ClaimButton(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final needsScroll =
+              constraints.hasBoundedHeight && constraints.maxHeight < 276;
+          final topChildren = <Widget>[
+            _TodayBadge(
+              streakDay: streakDay,
+              claimedToday: claimedToday,
+              compact: compact,
+            ),
+            SizedBox(height: compact ? 8 : 12),
+            _RewardPreview(coins: coins, gems: gems, compact: compact),
+            SizedBox(height: compact ? 8 : 12),
+            _ProgressBlock(
+              streakDay: streakDay,
+              nextMilestone: nextMilestone,
+              progress: progress,
+              compact: compact,
+            ),
+          ];
+          final claimButton = _ClaimButton(
             coins: coins,
             gems: gems,
             claimedToday: claimedToday,
             claiming: claiming,
             onClaim: onClaim,
             compact: compact,
-          ),
-        ],
+          );
+
+          if (needsScroll) {
+            return ListView(
+              padding: EdgeInsets.zero,
+              physics: const BouncingScrollPhysics(),
+              children: [
+                ...topChildren,
+                SizedBox(height: compact ? 10 : 12),
+                claimButton,
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ...topChildren,
+              const Spacer(),
+              claimButton,
+            ],
+          );
+        },
       ),
     );
   }

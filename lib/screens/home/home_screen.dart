@@ -470,48 +470,70 @@ class _LeftSidebar extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(10, MediaQuery.of(context).padding.top + 8,
           6, MediaQuery.of(context).padding.bottom + 8),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // LEADERBOARD → Leaderboard screen
-          _SideCard(
-            label: 'الصدارة',
-            icon: Icons.leaderboard_rounded,
-            iconColor: const Color(0xFFFACC15),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                  builder: (_) => const LeaderboardScreen()),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final items = <Widget>[
+            _SideCard(
+              label: 'الصدارة',
+              icon: Icons.leaderboard_rounded,
+              iconColor: const Color(0xFFFACC15),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                    builder: (_) => const LeaderboardScreen()),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          // Daily streak chest counter
-          GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                  builder: (_) => const DailyStreakScreen()),
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                    builder: (_) => const DailyStreakScreen()),
+              ),
+              child: _ChestCounter(
+                current: () {
+                  final completed = appState.claimedToday
+                      ? appState.streakDay
+                      : (appState.streakDay > 1 ? appState.streakDay - 1 : 0);
+                  return completed > 0 ? (completed - 1) % 7 + 1 : 0;
+                }(),
+                total: 7,
+              ),
             ),
-            child: _ChestCounter(
-              current: () {
-                final completed = appState.claimedToday
-                    ? appState.streakDay
-                    : (appState.streakDay > 1 ? appState.streakDay - 1 : 0);
-                return completed > 0 ? (completed - 1) % 7 + 1 : 0;
-              }(),
-              total: 7,
+            _SideCard(
+              label: 'أوفلاين',
+              icon: Icons.sports_esports_rounded,
+              iconColor: const Color(0xFF60A5FA),
+              onTap: () => context.read<AppState>().openOfflineGame(),
             ),
-          ),
-          const SizedBox(height: 8),
-          // Offline game
-          _SideCard(
-            label: 'أوفلاين',
-            icon: Icons.sports_esports_rounded,
-            iconColor: const Color(0xFF60A5FA),
-            onTap: () => context.read<AppState>().openOfflineGame(),
-          ),
-          const SizedBox(height: 8),
-          _WatchAdCard(),
-        ],
+            _WatchAdCard(),
+          ];
+
+          final contentHeight = constraints.maxHeight;
+          if (contentHeight < 340) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    items[i],
+                    if (i != items.length - 1) const SizedBox(height: 8),
+                  ],
+                ],
+              ),
+            );
+          }
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                items[i],
+                if (i != items.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -926,12 +948,9 @@ class _RightSidebar extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(6, topPad, 10, botPad),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          // Nav buttons column — fixed size, won't grow
-          Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final navButtons = Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _NavButton(
@@ -961,10 +980,8 @@ class _RightSidebar extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-
-          // Daily chests — tap to claim directly
-          GestureDetector(
+          );
+          final dailyChests = GestureDetector(
             onTap: () async {
               final reward = await context.read<AppState>().claimDailyStreak();
               if (reward != null && context.mounted) {
@@ -983,15 +1000,39 @@ class _RightSidebar extends StatelessWidget {
               }
             },
             child: _DailyChests(appState: appState),
-          ),
-
-          // Player profile card — bottom
-          _PlayerCard(
+          );
+          final profileCard = _PlayerCard(
             appState: appState,
             username: username,
             user: user,
-          ),
-        ],
+          );
+
+          if (constraints.maxHeight < 350) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  navButtons,
+                  const SizedBox(height: 10),
+                  dailyChests,
+                  const SizedBox(height: 10),
+                  profileCard,
+                ],
+              ),
+            );
+          }
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              navButtons,
+              dailyChests,
+              profileCard,
+            ],
+          );
+        },
       ),
     );
   }

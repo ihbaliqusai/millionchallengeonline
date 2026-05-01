@@ -76,6 +76,18 @@ class MillionaireOnlineApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           locale: settings.locale,
           supportedLocales: const <Locale>[Locale('ar'), Locale('en')],
+          builder: (context, child) {
+            final mediaQuery = MediaQuery.of(context);
+            return MediaQuery(
+              data: mediaQuery.copyWith(
+                textScaler: mediaQuery.textScaler.clamp(
+                  minScaleFactor: 1,
+                  maxScaleFactor: 1,
+                ),
+              ),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
             GlobalMaterialLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,

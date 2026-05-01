@@ -503,48 +503,71 @@ class _LanguagePanel extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 10 : 12),
       decoration: _panelDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _PanelTitle(
-            icon: Icons.language_rounded,
-            title: _t('لغة الواجهة', 'Interface Language'),
-            subtitle: _t(
-              'تتغير فوراً في واجهة Flutter وتحفظ للعبة الأصلية.',
-              'Applies immediately in Flutter and is saved for the native game.',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final needsScroll =
+              constraints.hasBoundedHeight && constraints.maxHeight < 220;
+          final topChildren = <Widget>[
+            _PanelTitle(
+              icon: Icons.language_rounded,
+              title: _t('لغة الواجهة', 'Interface Language'),
+              subtitle: _t(
+                'تتغير فوراً في واجهة Flutter وتحفظ للعبة الأصلية.',
+                'Applies immediately in Flutter and is saved for the native game.',
+              ),
+              compact: compact,
             ),
-            compact: compact,
-          ),
-          SizedBox(height: compact ? 8 : 12),
-          _LanguageSegment(
-            value: settings.languageCode,
-            onChanged: onLanguage,
-            compact: compact,
-          ),
-          SizedBox(height: compact ? 8 : 12),
-          _StatusBox(
-            icon: Icons.notifications_active_rounded,
-            color: settings.notifications && settings.systemNotifications
-                ? const Color(0xFF34D399)
-                : const Color(0xFFF59E0B),
-            title: _t('حالة الإشعارات', 'Notification Status'),
-            value: settings.notifications
-                ? settings.systemNotifications
-                    ? _t('مفعلة', 'Enabled')
-                    : _t('تحتاج سماح النظام', 'Needs permission')
-                : _t('متوقفة', 'Off'),
-            compact: compact,
-          ),
-          const Spacer(),
-          _ActionLineButton(
+            SizedBox(height: compact ? 8 : 12),
+            _LanguageSegment(
+              value: settings.languageCode,
+              onChanged: onLanguage,
+              compact: compact,
+            ),
+            SizedBox(height: compact ? 8 : 12),
+            _StatusBox(
+              icon: Icons.notifications_active_rounded,
+              color: settings.notifications && settings.systemNotifications
+                  ? const Color(0xFF34D399)
+                  : const Color(0xFFF59E0B),
+              title: _t('حالة الإشعارات', 'Notification Status'),
+              value: settings.notifications
+                  ? settings.systemNotifications
+                      ? _t('مفعلة', 'Enabled')
+                      : _t('تحتاج سماح النظام', 'Needs permission')
+                  : _t('متوقفة', 'Off'),
+              compact: compact,
+            ),
+          ];
+          final action = _ActionLineButton(
             icon: Icons.settings_applications_rounded,
             label:
                 _t('فتح إعدادات إشعارات الهاتف', 'Phone Notification Settings'),
             color: const Color(0xFF38BDF8),
             onTap: onOpenNotifications,
             compact: compact,
-          ),
-        ],
+          );
+
+          if (needsScroll) {
+            return ListView(
+              padding: EdgeInsets.zero,
+              physics: const BouncingScrollPhysics(),
+              children: <Widget>[
+                ...topChildren,
+                SizedBox(height: compact ? 8 : 12),
+                action,
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              ...topChildren,
+              const Spacer(),
+              action,
+            ],
+          );
+        },
       ),
     );
   }
@@ -626,10 +649,12 @@ class _SwitchBoard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 10 : 12),
       decoration: _panelDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _PanelTitle(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final needsScroll =
+              constraints.hasBoundedHeight && constraints.maxHeight < 250;
+
+          final title = _PanelTitle(
             icon: Icons.tune_rounded,
             title: _t('مفاتيح اللعب', 'Gameplay Controls'),
             subtitle: _t(
@@ -637,46 +662,76 @@ class _SwitchBoard extends StatelessWidget {
               'Every option here is saved and read by gameplay.',
             ),
             compact: compact,
-          ),
-          SizedBox(height: compact ? 8 : 10),
-          Expanded(
-            child: Column(
-              children: <Widget>[
-                Expanded(
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _ToggleTile(data: items[0], compact: compact),
-                      ),
-                      SizedBox(width: gap),
-                      Expanded(
-                        child: _ToggleTile(data: items[1], compact: compact),
-                      ),
-                    ],
+          );
+
+          if (needsScroll) {
+            return ListView.separated(
+              padding: EdgeInsets.zero,
+              physics: const BouncingScrollPhysics(),
+              itemCount: items.length + 1,
+              separatorBuilder: (_, __) => SizedBox(height: compact ? 7 : 9),
+              itemBuilder: (context, index) {
+                if (index == 0) return title;
+                return SizedBox(
+                  height: compact ? 58 : 66,
+                  child: _ToggleTile(
+                    data: items[index - 1],
+                    compact: compact,
                   ),
-                ),
-                SizedBox(height: gap),
-                Expanded(
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: _ToggleTile(data: items[2], compact: compact),
+                );
+              },
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              title,
+              SizedBox(height: compact ? 8 : 10),
+              Expanded(
+                child: Column(
+                  children: <Widget>[
+                    Expanded(
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child:
+                                _ToggleTile(data: items[0], compact: compact),
+                          ),
+                          SizedBox(width: gap),
+                          Expanded(
+                            child:
+                                _ToggleTile(data: items[1], compact: compact),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: gap),
-                      Expanded(
-                        child: _ToggleTile(data: items[3], compact: compact),
+                    ),
+                    SizedBox(height: gap),
+                    Expanded(
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child:
+                                _ToggleTile(data: items[2], compact: compact),
+                          ),
+                          SizedBox(width: gap),
+                          Expanded(
+                            child:
+                                _ToggleTile(data: items[3], compact: compact),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    SizedBox(height: gap),
+                    Expanded(
+                      child: _ToggleTile(data: items[4], compact: compact),
+                    ),
+                  ],
                 ),
-                SizedBox(height: gap),
-                Expanded(
-                  child: _ToggleTile(data: items[4], compact: compact),
-                ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -712,50 +767,75 @@ class _ActionsPanel extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 10 : 12),
       decoration: _panelDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _PanelTitle(
-            icon: Icons.manage_accounts_rounded,
-            title: _t('الحساب والخصوصية', 'Account & Privacy'),
-            subtitle: email,
-            compact: compact,
-          ),
-          SizedBox(height: compact ? 8 : 10),
-          _ActionLineButton(
-            icon: Icons.privacy_tip_rounded,
-            label: _t('سياسة الخصوصية', 'Privacy Policy'),
-            color: const Color(0xFF38BDF8),
-            onTap: onPrivacy,
-            compact: compact,
-          ),
-          if (showAdPrivacy) ...<Widget>[
-            SizedBox(height: compact ? 6 : 8),
-            _ActionLineButton(
-              icon: Icons.shield_rounded,
-              label: _t('خصوصية الإعلانات', 'Ad Privacy'),
-              color: const Color(0xFFA78BFA),
-              onTap: onAdPrivacy,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final needsScroll =
+              constraints.hasBoundedHeight && constraints.maxHeight < 220;
+          final topChildren = <Widget>[
+            _PanelTitle(
+              icon: Icons.manage_accounts_rounded,
+              title: _t('الحساب والخصوصية', 'Account & Privacy'),
+              subtitle: email,
               compact: compact,
             ),
-          ],
-          const Spacer(),
-          _ActionLineButton(
-            icon: Icons.logout_rounded,
-            label: _t('تسجيل الخروج', 'Sign Out'),
-            color: const Color(0xFFF59E0B),
-            onTap: appState.isBusy ? null : onSignOut,
-            compact: compact,
-          ),
-          SizedBox(height: compact ? 6 : 8),
-          _ActionLineButton(
-            icon: Icons.delete_forever_rounded,
-            label: _t('حذف الحساب', 'Delete Account'),
-            color: const Color(0xFFF87171),
-            onTap: onDeleteAccount,
-            compact: compact,
-          ),
-        ],
+            SizedBox(height: compact ? 8 : 10),
+            _ActionLineButton(
+              icon: Icons.privacy_tip_rounded,
+              label: _t('سياسة الخصوصية', 'Privacy Policy'),
+              color: const Color(0xFF38BDF8),
+              onTap: onPrivacy,
+              compact: compact,
+            ),
+            if (showAdPrivacy) ...<Widget>[
+              SizedBox(height: compact ? 6 : 8),
+              _ActionLineButton(
+                icon: Icons.shield_rounded,
+                label: _t('خصوصية الإعلانات', 'Ad Privacy'),
+                color: const Color(0xFFA78BFA),
+                onTap: onAdPrivacy,
+                compact: compact,
+              ),
+            ],
+          ];
+          final bottomChildren = <Widget>[
+            _ActionLineButton(
+              icon: Icons.logout_rounded,
+              label: _t('تسجيل الخروج', 'Sign Out'),
+              color: const Color(0xFFF59E0B),
+              onTap: appState.isBusy ? null : onSignOut,
+              compact: compact,
+            ),
+            SizedBox(height: compact ? 6 : 8),
+            _ActionLineButton(
+              icon: Icons.delete_forever_rounded,
+              label: _t('حذف الحساب', 'Delete Account'),
+              color: const Color(0xFFF87171),
+              onTap: onDeleteAccount,
+              compact: compact,
+            ),
+          ];
+
+          if (needsScroll) {
+            return ListView(
+              padding: EdgeInsets.zero,
+              physics: const BouncingScrollPhysics(),
+              children: <Widget>[
+                ...topChildren,
+                SizedBox(height: compact ? 8 : 10),
+                ...bottomChildren,
+              ],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              ...topChildren,
+              const Spacer(),
+              ...bottomChildren,
+            ],
+          );
+        },
       ),
     );
   }

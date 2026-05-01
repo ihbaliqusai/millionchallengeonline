@@ -381,94 +381,112 @@ class _PlayerPanel extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: _panelDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: avatarSize,
-                height: avatarSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF111827),
-                  border: Border.all(color: league.color, width: 2),
-                ),
-                child: ClipOval(
-                  child: appState.user?.photoURL?.isNotEmpty == true
-                      ? Image.network(
-                          appState.user!.photoURL!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final needsScroll =
+              constraints.hasBoundedHeight && constraints.maxHeight < 228;
+          final children = <Widget>[
+            Row(
+              children: [
+                Container(
+                  width: avatarSize,
+                  height: avatarSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF111827),
+                    border: Border.all(color: league.color, width: 2),
+                  ),
+                  child: ClipOval(
+                    child: appState.user?.photoURL?.isNotEmpty == true
+                        ? Image.network(
+                            appState.user!.photoURL!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.person_rounded,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
                             Icons.person_rounded,
                             color: Colors.white,
+                            size: 28,
                           ),
-                        )
-                      : const Icon(
-                          Icons.person_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        username.isEmpty ? 'لاعب' : username,
+                        style: TextStyle(
                           color: Colors.white,
-                          size: 28,
+                          fontSize: compact ? 15 : 17,
+                          fontWeight: FontWeight.w900,
                         ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      username.isEmpty ? 'لاعب' : username,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: compact ? 15 : 17,
-                        fontWeight: FontWeight.w900,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Icon(Icons.star_rounded, color: rankColor, size: 15),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            rankTitle,
-                            style: TextStyle(
-                              color: rankColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.star_rounded, color: rankColor, size: 15),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              rankTitle,
+                              style: TextStyle(
+                                color: rankColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          _LevelProgress(
-            level: appState.level,
-            xpText: '${appState.xpInCurrentLevel} / $xpNeeded XP',
-            progress: xpProgress,
-            color: rankColor,
-            compact: compact,
-          ),
-          _LeagueLine(
-            league: league,
-            trophies: trophies,
-            compact: compact,
-          ),
-          _PlayerSummary(
-            games: games,
-            wins: wins,
-            compact: compact,
-          ),
-        ],
+              ],
+            ),
+            _LevelProgress(
+              level: appState.level,
+              xpText: '${appState.xpInCurrentLevel} / $xpNeeded XP',
+              progress: xpProgress,
+              color: rankColor,
+              compact: compact,
+            ),
+            _LeagueLine(
+              league: league,
+              trophies: trophies,
+              compact: compact,
+            ),
+            _PlayerSummary(
+              games: games,
+              wins: wins,
+              compact: compact,
+            ),
+          ];
+
+          if (needsScroll) {
+            return ListView.separated(
+              padding: EdgeInsets.zero,
+              physics: const BouncingScrollPhysics(),
+              itemCount: children.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) => children[index],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: children,
+          );
+        },
       ),
     );
   }
@@ -785,14 +803,15 @@ class _StatTile extends StatelessWidget {
         vertical: compact ? 7 : 9,
       ),
       decoration: _panelDecoration(accent: item.color, subtle: true),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(item.icon, color: item.color, size: compact ? 18 : 21),
-          SizedBox(height: compact ? 4 : 5),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(item.icon, color: item.color, size: compact ? 18 : 21),
+            SizedBox(height: compact ? 4 : 5),
+            Text(
               item.value,
               style: TextStyle(
                 color: Colors.white,
@@ -801,20 +820,20 @@ class _StatTile extends StatelessWidget {
                 height: 1,
               ),
             ),
-          ),
-          SizedBox(height: compact ? 3 : 4),
-          Text(
-            item.label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.58),
-              fontSize: compact ? 9 : 10,
-              fontWeight: FontWeight.w800,
+            SizedBox(height: compact ? 3 : 4),
+            Text(
+              item.label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.58),
+                fontSize: compact ? 9 : 10,
+                fontWeight: FontWeight.w800,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

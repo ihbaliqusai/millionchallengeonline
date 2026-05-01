@@ -368,94 +368,112 @@ class _IdentityPanel extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: _panelDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: compact ? 52 : 60,
-                height: compact ? 52 : 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF111827),
-                  border: Border.all(color: rank.color, width: 2),
-                ),
-                child: ClipOval(
-                  child: user?.photoURL?.isNotEmpty == true
-                      ? Image.network(
-                          user!.photoURL!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final needsScroll =
+              constraints.hasBoundedHeight && constraints.maxHeight < 226;
+          final children = <Widget>[
+            Row(
+              children: [
+                Container(
+                  width: compact ? 52 : 60,
+                  height: compact ? 52 : 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF111827),
+                    border: Border.all(color: rank.color, width: 2),
+                  ),
+                  child: ClipOval(
+                    child: user?.photoURL?.isNotEmpty == true
+                        ? Image.network(
+                            user!.photoURL!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.person_rounded,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
                             Icons.person_rounded,
                             color: Colors.white,
+                            size: 30,
                           ),
-                        )
-                      : const Icon(
-                          Icons.person_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        username.isEmpty ? 'لاعب' : username,
+                        style: TextStyle(
                           color: Colors.white,
-                          size: 30,
+                          fontSize: compact ? 16 : 18,
+                          fontWeight: FontWeight.w900,
                         ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      username.isEmpty ? 'لاعب' : username,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: compact ? 16 : 18,
-                        fontWeight: FontWeight.w900,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    _MiniBadge(
-                      icon: rank.icon,
-                      color: rank.color,
-                      text: rank.nameAr,
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      _MiniBadge(
+                        icon: rank.icon,
+                        color: rank.color,
+                        text: rank.nameAr,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Tooltip(
-                message: 'تعديل الاسم',
-                child: IconButton(
-                  onPressed: onEditName,
-                  icon: const Icon(Icons.edit_rounded, size: 18),
-                  color: Colors.white70,
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.07),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                Tooltip(
+                  message: 'تعديل الاسم',
+                  child: IconButton(
+                    onPressed: onEditName,
+                    icon: const Icon(Icons.edit_rounded, size: 18),
+                    color: Colors.white70,
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.07),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          _ProgressLine(
-            title: 'المستوى ${appState.level}',
-            value:
-                '${appState.xpInCurrentLevel}/${appState.xpNeededForLevel} XP',
-            progress: xpProgress,
-            color: rank.color,
-            compact: compact,
-          ),
-          _ProgressLine(
-            title: league.nameAr,
-            value: '${_compactNumber(appState.trophies)} كأس',
-            progress: league.progress(appState.trophies),
-            color: league.color,
-            compact: compact,
-          ),
-          _AccountStrip(uid: uid, compact: compact),
-        ],
+              ],
+            ),
+            _ProgressLine(
+              title: 'المستوى ${appState.level}',
+              value:
+                  '${appState.xpInCurrentLevel}/${appState.xpNeededForLevel} XP',
+              progress: xpProgress,
+              color: rank.color,
+              compact: compact,
+            ),
+            _ProgressLine(
+              title: league.nameAr,
+              value: '${_compactNumber(appState.trophies)} كأس',
+              progress: league.progress(appState.trophies),
+              color: league.color,
+              compact: compact,
+            ),
+            _AccountStrip(uid: uid, compact: compact),
+          ];
+
+          if (needsScroll) {
+            return ListView.separated(
+              padding: EdgeInsets.zero,
+              physics: const BouncingScrollPhysics(),
+              itemCount: children.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) => children[index],
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: children,
+          );
+        },
       ),
     );
   }
@@ -700,14 +718,15 @@ class _MetricTile extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(compact ? 8 : 10),
       decoration: _panelDecoration(accent: item.color, subtle: true),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(item.icon, color: item.color, size: compact ? 19 : 22),
-          SizedBox(height: compact ? 4 : 6),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(item.icon, color: item.color, size: compact ? 19 : 22),
+            SizedBox(height: compact ? 4 : 6),
+            Text(
               item.value,
               style: TextStyle(
                 color: Colors.white,
@@ -716,20 +735,20 @@ class _MetricTile extends StatelessWidget {
                 height: 1,
               ),
             ),
-          ),
-          SizedBox(height: compact ? 3 : 4),
-          Text(
-            item.label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.58),
-              fontSize: compact ? 9 : 10,
-              fontWeight: FontWeight.w800,
-              height: 1,
+            SizedBox(height: compact ? 3 : 4),
+            Text(
+              item.label,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.58),
+                fontSize: compact ? 9 : 10,
+                fontWeight: FontWeight.w800,
+                height: 1,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
