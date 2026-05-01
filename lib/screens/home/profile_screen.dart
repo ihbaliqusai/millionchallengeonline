@@ -991,19 +991,46 @@ class _TrophyRulesList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (var i = 0; i < TrophyProgression.rules.length; i++) ...[
-          Expanded(
-            child: _RuleRow(
-              rule: TrophyProgression.rules[i],
-              compact: compact,
-            ),
+    final rowHeight = compact ? 28.0 : 32.0;
+    final gap = compact ? 3.0 : 4.0;
+    const rules = TrophyProgression.rules;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final fullHeight = rules.length * rowHeight + (rules.length - 1) * gap;
+        final needsScroll =
+            constraints.hasBoundedHeight && constraints.maxHeight < fullHeight;
+
+        if (!needsScroll) {
+          return Column(
+            children: [
+              for (var i = 0; i < rules.length; i++) ...[
+                SizedBox(
+                  height: rowHeight,
+                  child: _RuleRow(rule: rules[i], compact: compact),
+                ),
+                if (i != rules.length - 1) SizedBox(height: gap),
+              ],
+            ],
+          );
+        }
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: rules.length,
+            physics: const BouncingScrollPhysics(),
+            itemBuilder: (context, index) {
+              return SizedBox(
+                height: rowHeight,
+                child: _RuleRow(rule: rules[index], compact: compact),
+              );
+            },
+            separatorBuilder: (_, __) => SizedBox(height: gap),
           ),
-          if (i != TrophyProgression.rules.length - 1)
-            const SizedBox(height: 4),
-        ],
-      ],
+        );
+      },
     );
   }
 }
@@ -1278,15 +1305,13 @@ class _EditUsernameDialogState extends State<_EditUsernameDialog> {
           decoration: InputDecoration(
             hintText: 'اسم اللاعب الجديد',
             hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
-            counterStyle:
-                TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+            counterStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child:
-                const Text('إلغاء', style: TextStyle(color: Colors.white54)),
+            child: const Text('إلغاء', style: TextStyle(color: Colors.white54)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
