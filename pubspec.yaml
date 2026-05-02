@@ -1,7 +1,7 @@
 name: millionaire_flutter_exact
 description: Millionaire quiz game upgraded with online multiplayer, matchmaking, invitations, friends, leaderboards, and Firebase-backed profiles.
 publish_to: "none"
-version: 3.4.1+9
+version: 3.5.0+10
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
