@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 
 import 'core/app_state.dart';
 import 'core/app_settings.dart';
-import 'screens/auth/auth_gate.dart';
+import 'screens/splash/splash_screen.dart';
 import 'services/auth_service.dart';
 import 'services/native_bridge_service.dart';
 import 'services/profile_service.dart'; // still needed by other screens
@@ -154,7 +154,7 @@ class MillionaireOnlineApp extends StatelessWidget {
               ),
             ),
           ),
-          home: const _ConnectivityWrapper(child: AuthGate()),
+          home: const _ConnectivityWrapper(child: SplashScreen()),
         ),
       ),
     );

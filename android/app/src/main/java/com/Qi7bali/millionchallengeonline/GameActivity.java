@@ -412,6 +412,7 @@ public class GameActivity extends AppCompatActivity {
         txtA3 = findViewById(R.id.txtA3);
         txtA4 = findViewById(R.id.txtA4);
         configureAnswerTextSizing();
+        configureGameSurfaceLayout();
         imgA1 = findViewById(R.id.imgA1);
         imgA2 = findViewById(R.id.imgA2);
         imgA3 = findViewById(R.id.imgA3);
@@ -931,7 +932,7 @@ public class GameActivity extends AppCompatActivity {
         final int totalPlayers = 1 + opponents.size();
         final DisplayMetrics metrics = getResources().getDisplayMetrics();
         final float screenHeightDp = metrics.heightPixels / metrics.density;
-        final int scoreboardBudgetDp = Math.max(260, Math.round(screenHeightDp * 0.58f));
+        final int scoreboardBudgetDp = Math.max(220, Math.round(screenHeightDp * 0.54f));
         final boolean compact = totalPlayers >= 6;
         final boolean ultraCompact = totalPlayers >= 9;
 
@@ -1060,12 +1061,109 @@ public class GameActivity extends AppCompatActivity {
             answerView.setHorizontallyScrolling(false);
             TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
                     answerView,
-                    11,
+                    8,
                     14,
                     1,
                     TypedValue.COMPLEX_UNIT_SP
             );
         }
+    }
+
+    private void configureGameSurfaceLayout() {
+        final DisplayMetrics metrics = getResources().getDisplayMetrics();
+        final float screenWidthDp = metrics.widthPixels / metrics.density;
+        final float screenHeightDp = metrics.heightPixels / metrics.density;
+        final boolean shortScreen = screenHeightDp < 390f;
+        final boolean narrowScreen = screenWidthDp < 760f;
+
+        if (llyQA != null) {
+            int targetWidthDp = modeOnline
+                    ? Math.round(screenWidthDp * (shortScreen ? 0.46f : 0.48f))
+                    : Math.round(screenWidthDp * (shortScreen ? 0.50f : 0.54f));
+            targetWidthDp = Math.max(shortScreen ? 360 : 390, Math.min(450, targetWidthDp));
+            ViewGroup.LayoutParams params = llyQA.getLayoutParams();
+            params.width = dp(targetWidthDp);
+            llyQA.setLayoutParams(params);
+        }
+
+        if (txtQ != null) {
+            txtQ.setSingleLine(false);
+            txtQ.setMaxLines(2);
+            txtQ.setIncludeFontPadding(false);
+            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                    txtQ,
+                    10,
+                    shortScreen ? 16 : 18,
+                    1,
+                    TypedValue.COMPLEX_UNIT_SP
+            );
+        }
+
+        final int toolSizeDp = shortScreen || narrowScreen ? 42 : 50;
+        resizeSquareView(imgHelp5050, toolSizeDp);
+        resizeSquareView(imgHelpCall, toolSizeDp);
+        resizeSquareView(imgHelpAudience, toolSizeDp);
+        resizeSquareView(imgVolume, toolSizeDp);
+        resizeSquareView(imgHome, toolSizeDp);
+        resizeSquareView(rlyProgress, shortScreen ? 44 : 50);
+
+        if (txtProgress != null) {
+            txtProgress.setTextSize(TypedValue.COMPLEX_UNIT_SP, shortScreen ? 17 : 20);
+            txtProgress.setIncludeFontPadding(false);
+        }
+    }
+
+    private void resizeSquareView(View view, int sizeDp) {
+        if (view == null) {
+            return;
+        }
+        ViewGroup.LayoutParams params = view.getLayoutParams();
+        params.width = dp(sizeDp);
+        params.height = dp(sizeDp);
+        view.setLayoutParams(params);
+    }
+
+    private boolean isShortGameScreen() {
+        final DisplayMetrics metrics = getResources().getDisplayMetrics();
+        return metrics.heightPixels / metrics.density < 390f;
+    }
+
+    private void applyQuestionTextSize(String text) {
+        if (txtQ == null) {
+            return;
+        }
+        final int qLen = text == null ? 0 : text.length();
+        final boolean shortScreen = isShortGameScreen();
+        final float sizeSp;
+        if (qLen <= 60) {
+            sizeSp = shortScreen ? 16f : 18f;
+        } else if (qLen <= 90) {
+            sizeSp = shortScreen ? 14f : 15f;
+        } else if (qLen <= 130) {
+            sizeSp = shortScreen ? 12.5f : 13f;
+        } else {
+            sizeSp = shortScreen ? 10.5f : 11f;
+        }
+        txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
+    }
+
+    private void applyAnswerTextSize(TextView answerView, String text) {
+        if (answerView == null) {
+            return;
+        }
+        final int aLen = text == null ? 0 : text.length();
+        final boolean shortScreen = isShortGameScreen();
+        final float sizeSp;
+        if (aLen <= 20) {
+            sizeSp = shortScreen ? 13f : 14f;
+        } else if (aLen <= 30) {
+            sizeSp = shortScreen ? 11.5f : 12f;
+        } else if (aLen <= 45) {
+            sizeSp = shortScreen ? 9.5f : 10f;
+        } else {
+            sizeSp = 8f;
+        }
+        answerView.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
     }
 
     private void styleStateCell(TextView textView, boolean eliminated) {
@@ -3687,15 +3785,7 @@ public class GameActivity extends AppCompatActivity {
                 }
 
                 txtQ.setText(question.Q);
-                int qLen = question.Q.length();
-                if (qLen <= 60)
-                    txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-                else if (qLen <= 90)
-                    txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-                else if (qLen <= 130)
-                    txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                else
-                    txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                applyQuestionTextSize(question.Q);
 
                 final ArrayList<Integer> answerOrder = getQuestionShuffled(question);
                 currentAnswerOrder.clear();
@@ -3715,16 +3805,9 @@ public class GameActivity extends AppCompatActivity {
                                 case 2:
                                 case 3:
                                     int answerKey = answerOrder.get(i);
-                                    listAnswerViews.get(i).setText(getLetter(i + 1) + " - " + getAnswerText(question, answerKey));
-                                    int aLen = getAnswerText(question, answerKey).length();
-                                    if (aLen <= 20)
-                                        listAnswerViews.get(i).setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-                                    else if (aLen <= 30)
-                                        listAnswerViews.get(i).setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-                                    else if (aLen <= 45)
-                                        listAnswerViews.get(i).setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-                                    else
-                                        listAnswerViews.get(i).setTextSize(TypedValue.COMPLEX_UNIT_SP, 8);
+                                    String answerText = getAnswerText(question, answerKey);
+                                    listAnswerViews.get(i).setText(getLetter(i + 1) + " - " + answerText);
+                                    applyAnswerTextSize(listAnswerViews.get(i), answerText);
                                     if (answerKey == ANSWER_KEY_RIGHT) {
                                         rightAnswer = i+1;
                                         listAnswerViews.get(i).setTag("1");

@@ -161,6 +161,7 @@ class _RoomsScreenState extends State<RoomsScreen>
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final narrow = constraints.maxWidth < 700;
+                      final shortScreen = constraints.maxHeight < 370;
                       final leftPanel = _CreateJoinPanel(
                         maxPlayers: _maxPlayers,
                         mode: _mode,
@@ -199,14 +200,22 @@ class _RoomsScreenState extends State<RoomsScreen>
                             _joiningRoom ? _roomCodeController.text.trim() : '',
                       );
 
-                      if (narrow) {
+                      if (narrow || shortScreen) {
+                        final liveRoomsHeight = shortScreen
+                            ? (constraints.maxHeight - 24)
+                                .clamp(260.0, 330.0)
+                                .toDouble()
+                            : 340.0;
                         return SingleChildScrollView(
                           padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
                           child: Column(
                             children: [
                               leftPanel,
                               const SizedBox(height: 14),
-                              SizedBox(height: 340, child: rightPanel),
+                              SizedBox(
+                                height: liveRoomsHeight,
+                                child: rightPanel,
+                              ),
                             ],
                           ),
                         );
@@ -276,27 +285,33 @@ class _BattleHeader extends StatelessWidget {
                 color: Color(0xFF1F2937), size: 22),
           ),
           const SizedBox(width: 10),
-          const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'اللعب الجماعي',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'اللعب الجماعي',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-              Text(
-                'غرف متعددة اللاعبين',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF94A3B8),
-                  fontWeight: FontWeight.w600,
+                Text(
+                  'غرف متعددة اللاعبين',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -650,7 +665,9 @@ class _CreateJoinPanel extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(
-                        isPrivate ? Icons.lock_rounded : Icons.lock_open_rounded,
+                        isPrivate
+                            ? Icons.lock_rounded
+                            : Icons.lock_open_rounded,
                         size: 18,
                         color: isPrivate
                             ? const Color(0xFFA78BFA)

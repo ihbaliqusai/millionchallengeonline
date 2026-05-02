@@ -633,6 +633,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                             child: LayoutBuilder(
                               builder: (context, constraints) {
                                 final narrow = constraints.maxWidth < 700;
+                                final shortScreen = constraints.maxHeight < 370;
 
                                 final playersPanel = _PlayersPanel(
                                   room: room,
@@ -658,7 +659,12 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                   onLeaveRoom: _confirmLeave,
                                 );
 
-                                if (narrow) {
+                                if (narrow || shortScreen) {
+                                  final playersHeight = shortScreen
+                                      ? (constraints.maxHeight - 24)
+                                          .clamp(260.0, 330.0)
+                                          .toDouble()
+                                      : 320.0;
                                   return SingleChildScrollView(
                                     padding: const EdgeInsets.fromLTRB(
                                         14, 0, 14, 16),
@@ -667,7 +673,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                         controlsPanel,
                                         const SizedBox(height: 14),
                                         SizedBox(
-                                          height: 320,
+                                          height: playersHeight,
                                           child: playersPanel,
                                         ),
                                       ],

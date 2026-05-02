@@ -56,6 +56,7 @@ flutter:
     - assets/ui/box2.png
     - assets/ui/box3.png
     - assets/ui/box4.png
+    - assets/ui/splash_transparent.webp
   fonts:
     - family: Baloo
       fonts:

@@ -487,14 +487,27 @@ class _LeftSidebar extends StatelessWidget {
                 MaterialPageRoute<void>(
                     builder: (_) => const DailyStreakScreen()),
               ),
-              child: _ChestCounter(
-                current: () {
-                  final completed = appState.claimedToday
-                      ? appState.streakDay
-                      : (appState.streakDay > 1 ? appState.streakDay - 1 : 0);
-                  return completed > 0 ? (completed - 1) % 7 + 1 : 0;
-                }(),
-                total: 7,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  _ChestCounter(
+                    current: () {
+                      final completed = appState.claimedToday
+                          ? appState.streakDay
+                          : (appState.streakDay > 1
+                              ? appState.streakDay - 1
+                              : 0);
+                      return completed > 0 ? (completed - 1) % 7 + 1 : 0;
+                    }(),
+                    total: 7,
+                  ),
+                  if (appState.streakDay > 0 && !appState.claimedToday)
+                    const Positioned(
+                      top: -4,
+                      right: -4,
+                      child: _UnclaimedDot(),
+                    ),
+                ],
               ),
             ),
             _SideCard(
@@ -622,6 +635,29 @@ class _ChestCounter extends StatelessWidget {
             '$current/$total',
             style: const TextStyle(
                 fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnclaimedDot extends StatelessWidget {
+  const _UnclaimedDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 14,
+      height: 14,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEF4444),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 1.5),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xFFEF4444).withValues(alpha: 0.55),
+            blurRadius: 8,
           ),
         ],
       ),
@@ -999,7 +1035,18 @@ class _RightSidebar extends StatelessWidget {
                 }
               }
             },
-            child: _DailyChests(appState: appState),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                _DailyChests(appState: appState),
+                if (appState.streakDay > 0 && !appState.claimedToday)
+                  const Positioned(
+                    top: -4,
+                    right: -4,
+                    child: _UnclaimedDot(),
+                  ),
+              ],
+            ),
           );
           final profileCard = _PlayerCard(
             appState: appState,
