@@ -189,23 +189,13 @@ public class ResultActivity extends AppCompatActivity {
                 true
         ));
 
-        final int maxOpponentRows = 3;
-        int shownOpponentRows = 0;
-        for (int i = 0; i < opponents.length() && shownOpponentRows < maxOpponentRows; i++) {
+        for (int i = 0; i < opponents.length(); i++) {
             JSONObject opponent = opponents.optJSONObject(i);
             if (opponent == null) {
                 continue;
             }
             llyOpponentsSummary.addView(buildSummaryTextView(
                     buildOpponentSummary(matchMode, opponent, anySetsNonZero),
-                    false
-            ));
-            shownOpponentRows++;
-        }
-        int remainingOpponents = Math.max(0, opponents.length() - shownOpponentRows);
-        if (remainingOpponents > 0) {
-            llyOpponentsSummary.addView(buildSummaryTextView(
-                    "+" + remainingOpponents + " لاعبين آخرين في تفاصيل الغرفة",
                     false
             ));
         }

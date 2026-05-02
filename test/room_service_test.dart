@@ -49,7 +49,11 @@ void main() {
       );
       await service.joinRoom(roomId: roomId, userId: 'p2');
 
-      await service.startRoom(roomId: roomId, userId: 'host');
+      await service.startRoom(
+        roomId: roomId,
+        userId: 'host',
+        eliminationQuestionIds: _questionIds(),
+      );
 
       final room = await _loadRoom(firestore, roomId);
       expect(room.started, isTrue);
@@ -244,7 +248,11 @@ void main() {
         maxPlayers: 3,
         mode: Room.modeSurvival,
       );
-      await service.startRoom(roomId: roomId, userId: 'host');
+      await service.startRoom(
+        roomId: roomId,
+        userId: 'host',
+        eliminationQuestionIds: _questionIds(),
+      );
 
       await service.submitSurvivalAnswer(
         roomId: roomId,
@@ -502,7 +510,11 @@ void main() {
       );
       await service.joinRoom(roomId: roomId, userId: 'p2');
       await service.joinRoom(roomId: roomId, userId: 'p3');
-      await service.startRoom(roomId: roomId, userId: 'host');
+      await service.startRoom(
+        roomId: roomId,
+        userId: 'host',
+        eliminationQuestionIds: _questionIds(),
+      );
 
       await service.submitEliminationAnswer(
         roomId: roomId,
@@ -570,6 +582,68 @@ void main() {
       expect(room.phase, Room.phaseFinished);
       expect(room.winnerId, 'host');
       expect(room.winnerTeamId, isNull);
+    });
+
+    test('battle final scores are clamped to the room question limit',
+        () async {
+      final roomId = await service.createRoom(
+        hostId: 'host',
+        maxPlayers: 2,
+        mode: Room.modeBattle,
+      );
+      await service.joinRoom(roomId: roomId, userId: 'p2');
+
+      await service.submitFinalScore(
+        roomId: roomId,
+        userId: 'host',
+        score: 99999,
+        answeredCount: 99999,
+      );
+      await service.submitFinalScore(
+        roomId: roomId,
+        userId: 'p2',
+        score: 10,
+        answeredCount: 15,
+      );
+
+      final room = await _loadRoom(firestore, roomId);
+      expect(room.players['host']!.score, 150);
+      expect(room.players['host']!.answeredCount, 15);
+      expect(room.phase, Room.phaseFinished);
+      expect(room.winnerId, 'host');
+    });
+
+    test('series native finalizer computes winner from player state', () async {
+      final roomId = await service.createRoom(
+        hostId: 'host',
+        maxPlayers: 2,
+        mode: Room.modeSeries,
+      );
+      await service.joinRoom(roomId: roomId, userId: 'p2');
+      await service.startRoom(roomId: roomId, userId: 'host');
+
+      await service.finalizeSeriesMatchFromNative(
+        roomId: roomId,
+        userId: 'host',
+        score: 10,
+        answeredCount: 1,
+        roundWins: 0,
+        winnerId: 'host',
+        opponents: const [
+          {
+            'id': 'p2',
+            'score': 20,
+            'answeredCount': 2,
+            'sets': 2,
+          },
+        ],
+      );
+
+      final room = await _loadRoom(firestore, roomId);
+      expect(room.phase, Room.phaseFinished);
+      expect(room.players['host']!.roundWins, 0);
+      expect(room.players['p2']!.roundWins, 2);
+      expect(room.winnerId, 'p2');
     });
 
     test('mid-game join stores the replaced bot seat id for resume', () async {
@@ -676,9 +750,15 @@ Future<String> _createStartedSurvivalRoom(
   for (final playerId in extraPlayers) {
     await service.joinRoom(roomId: roomId, userId: playerId);
   }
-  await service.startRoom(roomId: roomId, userId: 'host');
+  await service.startRoom(
+    roomId: roomId,
+    userId: 'host',
+    eliminationQuestionIds: _questionIds(),
+  );
   return roomId;
 }
+
+List<int> _questionIds([int count = 80]) => List<int>.generate(count, (i) => i);
 
 Future<void> _playSurvivalRound(
   RoomService service,

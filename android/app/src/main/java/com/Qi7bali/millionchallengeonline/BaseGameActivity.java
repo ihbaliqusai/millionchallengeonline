@@ -268,6 +268,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             setMe = 0, setOpponent = 0,
             setScoreMe = 0, setScoreOpponent = 0,
             gameScoreMe = 0, gameScoreOpponent = 0,
+            teamARoundWins = 0, teamBRoundWins = 0,
             rightAnswer, myAnswer, opponentAnswer, myResult;
     boolean usedHelp5050 = false, usedHelpAudience = false, usedHelpCall = false;
 
@@ -3027,6 +3028,8 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         setScoreMe = 0;
         gameScoreMe = Math.max(0, initialRoomScore);
         setMe = Math.max(0, initialRoomRoundWins);
+        teamARoundWins = 0;
+        teamBRoundWins = 0;
         mySetCorrectAnswers = 0;
         myTotalCorrectAnswers = Math.max(0, initialRoomAnsweredCount);
         mySetAnswerTimeMs = 0L;
@@ -3129,11 +3132,14 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         if (isTeamBattleMode()) {
             String winningTeam = getWinningTeamIdForSet();
             if (!winningTeam.isEmpty()) {
+                if ("A".equals(winningTeam)) teamARoundWins++;
+                else if ("B".equals(winningTeam)) teamBRoundWins++;
+
                 if (winningTeam.equals(myTeam)) {
                     setMe++;
                 }
                 for (MatchOpponent opponent : opponents) {
-                    if (winningTeam.equals(opponent.teamId)) {
+                    if (winningTeam.equals(opponent.teamId) && opponent.bot) {
                         opponent.sets++;
                     }
                 }
@@ -3975,11 +3981,21 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             // Award the round win to every member of the winning team
             String winningTeam = getWinningTeamIdForSet();
             if (!winningTeam.isEmpty()) {
+                // Team-level counter — deterministic on every device, used as the
+                // authoritative source for early-end detection (avoids races where
+                // each device's local view of opp.sets lags Firebase sync).
+                if ("A".equals(winningTeam)) teamARoundWins++;
+                else if ("B".equals(winningTeam)) teamBRoundWins++;
+
                 if (winningTeam.equals(myTeam)) {
                     setMe++;
                 }
+                // Each human player owns their own setMe and broadcasts it via Firebase.
+                // Locally bumping opp.sets here would double-count when the listener
+                // already delivered the teammate's update — only do it for bots, which
+                // have no device of their own to publish a sets value.
                 for (MatchOpponent opp : opponents) {
-                    if (winningTeam.equals(opp.teamId)) {
+                    if (winningTeam.equals(opp.teamId) && opp.bot) {
                         opp.sets++;
                     }
                 }
@@ -4056,7 +4072,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     private int checkEndOfGameMulti() {
         String leaderIdResolved = getMatchLeaderId();
-        int leaderSetsResolved = getSetsForPlayer(leaderIdResolved);
+        // In team battle, decide based on the team round-wins counter so all
+        // devices reach the same conclusion regardless of Firebase sync timing.
+        int leaderSetsResolved = isTeamBattleMode()
+                ? Math.max(teamARoundWins, teamBRoundWins)
+                : getSetsForPlayer(leaderIdResolved);
         boolean finalRoundResolved = currentQuestion == getFinalCompetitiveQuestionIndex();
 
         // إنهاء مبكر: إذا فاز أحد بعدد الجولات المطلوبة قبل نهاية آخر جولة
@@ -4067,6 +4087,40 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
         // تعادل: انتهت كل الجولات لكن لم يصل أحد للهدف → الفاصل النقاط الكلية
         boolean tiedOnSets = finalRoundResolved && leaderSetsResolved < getSeriesTarget();
+
+        if (isTeamBattleMode() && myTeam != null && !myTeam.isEmpty()) {
+            String winningTeamId = teamARoundWins > teamBRoundWins
+                    ? "A"
+                    : (teamBRoundWins > teamARoundWins ? "B" : "");
+            boolean myTeamWon = !winningTeamId.isEmpty() && winningTeamId.equals(myTeam);
+            int resolvedResult;
+            if (myTeamWon) {
+                resolvedResult = 1;
+                person.moveShow2Hands(2000);
+                person.raiseEyeBrowsUp(1000, false, true);
+                if (earlyEnd) {
+                    showDialog("مبروك! فاز فريقك بـ " + getSeriesTarget() + " جولات وحسم المباراة", "", 2000, 3000, R.drawable.mouth_01, false);
+                } else if (tiedOnSets) {
+                    showDialog("تعادلنا في الجولات.. لكن نقاط فريقك الأعلى تجعله الفائز!", "", 2000, 3000, R.drawable.mouth_01, false);
+                } else {
+                    showDialog("مبروك انتهت المباراة وفاز فريقك", "", 2000, 3000, R.drawable.mouth_01, false);
+                }
+            } else if (winningTeamId.isEmpty()) {
+                resolvedResult = -1;
+                showDialog("انتهت المباراة بالتعادل", "", 2000, 3000, R.drawable.mouth_01, false);
+            } else {
+                resolvedResult = -1;
+                if (earlyEnd) {
+                    showDialog("انتهت المباراة مبكراً. الفريق الآخر فاز بـ " + getSeriesTarget() + " جولات", "", 2000, 3000, R.drawable.mouth_01, false);
+                } else if (tiedOnSets) {
+                    showDialog("تعادلنا في الجولات! الفائز بأعلى نقاط هو الفريق الآخر", "", 2000, 3000, R.drawable.mouth_01, false);
+                } else {
+                    showDialog("انتهت المباراة وفاز الفريق الآخر", "", 2000, 3000, R.drawable.mouth_01, false);
+                }
+            }
+            updateScoreAndLevel();
+            return resolvedResult;
+        }
 
         int resolvedResult;
         if (isLocalMatchPlayer(leaderIdResolved)) {

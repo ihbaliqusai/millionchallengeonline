@@ -32,6 +32,7 @@ class RoomService {
   static const Duration roomExpiry = Duration(minutes: 20);
   static const Duration startedRoomExpiry = Duration(hours: 2);
   static const int _defaultDirectScoreQuestionCount = 15;
+  static const int _pointsPerQuestion = 10;
 
   RoomService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -176,7 +177,8 @@ class RoomService {
     required String userId,
   }) =>
       _guard(() async {
-        _log('player_join_requested', data: {'roomId': roomId, 'userId': userId});
+        _log('player_join_requested',
+            data: {'roomId': roomId, 'userId': userId});
         final ref = _rooms.doc(roomId);
         return _firestore.runTransaction<JoinRoomResult>((transaction) async {
           final snapshot = await transaction.get(ref);
@@ -281,10 +283,12 @@ class RoomService {
                 roundWins: botPlayer.roundWins,
                 // Clear per-round answer tracking so the player can answer the
                 // current question. Accumulated score/lives carry over from the bot.
-                answeredCount:
-                    botAlreadyAnsweredCurrentRound ? 0 : botPlayer.answeredCount,
-                completedAt:
-                    botAlreadyAnsweredCurrentRound ? null : botPlayer.completedAt,
+                answeredCount: botAlreadyAnsweredCurrentRound
+                    ? 0
+                    : botPlayer.answeredCount,
+                completedAt: botAlreadyAnsweredCurrentRound
+                    ? null
+                    : botPlayer.completedAt,
                 seatSourceId: botId,
                 // currentAnswer intentionally not set — new player hasn't answered.
               ).toMap(),
@@ -422,14 +426,12 @@ class RoomService {
         });
 
         // Validate question IDs for modes that require them.
-        if (eliminationQuestionIds != null &&
-            eliminationQuestionIds.isEmpty) {
+        if (eliminationQuestionIds != null && eliminationQuestionIds.isEmpty) {
           _log('game_start_failed_missing_questions', data: {
             'roomId': roomId,
             'reason': 'eliminationQuestionIds_empty',
           });
-          throw StateError(
-              'فشل تحميل الأسئلة. لا يمكن بدء اللعبة بدون أسئلة.');
+          throw StateError('فشل تحميل الأسئلة. لا يمكن بدء اللعبة بدون أسئلة.');
         }
 
         final ref = _rooms.doc(roomId);
@@ -450,15 +452,15 @@ class RoomService {
           // Guard: round-based modes need question IDs before starting.
           final needsQuestions = room.mode == Room.modeElimination ||
               room.mode == Room.modeSurvival;
-          if (needsQuestions && (eliminationQuestionIds == null ||
-              eliminationQuestionIds.isEmpty)) {
+          if (needsQuestions &&
+              (eliminationQuestionIds == null ||
+                  eliminationQuestionIds.isEmpty)) {
             _log('game_start_failed_missing_questions', data: {
               'roomId': roomId,
               'mode': room.mode,
               'reason': 'no_question_ids_for_round_based_mode',
             });
-            throw StateError(
-                'يجب تحميل الأسئلة أولاً قبل بدء هذا الوضع.');
+            throw StateError('يجب تحميل الأسئلة أولاً قبل بدء هذا الوضع.');
           }
 
           final updates = <String, dynamic>{
@@ -571,8 +573,7 @@ class RoomService {
             'playerCount': room.playerCount,
             'maxPlayers': room.maxPlayers,
             'phase': updates['phase'] as String? ?? room.phase,
-            'questionCount':
-                (updates['questionIds'] as List?)?.length ?? 0,
+            'questionCount': (updates['questionIds'] as List?)?.length ?? 0,
           });
 
           transaction.update(ref, updates);
@@ -639,15 +640,28 @@ class RoomService {
           if (room.isBlitzExpired) return; // post-timeout — reject silently
 
           final current = room.players[userId]!;
+          final safeScore = _sanitizeScoreForMode(room, score);
+          final safeAnsweredCount = _sanitizeAnsweredCount(room, answeredCount);
+          final currentSafeScore = _sanitizeScoreForMode(room, current.score);
+          final currentSafeAnsweredCount =
+              _sanitizeAnsweredCount(room, current.answeredCount);
           if (current.completedAt != null &&
-              current.score >= score &&
-              current.answeredCount >= answeredCount) {
+              current.score == currentSafeScore &&
+              current.answeredCount == currentSafeAnsweredCount &&
+              currentSafeScore >= safeScore &&
+              currentSafeAnsweredCount >= safeAnsweredCount) {
             return;
           }
+          final nextScore = current.completedAt == null
+              ? safeScore
+              : math.max(currentSafeScore, safeScore);
+          final nextAnsweredCount = current.completedAt == null
+              ? safeAnsweredCount
+              : math.max(currentSafeAnsweredCount, safeAnsweredCount);
 
           transaction.update(ref, <String, dynamic>{
-            'players.$userId.score': score,
-            'players.$userId.answeredCount': answeredCount,
+            'players.$userId.score': nextScore,
+            'players.$userId.answeredCount': nextAnsweredCount,
             'players.$userId.completedAt': FieldValue.serverTimestamp(),
           });
         });
@@ -671,13 +685,18 @@ class RoomService {
           for (final botId in room.playerIds.where(Room.isBotUserId)) {
             final player = room.players[botId];
             if (player == null || player.completedAt != null) continue;
-            final botScore = _buildBlitzBotScore(
+            final botAnsweredCount = _buildBlitzBotScore(
               roomId: room.id,
               botId: botId,
               durationSeconds: room.roundDurationSeconds,
             );
+            final botScore = _sanitizeScoreForMode(
+              room,
+              botAnsweredCount * _pointsPerQuestion,
+            );
             updates['players.$botId.score'] = botScore;
-            updates['players.$botId.answeredCount'] = botScore;
+            updates['players.$botId.answeredCount'] =
+                _sanitizeAnsweredCount(room, botAnsweredCount);
             updates['players.$botId.completedAt'] =
                 FieldValue.serverTimestamp();
           }
@@ -686,10 +705,12 @@ class RoomService {
           final effectivePlayers = Map<String, RoomPlayer>.from(room.players);
           for (final botId in room.playerIds.where(Room.isBotUserId)) {
             final botScore = updates['players.$botId.score'] as int?;
+            final botAnsweredCount =
+                updates['players.$botId.answeredCount'] as int?;
             if (botScore != null) {
               effectivePlayers[botId] = effectivePlayers[botId]!.copyWith(
                 score: botScore,
-                answeredCount: botScore,
+                answeredCount: botAnsweredCount ?? 0,
                 completedAt: DateTime.now(),
               );
             }
@@ -730,22 +751,31 @@ class RoomService {
           if (room.phase == Room.phaseFinished) return;
 
           final current = room.players[userId]!;
-          final safeScore = math.max(0, score);
-          final safeAnsweredCount = math.max(0, answeredCount);
+          final safeScore = _sanitizeScoreForMode(room, score);
+          final safeAnsweredCount = _sanitizeAnsweredCount(room, answeredCount);
+          final currentSafeScore = _sanitizeScoreForMode(room, current.score);
+          final currentSafeAnsweredCount =
+              _sanitizeAnsweredCount(room, current.answeredCount);
           final updates = <String, dynamic>{};
           final effectivePlayers = Map<String, RoomPlayer>.from(room.players);
+          final nextScore = current.completedAt == null
+              ? safeScore
+              : math.max(currentSafeScore, safeScore);
+          final nextAnsweredCount = current.completedAt == null
+              ? safeAnsweredCount
+              : math.max(currentSafeAnsweredCount, safeAnsweredCount);
           final shouldUpdatePlayer = current.completedAt == null ||
-              current.score < safeScore ||
-              current.answeredCount < safeAnsweredCount;
+              current.score != nextScore ||
+              current.answeredCount != nextAnsweredCount;
 
           if (shouldUpdatePlayer) {
-            updates['players.$userId.score'] = safeScore;
-            updates['players.$userId.answeredCount'] = safeAnsweredCount;
+            updates['players.$userId.score'] = nextScore;
+            updates['players.$userId.answeredCount'] = nextAnsweredCount;
             updates['players.$userId.completedAt'] =
                 FieldValue.serverTimestamp();
             effectivePlayers[userId] = current.copyWith(
-              score: safeScore,
-              answeredCount: safeAnsweredCount,
+              score: nextScore,
+              answeredCount: nextAnsweredCount,
               completedAt: DateTime.now(),
             );
           }
@@ -762,18 +792,24 @@ class RoomService {
             final player = effectivePlayers[botId];
             if (player == null || player.completedAt != null) continue;
 
-            final botScore = _buildBlitzBotScore(
+            final botAnsweredCount = _buildBlitzBotScore(
               roomId: room.id,
               botId: botId,
               durationSeconds: room.roundDurationSeconds,
             );
+            final botScore = _sanitizeScoreForMode(
+              room,
+              botAnsweredCount * _pointsPerQuestion,
+            );
+            final safeBotAnsweredCount =
+                _sanitizeAnsweredCount(room, botAnsweredCount);
             updates['players.$botId.score'] = botScore;
-            updates['players.$botId.answeredCount'] = botScore;
+            updates['players.$botId.answeredCount'] = safeBotAnsweredCount;
             updates['players.$botId.completedAt'] =
                 FieldValue.serverTimestamp();
             effectivePlayers[botId] = player.copyWith(
               score: botScore,
-              answeredCount: botScore,
+              answeredCount: safeBotAnsweredCount,
               completedAt: DateTime.now(),
             );
           }
@@ -819,22 +855,35 @@ class RoomService {
           }
 
           final current = room.players[userId]!;
+          final safeScore = _sanitizeScoreForMode(room, score);
+          final safeAnsweredCount = _sanitizeAnsweredCount(room, answeredCount);
+          final currentSafeScore = _sanitizeScoreForMode(room, current.score);
+          final currentSafeAnsweredCount =
+              _sanitizeAnsweredCount(room, current.answeredCount);
           if (current.completedAt != null &&
-              current.score >= score &&
-              current.answeredCount >= answeredCount) {
+              current.score == currentSafeScore &&
+              current.answeredCount == currentSafeAnsweredCount &&
+              currentSafeScore >= safeScore &&
+              currentSafeAnsweredCount >= safeAnsweredCount) {
             return;
           }
+          final nextScore = current.completedAt == null
+              ? safeScore
+              : math.max(currentSafeScore, safeScore);
+          final nextAnsweredCount = current.completedAt == null
+              ? safeAnsweredCount
+              : math.max(currentSafeAnsweredCount, safeAnsweredCount);
 
           final updates = <String, dynamic>{
-            'players.$userId.score': score,
-            'players.$userId.answeredCount': answeredCount,
+            'players.$userId.score': nextScore,
+            'players.$userId.answeredCount': nextAnsweredCount,
             'players.$userId.completedAt': FieldValue.serverTimestamp(),
           };
 
           final effectivePlayers = Map<String, RoomPlayer>.from(room.players)
             ..[userId] = current.copyWith(
-              score: score,
-              answeredCount: answeredCount,
+              score: nextScore,
+              answeredCount: nextAnsweredCount,
               completedAt: DateTime.now(),
             );
 
@@ -877,52 +926,76 @@ class RoomService {
             throw StateError('لم تعد ضمن هذه الغرفة.');
           }
 
+          if (room.phase == Room.phaseFinished) return;
+
+          final current = room.players[userId]!;
+          final safeScore = _sanitizeScoreForMode(room, score);
+          final safeAnsweredCount = _sanitizeAnsweredCount(room, answeredCount);
+          final safeRoundWins = _sanitizeRoundWins(room, roundWins);
+          final effectivePlayers = Map<String, RoomPlayer>.from(room.players)
+            ..[userId] = current.copyWith(
+              score: safeScore,
+              answeredCount: safeAnsweredCount,
+              roundWins: safeRoundWins,
+              completedAt: DateTime.now(),
+            );
+
           final updates = <String, dynamic>{
             'phase': Room.phaseFinished,
-            'players.$userId.score': score,
-            'players.$userId.answeredCount': answeredCount,
-            'players.$userId.roundWins': math.max(0, roundWins),
+            'players.$userId.score': safeScore,
+            'players.$userId.answeredCount': safeAnsweredCount,
+            'players.$userId.roundWins': safeRoundWins,
             'players.$userId.completedAt': FieldValue.serverTimestamp(),
           };
 
-          final safeWinnerId = winnerId.trim();
-          if (safeWinnerId.isEmpty) {
-            updates['winnerId'] = FieldValue.delete();
-          } else {
-            updates['winnerId'] = safeWinnerId;
-          }
-
-          var playedRounds = math.max(0, roundWins);
+          var playedRounds = safeRoundWins;
           for (final opponent in opponents) {
             final opponentId = (opponent['id'] ?? '').toString().trim();
             if (opponentId.isEmpty || !room.containsPlayer(opponentId)) {
               continue;
             }
+            final existingOpponent = room.players[opponentId]!;
 
-            final opponentScore = (opponent['score'] as num?)?.toInt() ??
-                room.players[opponentId]?.score ??
-                0;
-            final opponentAnsweredCount =
-                (opponent['correctAnswers'] as num?)?.toInt() ??
-                    (opponent['answeredCount'] as num?)?.toInt() ??
-                    room.players[opponentId]?.answeredCount ??
-                    0;
-            final opponentRoundWins = (opponent['sets'] as num?)?.toInt() ??
-                room.players[opponentId]?.roundWins ??
-                0;
+            final opponentScore = _sanitizeScoreForMode(
+              room,
+              (opponent['score'] as num?)?.toInt() ?? existingOpponent.score,
+            );
+            final opponentAnsweredCount = _sanitizeAnsweredCount(
+              room,
+              (opponent['correctAnswers'] as num?)?.toInt() ??
+                  (opponent['answeredCount'] as num?)?.toInt() ??
+                  existingOpponent.answeredCount,
+            );
+            final opponentRoundWins = _sanitizeRoundWins(
+              room,
+              (opponent['sets'] as num?)?.toInt() ?? existingOpponent.roundWins,
+            );
 
             updates['players.$opponentId.score'] = opponentScore;
             updates['players.$opponentId.answeredCount'] =
                 opponentAnsweredCount;
-            updates['players.$opponentId.roundWins'] =
-                math.max(0, opponentRoundWins);
+            updates['players.$opponentId.roundWins'] = opponentRoundWins;
             updates['players.$opponentId.completedAt'] =
                 FieldValue.serverTimestamp();
-            playedRounds += math.max(0, opponentRoundWins);
+            effectivePlayers[opponentId] = existingOpponent.copyWith(
+              score: opponentScore,
+              answeredCount: opponentAnsweredCount,
+              roundWins: opponentRoundWins,
+              completedAt: DateTime.now(),
+            );
+            playedRounds += opponentRoundWins;
           }
 
           if (playedRounds > 0) {
             updates['roundNumber'] = math.max(room.roundNumber, playedRounds);
+          }
+
+          final computedWinnerId =
+              _computeSeriesWinner(effectivePlayers, room.seriesTarget);
+          if (computedWinnerId == null) {
+            updates['winnerId'] = FieldValue.delete();
+          } else {
+            updates['winnerId'] = computedWinnerId;
           }
 
           transaction.update(ref, updates);
@@ -958,22 +1031,34 @@ class RoomService {
             throw StateError('لم تعد ضمن هذه الغرفة.');
           }
 
+          if (room.phase == Room.phaseFinished) return;
+
+          final current = room.players[userId]!;
+          final safeScore = _sanitizeScoreForMode(room, score);
+          final safeAnsweredCount = _sanitizeAnsweredCount(room, answeredCount);
+          final safeLivesRemaining = _sanitizeLives(myLivesRemaining);
+          final safeMyEliminated = myEliminated ||
+              (room.mode == Room.modeSurvival && safeLivesRemaining <= 0);
+          final effectivePlayers = Map<String, RoomPlayer>.from(room.players)
+            ..[userId] = current.copyWith(
+              score: safeScore,
+              answeredCount: safeAnsweredCount,
+              eliminated: safeMyEliminated,
+              lives: room.mode == Room.modeSurvival
+                  ? safeLivesRemaining
+                  : current.lives,
+              completedAt: DateTime.now(),
+            );
+
           final updates = <String, dynamic>{
             'phase': Room.phaseFinished,
-            'players.$userId.score': score,
-            'players.$userId.answeredCount': answeredCount,
+            'players.$userId.score': safeScore,
+            'players.$userId.answeredCount': safeAnsweredCount,
             'players.$userId.completedAt': FieldValue.serverTimestamp(),
-            'players.$userId.eliminated': myEliminated,
+            'players.$userId.eliminated': safeMyEliminated,
           };
           if (room.mode == Room.modeSurvival) {
-            updates['players.$userId.lives'] = math.max(0, myLivesRemaining);
-          }
-
-          final safeWinnerId = winnerId.trim();
-          if (safeWinnerId.isEmpty) {
-            updates['winnerId'] = FieldValue.delete();
-          } else {
-            updates['winnerId'] = safeWinnerId;
+            updates['players.$userId.lives'] = safeLivesRemaining;
           }
 
           for (final opponent in opponents) {
@@ -981,16 +1066,24 @@ class RoomService {
             if (opponentId.isEmpty || !room.containsPlayer(opponentId)) {
               continue;
             }
+            final existingOpponent = room.players[opponentId]!;
 
-            final opponentScore = (opponent['score'] as num?)?.toInt() ??
-                room.players[opponentId]?.score ??
-                0;
-            final opponentAnsweredCount =
-                (opponent['correctAnswers'] as num?)?.toInt() ??
-                    (opponent['answeredCount'] as num?)?.toInt() ??
-                    room.players[opponentId]?.answeredCount ??
-                    0;
-            final opponentEliminated = opponent['eliminated'] == true;
+            final opponentScore = _sanitizeScoreForMode(
+              room,
+              (opponent['score'] as num?)?.toInt() ?? existingOpponent.score,
+            );
+            final opponentAnsweredCount = _sanitizeAnsweredCount(
+              room,
+              (opponent['correctAnswers'] as num?)?.toInt() ??
+                  (opponent['answeredCount'] as num?)?.toInt() ??
+                  existingOpponent.answeredCount,
+            );
+            final opponentLivesRemaining = _sanitizeLives(
+              (opponent['livesRemaining'] as num?)?.toInt() ??
+                  existingOpponent.lives,
+            );
+            final opponentEliminated = opponent['eliminated'] == true ||
+                (room.mode == Room.modeSurvival && opponentLivesRemaining <= 0);
 
             updates['players.$opponentId.score'] = opponentScore;
             updates['players.$opponentId.answeredCount'] =
@@ -1000,9 +1093,27 @@ class RoomService {
             updates['players.$opponentId.eliminated'] = opponentEliminated;
 
             if (room.mode == Room.modeSurvival) {
-              updates['players.$opponentId.lives'] = math.max(
-                  0, (opponent['livesRemaining'] as num?)?.toInt() ?? 0);
+              updates['players.$opponentId.lives'] = opponentLivesRemaining;
             }
+            effectivePlayers[opponentId] = existingOpponent.copyWith(
+              score: opponentScore,
+              answeredCount: opponentAnsweredCount,
+              eliminated: opponentEliminated,
+              lives: room.mode == Room.modeSurvival
+                  ? opponentLivesRemaining
+                  : existingOpponent.lives,
+              completedAt: DateTime.now(),
+            );
+          }
+
+          final computedWinnerId = _computeRoundBasedWinner(
+            room: room,
+            players: effectivePlayers,
+          );
+          if (computedWinnerId == null) {
+            updates['winnerId'] = FieldValue.delete();
+          } else {
+            updates['winnerId'] = computedWinnerId;
           }
 
           transaction.update(ref, updates);
@@ -1465,9 +1576,8 @@ class RoomService {
             'roomId': roomId,
             'fromIndex': fromIndex,
             'totalQuestions': totalQuestions,
-            'activePlayers': room.players.values
-                .where((p) => !p.eliminated)
-                .length,
+            'activePlayers':
+                room.players.values.where((p) => !p.eliminated).length,
           });
 
           final updates = <String, dynamic>{};
@@ -1878,6 +1988,139 @@ class RoomService {
     }
   }
 
+  static int _clampInt(int value, int minValue, int maxValue) {
+    if (maxValue < minValue) return minValue;
+    return math.max(minValue, math.min(maxValue, value));
+  }
+
+  static int _maxAnsweredCountForMode(
+    Room room, {
+    int totalQuestions = _defaultDirectScoreQuestionCount,
+  }) {
+    switch (room.mode) {
+      case Room.modeBattle:
+      case Room.modeTeamBattle:
+        return totalQuestions;
+      case Room.modeBlitz:
+        final durationSeconds =
+            room.roundDurationSeconds > 0 ? room.roundDurationSeconds : 60;
+        return math.max(1, (durationSeconds / 5.0).ceil() + 1);
+      case Room.modeSeries:
+        final maxRounds = math.max(1, (room.seriesTarget * 2) - 1);
+        return maxRounds * totalQuestions;
+      case Room.modeElimination:
+      case Room.modeSurvival:
+        return room.questionIds.isNotEmpty ? room.questionIds.length : 80;
+      default:
+        return totalQuestions;
+    }
+  }
+
+  static int _maxScoreForMode(
+    Room room, {
+    int totalQuestions = _defaultDirectScoreQuestionCount,
+  }) =>
+      _maxAnsweredCountForMode(room, totalQuestions: totalQuestions) *
+      _pointsPerQuestion;
+
+  static int _sanitizeScoreForMode(
+    Room room,
+    int score, {
+    int totalQuestions = _defaultDirectScoreQuestionCount,
+  }) =>
+      _clampInt(
+        score,
+        0,
+        _maxScoreForMode(room, totalQuestions: totalQuestions),
+      );
+
+  static int _sanitizeAnsweredCount(
+    Room room,
+    int answeredCount, {
+    int totalQuestions = _defaultDirectScoreQuestionCount,
+  }) =>
+      _clampInt(
+        answeredCount,
+        0,
+        _maxAnsweredCountForMode(room, totalQuestions: totalQuestions),
+      );
+
+  static int _sanitizeRoundWins(Room room, int roundWins) =>
+      _clampInt(roundWins, 0, math.max(1, room.seriesTarget));
+
+  static int _sanitizeLives(int lives) =>
+      _clampInt(lives, 0, Room.initialSurvivalLives);
+
+  static String? _computeSeriesWinner(
+    Map<String, RoomPlayer> players,
+    int seriesTarget,
+  ) {
+    if (players.isEmpty) return null;
+    final sorted = players.entries.toList()
+      ..sort((a, b) {
+        final winsCmp = b.value.roundWins.compareTo(a.value.roundWins);
+        if (winsCmp != 0) return winsCmp;
+        final scoreCmp = b.value.score.compareTo(a.value.score);
+        if (scoreCmp != 0) return scoreCmp;
+        final answeredCmp =
+            b.value.answeredCount.compareTo(a.value.answeredCount);
+        if (answeredCmp != 0) return answeredCmp;
+        return _stableHash(a.key).compareTo(_stableHash(b.key));
+      });
+
+    final leader = sorted.first;
+    if (leader.value.roundWins <= 0) return null;
+    if (sorted.length > 1) {
+      final second = sorted[1];
+      final unresolvedTie = leader.value.roundWins == second.value.roundWins &&
+          leader.value.score == second.value.score &&
+          leader.value.answeredCount == second.value.answeredCount;
+      if (unresolvedTie) return null;
+    }
+    if (leader.value.roundWins >= math.max(1, seriesTarget)) {
+      return leader.key;
+    }
+    return leader.key;
+  }
+
+  static String? _computeRoundBasedWinner({
+    required Room room,
+    required Map<String, RoomPlayer> players,
+  }) {
+    final activePlayers = players.entries.where((entry) {
+      if (room.mode == Room.modeSurvival) {
+        return !entry.value.eliminated && entry.value.lives > 0;
+      }
+      return !entry.value.eliminated;
+    }).toList(growable: false);
+    if (activePlayers.length == 1) {
+      return activePlayers.single.key;
+    }
+
+    if (players.isEmpty) return null;
+    final sorted = players.entries.toList()
+      ..sort((a, b) {
+        final scoreCmp = b.value.score.compareTo(a.value.score);
+        if (scoreCmp != 0) return scoreCmp;
+        final answeredCmp =
+            b.value.answeredCount.compareTo(a.value.answeredCount);
+        if (answeredCmp != 0) return answeredCmp;
+        final livesCmp = b.value.lives.compareTo(a.value.lives);
+        if (livesCmp != 0) return livesCmp;
+        return _stableHash(a.key).compareTo(_stableHash(b.key));
+      });
+    final leader = sorted.first;
+    if (leader.value.score <= 0 && activePlayers.isEmpty) return null;
+    if (sorted.length > 1) {
+      final second = sorted[1];
+      final unresolvedTie = leader.value.score == second.value.score &&
+          leader.value.answeredCount == second.value.answeredCount &&
+          leader.value.lives == second.value.lives;
+      if (unresolvedTie) return null;
+    }
+    return leader.key;
+  }
+
   static int _buildBlitzBotScore({
     required String roomId,
     required String botId,
@@ -2122,9 +2365,8 @@ class RoomService {
     required Map<String, dynamic> updates,
     required int totalQuestions,
   }) {
-    final humanPlayers = players.entries
-        .where((e) => !Room.isBotUserId(e.key))
-        .toList();
+    final humanPlayers =
+        players.entries.where((e) => !Room.isBotUserId(e.key)).toList();
     final completedCount =
         humanPlayers.where((e) => e.value.completedAt != null).length;
     _log('all_players_answered_checked', data: {

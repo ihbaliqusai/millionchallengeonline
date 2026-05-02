@@ -115,9 +115,9 @@
 
                 <de.hdodenhof.circleimageview.CircleImageView
                     android:id="@+id/imgMe"
-                    android:layout_width="92dp"
-                    android:layout_height="92dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:layout_marginTop="6dp"
                     app:civ_border_color="@color/player1"
                     app:civ_border_width="4dp" />
 
@@ -125,14 +125,14 @@
                     android:id="@+id/txtMyName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:ellipsize="end"
                     android:fontFamily="@font/baloo"
                     android:gravity="center"
                     android:includeFontPadding="false"
                     android:maxLines="1"
                     android:textColor="#FFFFFFFF"
-                    android:textSize="21sp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
                     tools:text="Qusai" />
 
@@ -140,12 +140,12 @@
                     android:id="@+id/txtMyScore"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="2dp"
                     android:fontFamily="@font/baloo"
                     android:gravity="center"
                     android:includeFontPadding="false"
                     android:textColor="#FF38BDF8"
-                    android:textSize="34sp"
+                    android:textSize="26sp"
                     android:textStyle="bold"
                     tools:text="120" />
 
@@ -161,11 +161,13 @@
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
-                    android:layout_marginTop="12dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
                     android:background="@drawable/result_metric_chip"
                     android:gravity="center"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="6dp">
 
                     <TextView
                         android:id="@+id/txtMySets"
@@ -175,7 +177,7 @@
                         android:gravity="center"
                         android:includeFontPadding="false"
                         android:textColor="#FFFFFFFF"
-                        android:textSize="22sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
                         tools:text="2" />
 
@@ -277,14 +279,25 @@
                         android:textStyle="bold"
                         tools:text="رصيدك الجديد: 1500" />
 
-                    <LinearLayout
-                        android:id="@+id/llyOpponentsSummary"
+                    <ScrollView
+                        android:id="@+id/scrOpponentsSummary"
                         android:layout_width="match_parent"
                         android:layout_height="0dp"
                         android:layout_marginTop="12dp"
                         android:layout_weight="1"
-                        android:gravity="center"
-                        android:orientation="vertical" />
+                        android:fadeScrollbars="false"
+                        android:fillViewport="true"
+                        android:overScrollMode="ifContentScrolls"
+                        android:scrollbarStyle="insideOverlay"
+                        android:scrollbars="vertical">
+
+                        <LinearLayout
+                            android:id="@+id/llyOpponentsSummary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_horizontal"
+                            android:orientation="vertical" />
+                    </ScrollView>
                 </LinearLayout>
             </FrameLayout>
 
@@ -309,9 +322,9 @@
 
                 <de.hdodenhof.circleimageview.CircleImageView
                     android:id="@+id/imgOpponent"
-                    android:layout_width="92dp"
-                    android:layout_height="92dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:layout_marginTop="6dp"
                     app:civ_border_color="@color/player2"
                     app:civ_border_width="4dp" />
 
@@ -319,14 +332,14 @@
                     android:id="@+id/txtOpponentName"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="6dp"
                     android:ellipsize="end"
                     android:fontFamily="@font/baloo"
                     android:gravity="center"
                     android:includeFontPadding="false"
                     android:maxLines="1"
                     android:textColor="#FFFFFFFF"
-                    android:textSize="21sp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
                     tools:text="المنافس" />
 
@@ -334,12 +347,12 @@
                     android:id="@+id/txtOpponentScore"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="2dp"
                     android:fontFamily="@font/baloo"
                     android:gravity="center"
                     android:includeFontPadding="false"
                     android:textColor="#FFFF4D8D"
-                    android:textSize="34sp"
+                    android:textSize="26sp"
                     android:textStyle="bold"
                     tools:text="90" />
 
@@ -355,11 +368,13 @@
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
-                    android:layout_marginTop="12dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
                     android:background="@drawable/result_metric_chip"
                     android:gravity="center"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="6dp">
 
                     <TextView
                         android:id="@+id/txtOpponentSets"
@@ -369,7 +384,7 @@
                         android:gravity="center"
                         android:includeFontPadding="false"
                         android:textColor="#FFFFFFFF"
-                        android:textSize="22sp"
+                        android:textSize="18sp"
                         android:textStyle="bold"
                         tools:text="1" />
 

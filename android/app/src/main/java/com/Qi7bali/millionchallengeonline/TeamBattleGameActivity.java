@@ -130,6 +130,7 @@ public class TeamBattleGameActivity extends BaseGameActivity {
 
     @Override
     protected int getSeriesTarget() {
-        return 99;
+        // أفضل من 3 جولات: ينتهي عند 2-0 وتُلعب الجولة الثالثة فقط لكسر التعادل 1-1
+        return 2;
     }
 }

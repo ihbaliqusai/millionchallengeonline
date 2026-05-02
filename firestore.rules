@@ -22,6 +22,15 @@ service cloud.firestore {
       ]);
     }
 
+    function roomCoreUnchanged() {
+      return request.resource.data.hostId == resource.data.hostId &&
+        request.resource.data.mode == resource.data.mode &&
+        request.resource.data.maxPlayers == resource.data.maxPlayers &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.isPrivate == resource.data.isPrivate &&
+        request.resource.data.roomName == resource.data.roomName;
+    }
+
     match /users/{uid} {
       allow read, create, update, delete: if isOwner(uid);
 
@@ -77,17 +86,18 @@ service cloud.firestore {
         // 1. Host can make any update (start, kick, score, etc.).
         resource.data.hostId == request.auth.uid ||
 
-        // 2. Existing player can update (submit score, toggle ready, disconnect).
-        resource.data.players[request.auth.uid] != null ||
+        // 2. Existing player can update gameplay fields, but not core room identity.
+        (
+          resource.data.players[request.auth.uid] != null &&
+          roomCoreUnchanged()
+        ) ||
 
         // 3. Any signed-in user may join (lobby or bot-slot replacement) as long
         //    as they are present in the resulting players map and do not change
         //    core room identity (host, mode, maxPlayers).
         (
           request.resource.data.players[request.auth.uid] != null &&
-          request.resource.data.hostId == resource.data.hostId &&
-          request.resource.data.mode == resource.data.mode &&
-          request.resource.data.maxPlayers == resource.data.maxPlayers
+          roomCoreUnchanged()
         )
       );
 

@@ -1118,15 +1118,17 @@ class _RoomCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 6),
-                Row(
+                Wrap(
+                  spacing: 3,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     // Player slots
                     ...List.generate(room.maxPlayers, (i) {
                       final filled = i < room.playerCount;
                       return Container(
-                        width: 14,
-                        height: 14,
-                        margin: const EdgeInsets.only(right: 3),
+                        width: 12,
+                        height: 12,
                         decoration: BoxDecoration(
                           color: filled
                               ? const Color(0xFF4ADE80)
@@ -1141,7 +1143,7 @@ class _RoomCard extends StatelessWidget {
                         ),
                       );
                     }),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     Text(
                       '${room.playerCount}/${room.maxPlayers}',
                       style: TextStyle(
@@ -1150,7 +1152,6 @@ class _RoomCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
