@@ -954,10 +954,17 @@ class _LiveRoomsPanel extends StatelessWidget {
                         final canRejoin = room.started &&
                             userId.isNotEmpty &&
                             room.players[userId]?.disconnected == true;
+                        // بعد 5 دقائق من بدء اللعب لا يمكن لأحد الانضمام عدا من
+                        // كان داخل الغرفة وانقطع (canRejoin يتجاوز هذا القيد).
+                        final joinWindowExpired = room.started &&
+                            room.startedAt != null &&
+                            DateTime.now().difference(room.startedAt!) >
+                                RoomService.startedRoomJoinWindow;
                         final hasBotSlot = room.started &&
                             room.phase != Room.phaseFinished &&
                             !alreadyInRoom &&
                             !canRejoin &&
+                            !joinWindowExpired &&
                             room.playerIds.any(Room.isBotUserId);
                         final canJoinLobby =
                             !room.started && !room.isFull && !alreadyInRoom;
@@ -971,6 +978,8 @@ class _LiveRoomsPanel extends StatelessWidget {
                           hostName: host?.username ?? _short(room.hostId),
                           isJoining: joiningRoomId == room.id,
                           canRejoin: canRejoin,
+                          joinWindowExpired:
+                              joinWindowExpired && !canRejoin && !alreadyInRoom,
                           onJoin: (canRejoin || canJoinLobby || hasBotSlot)
                               ? () => onJoinRoom(room.id)
                               : null,
@@ -1002,6 +1011,7 @@ class _RoomCard extends StatelessWidget {
     required this.hostName,
     required this.isJoining,
     required this.canRejoin,
+    required this.joinWindowExpired,
     required this.onJoin,
     this.onSpectate,
   });
@@ -1010,6 +1020,7 @@ class _RoomCard extends StatelessWidget {
   final String hostName;
   final bool isJoining;
   final bool canRejoin;
+  final bool joinWindowExpired;
   final VoidCallback? onJoin;
   final VoidCallback? onSpectate;
 
@@ -1227,11 +1238,13 @@ class _RoomCard extends StatelessWidget {
                             ? 'العودة'
                             : hasBotSlot
                                 ? 'انضمام'
-                                : isPlaying
-                                    ? 'بدأت'
-                                    : isFull
-                                        ? 'ممتلئة'
-                                        : 'انضمام',
+                                : joinWindowExpired
+                                    ? 'مغلقة'
+                                    : isPlaying
+                                        ? 'بدأت'
+                                        : isFull
+                                            ? 'ممتلئة'
+                                            : 'انضمام',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w900,

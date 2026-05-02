@@ -31,6 +31,11 @@ class JoinRoomResult {
 class RoomService {
   static const Duration roomExpiry = Duration(minutes: 20);
   static const Duration startedRoomExpiry = Duration(hours: 2);
+  // الغرف التي بدأت اللعب تختفي من قائمة "الغرف المتاحة" بعد هذه المدة من بدء اللعب.
+  static const Duration startedRoomVisibilityWindow = Duration(minutes: 10);
+  // النافذة الزمنية بعد بدء اللعب التي يُسمح خلالها للاعب جديد بالالتحاق
+  // (مثلاً ليحلّ محل بوت). بعد هذه المدة لا يمكن لأحد الانضمام عدا من كان داخل الغرفة وانقطع.
+  static const Duration startedRoomJoinWindow = Duration(minutes: 5);
   static const int _defaultDirectScoreQuestionCount = 15;
   static const int _pointsPerQuestion = 10;
 
@@ -48,7 +53,9 @@ class RoomService {
     return _rooms.snapshots().map((snapshot) {
       final now = DateTime.now();
       final cutoff = now.subtract(roomExpiry);
-      final startedCutoff = now.subtract(startedRoomExpiry);
+      // إخفاء الغرف الجارية من القائمة بعد 10 دقائق من بدء اللعب فيها
+      // (المباراة قد تستمر لأكثر من ذلك لمن في داخلها، لكن لا تظهر للجمهور).
+      final startedDisplayCutoff = now.subtract(startedRoomVisibilityWindow);
       final rooms = snapshot.docs
           .map(Room.fromSnapshot)
           .where(
@@ -61,12 +68,11 @@ class RoomService {
                     (!room.started &&
                             room.playerCount > 0 &&
                             !_isExpiredOpenRoom(room, cutoff: cutoff)) ||
-                        // In-progress rooms — shown to everyone (like poker tables).
-                        // Excludes finished, abandoned (>2 h old), or missing startedAt.
+                        // In-progress rooms — visible فقط خلال أول 10 دقائق من بدء اللعب.
                         (room.started &&
                             room.phase != Room.phaseFinished &&
                             room.startedAt != null &&
-                            room.startedAt!.isAfter(startedCutoff))),
+                            room.startedAt!.isAfter(startedDisplayCutoff))),
           )
           .toList(growable: false)
         ..sort((a, b) {
@@ -225,6 +231,25 @@ class RoomService {
                 joinedMidGame: true,
                 seatSourceId: existingPlayer.seatSourceId,
               );
+            }
+
+            // منع الانضمام بعد مرور 5 دقائق على بدء اللعب — اللاعبون الذين كانوا في
+            // الغرفة سابقاً قد عادوا فعلياً عبر فرع existingPlayer أعلاه؛ هنا يصل
+            // فقط لاعبٌ جديد يحاول الالتحاق في منتصف المباراة.
+            final startedAt = room.startedAt;
+            if (startedAt != null) {
+              final startedAge = DateTime.now().difference(startedAt);
+              if (startedAge > startedRoomJoinWindow) {
+                _log('player_join_failed', data: {
+                  'roomId': roomId,
+                  'userId': userId,
+                  'reason': 'join_window_expired',
+                  'startedAgeSeconds': startedAge.inSeconds,
+                  'phase': room.phase,
+                });
+                throw StateError(
+                    'بدأ اللعب في هذه الغرفة منذ أكثر من 5 دقائق، لا يمكن الانضمام الآن.');
+              }
             }
 
             // Allow joining a playing room that has bot slots — human replaces

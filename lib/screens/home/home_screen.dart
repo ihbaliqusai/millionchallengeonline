@@ -280,6 +280,28 @@ class _HomeScreenState extends State<HomeScreen>
   }
 }
 
+void _showOnlineRequiredToast(BuildContext context) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.wifi_off_rounded, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'تتطلب هذه الميزة اتصالاً بالإنترنت',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 //  TOP BAR
 // ──────────────────────────────────────────────────────────────────────────────
@@ -290,6 +312,7 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top + 6;
+    final isOnline = appState.isOnline;
     return SizedBox(
       height: top + 52,
       child: Stack(
@@ -305,6 +328,7 @@ class _TopBar extends StatelessWidget {
                   icon: Icons.monetization_on_rounded,
                   color: const Color(0xFFFACC15),
                   label: appState.coins.toString(),
+                  enabled: isOnline,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                         builder: (_) => const StoreScreen()),
@@ -315,6 +339,7 @@ class _TopBar extends StatelessWidget {
                   icon: Icons.diamond_rounded,
                   color: const Color(0xFF38BDF8),
                   label: appState.gems.toString(),
+                  enabled: isOnline,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                         builder: (_) => const StoreScreen()),
@@ -344,16 +369,18 @@ class _CurrencyChip extends StatelessWidget {
     required this.color,
     required this.label,
     required this.onTap,
+    this.enabled = true,
   });
   final IconData icon;
   final Color color;
   final String label;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: enabled ? onTap : () => _showOnlineRequiredToast(context),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
@@ -467,6 +494,7 @@ class _LeftSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isOnline = appState.isOnline;
     return Padding(
       padding: EdgeInsets.fromLTRB(10, MediaQuery.of(context).padding.top + 8,
           6, MediaQuery.of(context).padding.bottom + 8),
@@ -477,37 +505,47 @@ class _LeftSidebar extends StatelessWidget {
               label: 'الصدارة',
               icon: Icons.leaderboard_rounded,
               iconColor: const Color(0xFFFACC15),
+              enabled: isOnline,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                     builder: (_) => const LeaderboardScreen()),
               ),
             ),
             GestureDetector(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                    builder: (_) => const DailyStreakScreen()),
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: <Widget>[
-                  _ChestCounter(
-                    current: () {
-                      final completed = appState.claimedToday
-                          ? appState.streakDay
-                          : (appState.streakDay > 1
-                              ? appState.streakDay - 1
-                              : 0);
-                      return completed > 0 ? (completed - 1) % 7 + 1 : 0;
-                    }(),
-                    total: 7,
-                  ),
-                  if (appState.streakDay > 0 && !appState.claimedToday)
-                    const Positioned(
-                      top: -4,
-                      right: -4,
-                      child: _UnclaimedDot(),
+              onTap: isOnline
+                  ? () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const DailyStreakScreen()),
+                      )
+                  : () => _showOnlineRequiredToast(context),
+              child: Opacity(
+                opacity: isOnline ? 1.0 : 0.5,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    _ChestCounter(
+                      current: () {
+                        final completed = appState.claimedToday
+                            ? appState.streakDay
+                            : (appState.streakDay > 1
+                                ? appState.streakDay - 1
+                                : 0);
+                        return completed > 0 ? (completed - 1) % 7 + 1 : 0;
+                      }(),
+                      total: 7,
                     ),
-                ],
+                    if (isOnline &&
+                        appState.streakDay > 0 &&
+                        !appState.claimedToday)
+                      const Positioned(
+                        top: -4,
+                        right: -4,
+                        child: _UnclaimedDot(),
+                      ),
+                    if (!isOnline)
+                      const Positioned(top: 4, right: 4, child: _LockBadge()),
+                  ],
+                ),
               ),
             ),
             _SideCard(
@@ -558,42 +596,73 @@ class _SideCard extends StatelessWidget {
     required this.icon,
     required this.iconColor,
     required this.onTap,
+    this.enabled = true,
   });
   final String label;
   final IconData icon;
   final Color iconColor;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 72,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.65),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18), width: 1.5),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      onTap: enabled ? onTap : () => _showOnlineRequiredToast(context),
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.5,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Icon(icon, color: iconColor, size: 26),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
+            Container(
+              width: 72,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.18), width: 1.5),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: iconColor, size: 26),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
+            if (!enabled) const Positioned(top: 4, right: 4, child: _LockBadge()),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LockBadge extends StatelessWidget {
+  const _LockBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        shape: BoxShape.circle,
+        border:
+            Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1),
+      ),
+      alignment: Alignment.center,
+      child: const Icon(Icons.lock_rounded, color: Colors.white70, size: 11),
     );
   }
 }
@@ -672,7 +741,8 @@ class _WatchAdCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final adService = context.watch<AdService>();
-    final canWatch = adService.canWatchAd;
+    final isOnline = context.select<AppState, bool>((s) => s.isOnline);
+    final canWatch = adService.canWatchAd && isOnline;
     final watchesLeft = adService.watchesLeft;
 
     return GestureDetector(
@@ -695,47 +765,54 @@ class _WatchAdCard extends StatelessWidget {
                 }
               }
             }
-          : null,
+          : (!isOnline ? () => _showOnlineRequiredToast(context) : null),
       child: Opacity(
         opacity: canWatch ? 1.0 : 0.5,
-        child: Container(
-          width: 72,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.65),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: canWatch
-                  ? const Color(0xFF22C55E).withValues(alpha: 0.7)
-                  : Colors.white.withValues(alpha: 0.18),
-              width: 1.5,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 72,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: canWatch
+                      ? const Color(0xFF22C55E).withValues(alpha: 0.7)
+                      : Colors.white.withValues(alpha: 0.18),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.smart_display_rounded,
+                      color: Color(0xFF22C55E), size: 22),
+                  const SizedBox(height: 3),
+                  const Text(
+                    'مكافأة',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    '$watchesLeft/${AdService.maxDailyWatches}',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.smart_display_rounded,
-                  color: Color(0xFF22C55E), size: 22),
-              const SizedBox(height: 3),
-              const Text(
-                'مكافأة',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                '$watchesLeft/${AdService.maxDailyWatches}',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
+            if (!isOnline)
+              const Positioned(top: 4, right: 4, child: _LockBadge()),
+          ],
         ),
       ),
     );
@@ -791,6 +868,7 @@ class _CenterArena extends StatelessWidget {
                     glowCtrl: glowCtrl,
                     label: 'تحدي جماعي',
                     gold: true,
+                    enabled: appState.isOnline,
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                           builder: (_) => const RoomsScreen()),
@@ -801,6 +879,7 @@ class _CenterArena extends StatelessWidget {
                     glowCtrl: glowCtrl,
                     label: 'تحدي السرعة',
                     gold: false,
+                    enabled: appState.isOnline,
                     onPressed: () => context.read<AppState>().openSpeedBattle(),
                   ),
                 ],
@@ -831,11 +910,13 @@ class _BattleButton extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.gold = true,
+    this.enabled = true,
   });
   final AnimationController glowCtrl;
   final String label;
   final VoidCallback onPressed;
   final bool gold;
+  final bool enabled;
 
   @override
   State<_BattleButton> createState() => _BattleButtonState();
@@ -847,6 +928,7 @@ class _BattleButtonState extends State<_BattleButton> {
   @override
   Widget build(BuildContext context) {
     final isGold = widget.gold;
+    final enabled = widget.enabled;
     final gradColors = isGold
         ? const [Color(0xFFF8D34C), Color(0xFFF59E0B)]
         : const [Color(0xFF6D28D9), Color(0xFF2563EB)];
@@ -859,42 +941,57 @@ class _BattleButtonState extends State<_BattleButton> {
     return AnimatedBuilder(
       animation: widget.glowCtrl,
       builder: (_, __) {
-        final glow = 0.3 + widget.glowCtrl.value * 0.4;
+        final glow = enabled ? (0.3 + widget.glowCtrl.value * 0.4) : 0.0;
         return AnimatedScale(
           scale: _pressed ? 0.96 : 1.0,
           duration: const Duration(milliseconds: 100),
           child: GestureDetector(
-            onTapDown: (_) => setState(() => _pressed = true),
-            onTapUp: (_) {
-              setState(() => _pressed = false);
-              widget.onPressed();
-            },
-            onTapCancel: () => setState(() => _pressed = false),
-            child: Container(
-              width: 160,
-              height: 52,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: LinearGradient(colors: gradColors),
-                border: Border.all(color: borderColor, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: glowColor.withValues(alpha: glow),
-                    blurRadius: 20,
-                    offset: const Offset(0, 6),
+            onTapDown:
+                enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: enabled
+                ? (_) {
+                    setState(() => _pressed = false);
+                    widget.onPressed();
+                  }
+                : (_) => _showOnlineRequiredToast(context),
+            onTapCancel:
+                enabled ? () => setState(() => _pressed = false) : null,
+            child: Opacity(
+              opacity: enabled ? 1.0 : 0.55,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 160,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: LinearGradient(colors: gradColors),
+                      border: Border.all(color: borderColor, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: glowColor.withValues(alpha: glow),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        widget.label,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: textColor,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
                   ),
+                  if (!enabled)
+                    const Positioned(
+                        top: 6, right: 8, child: _LockBadge()),
                 ],
-              ),
-              child: Center(
-                child: Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: textColor,
-                    letterSpacing: 0.3,
-                  ),
-                ),
               ),
             ),
           ),
@@ -981,6 +1078,7 @@ class _RightSidebar extends StatelessWidget {
     // Use MediaQuery to get the top inset safely (works with immersive mode)
     final topPad = MediaQuery.of(context).padding.top + 8;
     final botPad = MediaQuery.of(context).padding.bottom + 8;
+    final isOnline = appState.isOnline;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(6, topPad, 10, botPad),
@@ -1002,6 +1100,7 @@ class _RightSidebar extends StatelessWidget {
               _NavButton(
                 label: 'متجر',
                 icon: Icons.storefront_rounded,
+                enabled: isOnline,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const StoreScreen()),
                 ),
@@ -1018,34 +1117,45 @@ class _RightSidebar extends StatelessWidget {
             ],
           );
           final dailyChests = GestureDetector(
-            onTap: () async {
-              final reward = await context.read<AppState>().claimDailyStreak();
-              if (reward != null && context.mounted) {
-                await _showChestRewardDialog(
-                  context,
-                  reward['coins']!,
-                  reward['gems']!,
-                );
-                if (context.mounted) {
-                  showCurrencyRewardOverlay(
-                    context,
-                    coins: reward['coins']!,
-                    gems: reward['gems']!,
-                  );
-                }
-              }
-            },
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                _DailyChests(appState: appState),
-                if (appState.streakDay > 0 && !appState.claimedToday)
-                  const Positioned(
-                    top: -4,
-                    right: -4,
-                    child: _UnclaimedDot(),
-                  ),
-              ],
+            onTap: isOnline
+                ? () async {
+                    final reward =
+                        await context.read<AppState>().claimDailyStreak();
+                    if (reward != null && context.mounted) {
+                      await _showChestRewardDialog(
+                        context,
+                        reward['coins']!,
+                        reward['gems']!,
+                      );
+                      if (context.mounted) {
+                        showCurrencyRewardOverlay(
+                          context,
+                          coins: reward['coins']!,
+                          gems: reward['gems']!,
+                        );
+                      }
+                    }
+                  }
+                : () => _showOnlineRequiredToast(context),
+            child: Opacity(
+              opacity: isOnline ? 1.0 : 0.5,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  _DailyChests(appState: appState),
+                  if (isOnline &&
+                      appState.streakDay > 0 &&
+                      !appState.claimedToday)
+                    const Positioned(
+                      top: -4,
+                      right: -4,
+                      child: _UnclaimedDot(),
+                    ),
+                  if (!isOnline)
+                    const Positioned(
+                        top: 4, right: 4, child: _LockBadge()),
+                ],
+              ),
             ),
           );
           final profileCard = _PlayerCard(
@@ -1173,38 +1283,50 @@ class _NavButton extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    this.enabled = true,
   });
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 72,
-        padding: const EdgeInsets.symmetric(vertical: 7),
-        decoration: BoxDecoration(
-          color: const Color(0xFF091332).withValues(alpha: 0.88),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18), width: 1.5),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      onTap: enabled ? onTap : () => _showOnlineRequiredToast(context),
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.5,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Icon(icon, color: const Color(0xFF7DD3FC), size: 22),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
+            Container(
+              width: 72,
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFF091332).withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.18), width: 1.5),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: const Color(0xFF7DD3FC), size: 22),
+                  const SizedBox(height: 3),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
+            if (!enabled)
+              const Positioned(top: 2, right: 2, child: _LockBadge()),
           ],
         ),
       ),

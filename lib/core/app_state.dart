@@ -34,6 +34,25 @@ class AppState extends ChangeNotifier {
   bool claimedToday = false;
   bool _claimingStreak = false;
 
+  /// Connectivity flag fed from the main app shell. Defaults to true so the
+  /// first frame renders the online UI; the connectivity listener will flip it
+  /// almost immediately if the device is actually offline.
+  bool isOnline = true;
+
+  /// Called by the connectivity wrapper whenever the device transitions
+  /// between online and offline. When the connection comes back we eagerly
+  /// re-sync remote state so balances and progress catch up automatically.
+  void updateConnectivity(bool online) {
+    if (online == isOnline) return;
+    final wasOffline = !isOnline;
+    isOnline = online;
+    notifyListeners();
+    if (online && wasOffline && user != null) {
+      unawaited(loadCurrency());
+      unawaited(loadLevelData());
+    }
+  }
+
   static const List<Map<String, int>> _kStreakRewards = [
     {'coins': 100, 'gems': 0},
     {'coins': 150, 'gems': 0},

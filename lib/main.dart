@@ -189,7 +189,12 @@ class _ConnectivityWrapperState extends State<_ConnectivityWrapper> {
   void _update(List<ConnectivityResult> results) {
     final offline =
         results.isEmpty || results.every((r) => r == ConnectivityResult.none);
-    if (mounted && offline != _isOffline) setState(() => _isOffline = offline);
+    if (!mounted) return;
+    // Always push the latest state into AppState so first-frame consumers
+    // (e.g. AuthGate) see the correct value, even when the flag itself
+    // didn't change between rebuilds of this wrapper.
+    context.read<AppState>().updateConnectivity(!offline);
+    if (offline != _isOffline) setState(() => _isOffline = offline);
   }
 
   @override
