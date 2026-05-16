@@ -34,6 +34,8 @@ class AppState extends ChangeNotifier {
   bool claimedToday = false;
   bool _claimingStreak = false;
 
+  User? get currentUser => user ?? FirebaseAuth.instance.currentUser;
+
   /// Connectivity flag fed from the main app shell. Defaults to true so the
   /// first frame renders the online UI; the connectivity listener will flip it
   /// almost immediately if the device is actually offline.
@@ -359,6 +361,64 @@ class AppState extends ChangeNotifier {
       gems = data['gems'] ?? 0;
       notifyListeners();
     } catch (_) {}
+  }
+
+  Future<bool> grantCampaignReward({
+    required int coinsReward,
+    required int gemsReward,
+    required int xpReward,
+  }) async {
+    final currencyGranted = await grantCampaignCurrency(
+      coinsReward: coinsReward,
+      gemsReward: gemsReward,
+    );
+    final xpGranted = await grantCampaignXp(xpReward: xpReward);
+    return currencyGranted && xpGranted;
+  }
+
+  Future<bool> grantCampaignCurrency({
+    required int coinsReward,
+    required int gemsReward,
+  }) async {
+    if (currentUser == null) return false;
+    if (coinsReward <= 0 && gemsReward <= 0) return true;
+    try {
+      final balances = await _nativeBridgeService.grantCurrency(
+        coins: coinsReward,
+        gems: gemsReward,
+      );
+      coins = balances['coins'] ?? (coins + coinsReward);
+      gems = balances['gems'] ?? (gems + gemsReward);
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> grantCampaignXp({required int xpReward}) async {
+    final uid = currentUser?.uid;
+    if (uid == null) return false;
+    if (xpReward <= 0) return true;
+    try {
+      final nextXp = xp + xpReward;
+      final nextLevel = _computeLevel(nextXp);
+      xp = nextXp;
+      level = nextLevel;
+      xpInCurrentLevel = _computeXpInLevel(nextXp);
+      xpNeededForLevel = PlayerRank.xpNeededForLevel(nextLevel);
+      await _firestore.collection('users').doc(uid).set(
+        {
+          'xp': nextXp,
+          'level': nextLevel,
+        },
+        SetOptions(merge: true),
+      );
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _syncLegacyUser() async {

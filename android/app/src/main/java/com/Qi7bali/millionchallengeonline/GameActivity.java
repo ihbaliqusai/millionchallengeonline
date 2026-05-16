@@ -8,6 +8,7 @@ import androidx.core.widget.TextViewCompat;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.drawable.GradientDrawable;
@@ -174,6 +175,8 @@ public class GameActivity extends AppCompatActivity {
             SOUND_ON = true,
             MUSIC_ON = true,
             currentSoundIsMusic = false,
+            campaignMode = false,
+            campaignResultPersisted = false,
             modeOnline = false,
             eliminationMode = false,
             meOwner;
@@ -189,6 +192,29 @@ public class GameActivity extends AppCompatActivity {
             gameScoreMe = 0, gameScoreOpponent = 0,
             rightAnswer, myAnswer, opponentAnswer, myResult;
     boolean usedHelp5050 = false, usedHelpAudience = false, usedHelpCall = false;
+    private String campaignId = "main_campaign";
+    private String campaignStageId = "";
+    private String campaignStageType = "classic";
+    private int campaignQuestionCount = 15;
+    private int campaignTimeLimitSeconds = 0;
+    private boolean campaignAllow5050 = true;
+    private boolean campaignAllowAudience = true;
+    private boolean campaignAllowCall = true;
+    private String campaignBossBotName = "";
+    private int campaignBossBotIntelligence = 0;
+    private long campaignStartedAtMs = 0L;
+    private final ArrayList<Integer> campaignQuestionIds = new ArrayList<>();
+    private final ArrayList<String> campaignAllowedLevels = new ArrayList<>();
+    private CountDownTimer campaignStageTimer;
+    private TextView txtCampaignTimer;
+    private int campaignCorrectAnswers = 0;
+    private int campaignWrongAnswers = 0;
+    private int campaignAnsweredQuestions = 0;
+    private int campaignUsed5050 = 0;
+    private int campaignUsedAudience = 0;
+    private int campaignUsedCall = 0;
+    private int campaignLastCorrectQuestion = -1;
+    private int campaignLastWrongQuestion = -1;
 
     private boolean adsInitialized = false;
     private boolean questionsReady = false;
@@ -230,6 +256,8 @@ public class GameActivity extends AppCompatActivity {
     private boolean localPlayerRemoved = false;
     private boolean localPlayerEliminated = false;
     private boolean spectatorEliminationRound = false;
+    private boolean campaignBossBattle = false;
+    private MatchOpponent campaignBossOpponent;
     private int pendingQuestionIndex = -1;
     private long scheduledQuestionStartAt = 0L;
     private final ArrayList<MatchOpponent> opponents = new ArrayList<>();
@@ -276,9 +304,40 @@ public class GameActivity extends AppCompatActivity {
 
         String modeExtra = getIntent().getStringExtra("mode");
         String matchModeExtra = getIntent().getStringExtra("matchMode");
+        campaignMode = "campaign".equals(modeExtra);
+        campaignStartedAtMs = System.currentTimeMillis();
+        campaignId = safeIntentString("campaignId", "main_campaign");
+        campaignStageId = safeIntentString("stageId", "");
+        campaignStageType = safeIntentString("stageType", "classic");
+        campaignQuestionCount = Math.max(0, getIntent().getIntExtra("questionCount", 10));
+        campaignTimeLimitSeconds = Math.max(0, getIntent().getIntExtra("timeLimitSeconds", 0));
+        campaignAllow5050 = getIntent().getBooleanExtra("allow5050", true);
+        campaignAllowAudience = getIntent().getBooleanExtra("allowAudience", true);
+        campaignAllowCall = getIntent().getBooleanExtra("allowCall", true);
+        campaignBossBotName = safeIntentString("bossBotName", "");
+        campaignBossBotIntelligence = Math.max(0, getIntent().getIntExtra("bossBotIntelligence", 0));
+        ArrayList<Integer> stageQuestionIds = getIntent().getIntegerArrayListExtra("questionIds");
+        if (stageQuestionIds != null) {
+            campaignQuestionIds.addAll(stageQuestionIds);
+        }
+        ArrayList<String> stageAllowedLevels = getIntent().getStringArrayListExtra("allowedLevels");
+        if (stageAllowedLevels != null) {
+            for (String level : stageAllowedLevels) {
+                if (level != null && !level.trim().isEmpty()) {
+                    campaignAllowedLevels.add(level.trim());
+                }
+            }
+        }
+        if (campaignMode && isDebuggableBuild()) {
+            Log.d("CampaignStage", "launch stageId=" + campaignStageId
+                    + " questionIds=" + campaignQuestionIds.size()
+                    + " allowedLevels=" + campaignAllowedLevels);
+        }
+        applyCampaignStageTypeDefaults();
         modeOnline = "online".equals(modeExtra);
         eliminationMode = "elimination".equals(matchModeExtra);
         meOwner = getIntent().getBooleanExtra("meOwner", true);
+        campaignBossBattle = campaignMode && "boss".equals(campaignStageType);
 
 
         findViewById(android.R.id.content).post(new Runnable() {
@@ -291,27 +350,14 @@ public class GameActivity extends AppCompatActivity {
         person = new Person((RelativeLayout) (findViewById(R.id.rlyPerson)));
         playSound(R.raw.main_theme_4, false, false);
 
+        if (modeOnline || campaignBossBattle) {
+            initCompetitiveHudViews();
+        }
+
         if (modeOnline) {
             if (Data.isNetworkAvailable(GameActivity.this)) {
                 parseOpponentsFromIntent();
 
-                llyPlayer1 = findViewById(R.id.llyPlayer1);
-                imgPlayer1 = findViewById(R.id.imgPlayer1);
-                txtPlayer1 = findViewById(R.id.txtPlayer1);
-                llyOpponents = findViewById(R.id.llyOpponents);
-                llyOpponentScores = findViewById(R.id.llyOpponentScores);
-                scoreHeaderRow = findViewById(R.id.llyScoreHeader);
-                scoreMeRow = findViewById(R.id.llyScoreMe);
-
-                rlyScore = findViewById(R.id.rlyScore);
-                labScore = findViewById(R.id.labScore);
-                labSets = findViewById(R.id.labSets);
-                labScoreGame = findViewById(R.id.labScoreGame);
-                imgMe = findViewById(R.id.imgMe);
-                txtMeName = findViewById(R.id.txtMeName);
-                txtScoreMe = findViewById(R.id.txtScoreMe);
-                txtScoreGameMe = findViewById(R.id.txtScoreGameMe);
-                txtSetsMe = findViewById(R.id.txtSetsMe);
                 if (eliminationMode) {
                     labScore.setText("الصحيح");
                     labSets.setText("الحالة");
@@ -319,15 +365,6 @@ public class GameActivity extends AppCompatActivity {
                     txtSetsMe.setText("نشط");
                 }
                 if (txtMeName != null) txtMeName.setText(myName);
-
-                imgAnswer1Player1 = findViewById(R.id.imgAnswer1Player1);
-                imgAnswer2Player1 = findViewById(R.id.imgAnswer2Player1);
-                imgAnswer3Player1 = findViewById(R.id.imgAnswer3Player1);
-                imgAnswer4Player1 = findViewById(R.id.imgAnswer4Player1);
-                opponentAnswerContainers.add(findViewById(R.id.llyAnswer1Opponents));
-                opponentAnswerContainers.add(findViewById(R.id.llyAnswer2Opponents));
-                opponentAnswerContainers.add(findViewById(R.id.llyAnswer3Opponents));
-                opponentAnswerContainers.add(findViewById(R.id.llyAnswer4Opponents));
 
                 Data.setImageSource(this, imgMe, myPhoto);
                 Data.setImageSource(this, imgAnswer1Player1, myPhoto);
@@ -369,6 +406,9 @@ public class GameActivity extends AppCompatActivity {
             }
 
         } else {
+            if (campaignBossBattle) {
+                setupCampaignBossBattle();
+            }
             getQuestions("");
         }
 
@@ -395,6 +435,8 @@ public class GameActivity extends AppCompatActivity {
         imgHelpAudience = findViewById(R.id.imgHelpAudience);
         txtCallAnswer = findViewById(R.id.txtCallAnswer);
         updateInventoryBadges();
+        applyCampaignLifelineRestrictions();
+        createCampaignTimerViewIfNeeded();
 
         imgHome = findViewById(R.id.imgHome);
         imgVolume = findViewById(R.id.imgVolume);
@@ -529,6 +571,7 @@ public class GameActivity extends AppCompatActivity {
                             break;
                         case "ConfirmHelp5050":
                             usedHelp5050 = true;
+                            recordCampaignLifelineUse("5050");
                             help_hideTwoAnswers();
                             startTimer(false);
                             imgHelp5050.setTag("0");
@@ -536,6 +579,7 @@ public class GameActivity extends AppCompatActivity {
                             break;
                         case "ConfirmHelpAudience":
                             usedHelpAudience = true;
+                            recordCampaignLifelineUse("audience");
                             stopTimer(true);
                             help_getVoteAudience();
                             imgHelpAudience.setTag("0");
@@ -543,6 +587,7 @@ public class GameActivity extends AppCompatActivity {
                             break;
                         case "ConfirmHelpCall":
                             usedHelpCall = true;
+                            recordCampaignLifelineUse("call");
                             stopTimer(true);
                             help_call();
                             imgHelpCall.setTag("0");
@@ -551,6 +596,7 @@ public class GameActivity extends AppCompatActivity {
                         case "ConfirmExtraHelp5050":
                             if (PlayerProgress.consumeInventory(GameActivity.this, "5050")) {
                                 usedHelp5050 = true;
+                                recordCampaignLifelineUse("5050");
                                 help_hideTwoAnswers();
                                 startTimer(false);
                                 updateInventoryBadges();
@@ -560,6 +606,7 @@ public class GameActivity extends AppCompatActivity {
                         case "ConfirmExtraHelpAudience":
                             if (PlayerProgress.consumeInventory(GameActivity.this, "audience")) {
                                 usedHelpAudience = true;
+                                recordCampaignLifelineUse("audience");
                                 stopTimer(true);
                                 help_getVoteAudience();
                                 updateInventoryBadges();
@@ -569,6 +616,7 @@ public class GameActivity extends AppCompatActivity {
                         case "ConfirmExtraHelpCall":
                             if (PlayerProgress.consumeInventory(GameActivity.this, "call")) {
                                 usedHelpCall = true;
+                                recordCampaignLifelineUse("call");
                                 stopTimer(true);
                                 help_call();
                                 updateInventoryBadges();
@@ -691,6 +739,10 @@ public class GameActivity extends AppCompatActivity {
             public void onClick(View view) {
                 gameHaptic(view);
                 if (CAN_PLAY) {
+                    if (!isCampaignLifelineAllowed("5050")) {
+                        showCampaignLifelineUnavailable();
+                        return;
+                    }
                     if (imgHelp5050.getTag().toString().equals("1")) {
                         stopTimer(true);
                         showDialog("هل تريد حذف إجابتين ؟", "ConfirmHelp5050", 2000, 0, R.drawable.mouth_05, false);
@@ -708,6 +760,10 @@ public class GameActivity extends AppCompatActivity {
             public void onClick(View view) {
                 gameHaptic(view);
                 if (CAN_PLAY) {
+                    if (!isCampaignLifelineAllowed("audience")) {
+                        showCampaignLifelineUnavailable();
+                        return;
+                    }
                     if (imgHelpAudience.getTag().toString().equals("1")) {
                         stopTimer(true);
                         showDialog("هل تريد طلب مساعدة الجمهور ؟", "ConfirmHelpAudience", 2000, 0, R.drawable.mouth_05, false);
@@ -734,6 +790,10 @@ public class GameActivity extends AppCompatActivity {
             public void onClick(View view) {
                 gameHaptic(view);
                 if (CAN_PLAY) {
+                    if (!isCampaignLifelineAllowed("call")) {
+                        showCampaignLifelineUnavailable();
+                        return;
+                    }
                     if (imgHelpCall.getTag().toString().equals("1")) {
                         stopTimer(true);
                         showDialog("هل تريد الاتصال بصديق ؟", "ConfirmHelpCall", 2000, 0, R.drawable.mouth_05, false);
@@ -807,6 +867,69 @@ public class GameActivity extends AppCompatActivity {
         SOUND_ON = AppPrefs.isSoundEnabled(this);
         MUSIC_ON = AppPrefs.isMusicEnabled(this);
         applyVolumeUi();
+    }
+
+    private void initCompetitiveHudViews() {
+        llyPlayer1 = findViewById(R.id.llyPlayer1);
+        imgPlayer1 = findViewById(R.id.imgPlayer1);
+        txtPlayer1 = findViewById(R.id.txtPlayer1);
+        llyOpponents = findViewById(R.id.llyOpponents);
+        llyOpponentScores = findViewById(R.id.llyOpponentScores);
+        scoreHeaderRow = findViewById(R.id.llyScoreHeader);
+        scoreMeRow = findViewById(R.id.llyScoreMe);
+
+        rlyScore = findViewById(R.id.rlyScore);
+        labScore = findViewById(R.id.labScore);
+        labSets = findViewById(R.id.labSets);
+        labScoreGame = findViewById(R.id.labScoreGame);
+        imgMe = findViewById(R.id.imgMe);
+        txtMeName = findViewById(R.id.txtMeName);
+        txtScoreMe = findViewById(R.id.txtScoreMe);
+        txtScoreGameMe = findViewById(R.id.txtScoreGameMe);
+        txtSetsMe = findViewById(R.id.txtSetsMe);
+        if (txtMeName != null) txtMeName.setText(myName);
+
+        imgAnswer1Player1 = findViewById(R.id.imgAnswer1Player1);
+        imgAnswer2Player1 = findViewById(R.id.imgAnswer2Player1);
+        imgAnswer3Player1 = findViewById(R.id.imgAnswer3Player1);
+        imgAnswer4Player1 = findViewById(R.id.imgAnswer4Player1);
+        opponentAnswerContainers.clear();
+        opponentAnswerContainers.add(findViewById(R.id.llyAnswer1Opponents));
+        opponentAnswerContainers.add(findViewById(R.id.llyAnswer2Opponents));
+        opponentAnswerContainers.add(findViewById(R.id.llyAnswer3Opponents));
+        opponentAnswerContainers.add(findViewById(R.id.llyAnswer4Opponents));
+    }
+
+    private void setupCampaignBossBattle() {
+        opponents.clear();
+        MatchOpponent boss = new MatchOpponent();
+        boss.id = "campaign_boss_" + (campaignStageId == null || campaignStageId.trim().isEmpty()
+                ? getCampaignStageOrder()
+                : campaignStageId.trim());
+        boss.bot = true;
+        boss.name = campaignBossBotName == null || campaignBossBotName.trim().isEmpty()
+                ? "Ø²Ø¹ÙŠÙ… Ø§Ù„Ù…Ø±Ø­Ù„Ø©"
+                : campaignBossBotName.trim();
+        boss.intelligence = resolveCampaignBossIntelligence();
+        boss.level = Math.max(1, Math.min(10, boss.intelligence / 10));
+        BotProfile profile = BOT_PROFILES[Math.abs(stableHash(boss.id)) % BOT_PROFILES.length];
+        boss.photo = profile.photo;
+        campaignBossOpponent = boss;
+        opponents.add(boss);
+
+        if (labScore != null) labScore.setText("Ø§Ù„Ø¬ÙˆÙ„Ø©");
+        if (labSets != null) labSets.setText("Ø§Ù„ØµØ­ÙŠØ­");
+        if (labScoreGame != null) labScoreGame.setText("Ø§Ù„Ù†Ù‚Ø§Ø·");
+        if (txtSetsMe != null) txtSetsMe.setText("0");
+        if (txtScoreMe != null) txtScoreMe.setText("0");
+        if (txtScoreGameMe != null) txtScoreGameMe.setText("0");
+        Data.setImageSource(this, imgMe, myPhoto);
+        Data.setImageSource(this, imgAnswer1Player1, myPhoto);
+        Data.setImageSource(this, imgAnswer2Player1, myPhoto);
+        Data.setImageSource(this, imgAnswer3Player1, myPhoto);
+        Data.setImageSource(this, imgAnswer4Player1, myPhoto);
+        buildOpponentPanels();
+        syncPrimaryOpponentFields();
     }
 
     private void parseOpponentsFromIntent() {
@@ -887,7 +1010,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void buildOpponentPanels() {
-        if (!modeOnline) {
+        if (!modeOnline && !campaignBossBattle) {
             return;
         }
         configureScoreboardLayout();
@@ -925,7 +1048,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void configureScoreboardLayout() {
-        if (!modeOnline || rlyScore == null) {
+        if ((!modeOnline && !campaignBossBattle) || rlyScore == null) {
             return;
         }
 
@@ -1630,6 +1753,11 @@ public class GameActivity extends AppCompatActivity {
             case "1": levelPenalty = 8;  break;
             case "2": levelPenalty = 18; break;
             case "3": levelPenalty = 26; break;
+            case "4": levelPenalty = 32; break;
+            case "5": levelPenalty = 38; break;
+            case "6": levelPenalty = 44; break;
+            case "7": levelPenalty = 50; break;
+            case "8": levelPenalty = 56; break;
             default:  levelPenalty = 0;  break;
         }
         int successChance = Math.max(20, Math.min(97, opponent.intelligence - levelPenalty));
@@ -1656,6 +1784,10 @@ public class GameActivity extends AppCompatActivity {
             FAST_LIGHTS = true;
         }
         CAN_HOME = true;
+        if (campaignMode && !modeOnline) {
+            handleCampaignStageAnswer(timeout);
+            return;
+        }
         final Handler handler = new Handler();
         Runnable runnable = new Runnable() {
             int t = 0;
@@ -1680,6 +1812,7 @@ public class GameActivity extends AppCompatActivity {
                         }
                         if (!timeout) {
                             if (myAnswer == rightAnswer) {
+                                recordCampaignCorrectAnswer();
                                 imgSelected.setImageResource(R.drawable.frame_right);
                                 PlayerStats.recordCorrectAnswer(GameActivity.this);
                                 person.like(1000);
@@ -1730,6 +1863,11 @@ public class GameActivity extends AppCompatActivity {
                             CAN_HOME = true;
                             handler.postDelayed(this, 3000);
                             break;
+                        } else if (shouldCompleteCampaignAfterCurrentQuestion()) {
+                            person.moveShow2Hands(2000);
+                            person.raiseEyeBrowsUp(2000, true, true);
+                            showDialog("أحسنت! أنهيت المرحلة بنجاح", "", 2000, 2000, R.drawable.mouth_01, false);
+                            CAN_HOME = false;
                         } else if (currentQuestion == 14) {
                             person.moveShow2Hands(2000);
                             person.raiseEyeBrowsUp(2000, true, true);
@@ -1760,7 +1898,9 @@ public class GameActivity extends AppCompatActivity {
                                 handler.postDelayed(this, 1000);
                             }
                         } else {
-                            if (currentQuestion == 14) {
+                            if (shouldCompleteCampaignAfterCurrentQuestion()) {
+                                goToWinnerScreen(getCurrentStepAmount());
+                            } else if (currentQuestion == 14) {
                                 goToWinnerScreen("1000000$");
                             } else {
                                 if (currentQuestion == 4) {
@@ -2094,6 +2234,7 @@ public class GameActivity extends AppCompatActivity {
             int prize = Integer.parseInt(amount.replace("$", "").trim());
             PlayerStats.recordGameEnd(GameActivity.this, true, prize);
             PlayerProgress.onGameFinished(GameActivity.this, true, prize, PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+            persistPendingCampaignStageResult(true, prize, 0);
         } catch (Exception ignored) {}
         Intent intent = new Intent(GameActivity.this, WinnerActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -2204,7 +2345,10 @@ public class GameActivity extends AppCompatActivity {
         questionsReady = false;
         questionsLoadFailed = false;
         if (!modeOnline) {
-            GameActivity.this.questions = LocalQuestions.load(this);
+            GameActivity.this.questions = campaignMode
+                    ? LocalQuestions.loadAll(this)
+                    : LocalQuestions.load(this);
+            applyCampaignQuestionSelectionIfNeeded();
             questionsReady = !GameActivity.this.questions.isEmpty();
             return;
         }
@@ -2605,6 +2749,55 @@ public class GameActivity extends AppCompatActivity {
         };
         pendingBotAnswerRunnables.put(opponent.id, runnable);
         fictitiousAnswerHandler.postDelayed(runnable, delayMillis);
+    }
+
+    private void scheduleCampaignBossAnswer() {
+        if (!campaignBossBattle || campaignBossOpponent == null
+                || campaignBossOpponent.submitted || currentQuestion < 0
+                || currentQuestion >= questions.size()) {
+            return;
+        }
+        final MatchOpponent boss = campaignBossOpponent;
+        final int questionIndex = currentQuestion;
+        int remainingMillis = Math.max(1000, ((PROGRESS_VALUE / 10) - 1) * 1000);
+        final int delayMillis = Math.min(remainingMillis, getBotDelayMillis(boss));
+
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                pendingBotAnswerRunnables.remove(boss.id);
+                if (EXITING || !campaignBossBattle || currentQuestion != questionIndex
+                        || rightAnswer <= 0 || boss.submitted) {
+                    return;
+                }
+                submitCampaignBossAnswer(boss, getBotDisplayedAnswer(boss), delayMillis);
+            }
+        };
+        pendingBotAnswerRunnables.put(boss.id, runnable);
+        fictitiousAnswerHandler.postDelayed(runnable, delayMillis);
+    }
+
+    private void ensureCampaignBossAnswered() {
+        if (!campaignBossBattle || campaignBossOpponent == null
+                || campaignBossOpponent.submitted || rightAnswer <= 0) {
+            return;
+        }
+        int elapsedMs = (int) Math.max(900L, Math.min(QUESTION_TIMEOUT_MS, getCurrentAnswerElapsedMs() + 450L));
+        submitCampaignBossAnswer(
+                campaignBossOpponent,
+                getBotDisplayedAnswer(campaignBossOpponent),
+                elapsedMs
+        );
+    }
+
+    private void submitCampaignBossAnswer(MatchOpponent boss, int displayedAnswer, long elapsedMs) {
+        if (boss == null || boss.submitted || displayedAnswer <= 0) {
+            return;
+        }
+        boss.displayedAnswer = displayedAnswer;
+        boss.submittedAnswerKey = getAnswerKeyForDisplayedIndex(displayedAnswer);
+        boss.submitted = true;
+        boss.answerElapsedMs = Math.max(1L, Math.min(QUESTION_TIMEOUT_MS, elapsedMs));
     }
 
     private void submitBotRoundAnswer(final MatchOpponent opponent, final int displayedAnswer) {
@@ -3300,6 +3493,416 @@ public class GameActivity extends AppCompatActivity {
         return value == null ? "" : String.valueOf(value);
     }
 
+    private String safeIntentString(String key, String fallback) {
+        String value = getIntent().getStringExtra(key);
+        if (value == null || value.trim().isEmpty()) {
+            return fallback;
+        }
+        return value.trim();
+    }
+
+    private int getCampaignStageOrder() {
+        if (campaignStageId != null) {
+            String digits = campaignStageId.replaceAll("[^0-9]", "");
+            if (!digits.isEmpty()) {
+                try {
+                    return Math.max(1, Integer.parseInt(digits));
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return 1;
+    }
+
+    private int resolveCampaignBossIntelligence() {
+        if (campaignBossBotIntelligence > 0) {
+            return Math.max(35, Math.min(95, campaignBossBotIntelligence));
+        }
+        int order = getCampaignStageOrder();
+        int scaled = 50 + Math.max(0, order / 10) * 12;
+        return Math.max(50, Math.min(92, scaled));
+    }
+
+    private void applyCampaignStageTypeDefaults() {
+        if (!campaignMode) {
+            return;
+        }
+        campaignStageType = campaignStageType == null ? "classic" : campaignStageType.trim().toLowerCase(Locale.US);
+        if ("nolifeline".equals(campaignStageType) || "no_lifeline".equals(campaignStageType)) {
+            campaignAllow5050 = false;
+            campaignAllowAudience = false;
+            campaignAllowCall = false;
+            campaignStageType = "noLifeline";
+        } else if ("survival".equals(campaignStageType)) {
+            // TODO: survival lives need deeper quiz-flow support; the existing game ends on a wrong answer.
+        } else if ("boss".equals(campaignStageType)) {
+            campaignBossBotIntelligence = resolveCampaignBossIntelligence();
+        } else if ("rival".equals(campaignStageType)) {
+            // TODO: add ghost-rival pacing when campaign rival data is available.
+        }
+    }
+
+    private void applyCampaignLifelineRestrictions() {
+        if (!campaignMode) {
+            return;
+        }
+        applyCampaignLifelineVisual(imgHelp5050, campaignAllow5050);
+        applyCampaignLifelineVisual(imgHelpAudience, campaignAllowAudience);
+        applyCampaignLifelineVisual(imgHelpCall, campaignAllowCall);
+    }
+
+    private void applyCampaignLifelineVisual(ImageView view, boolean allowed) {
+        if (view == null || allowed) {
+            return;
+        }
+        view.setTag("0");
+        setGreyscale(view);
+        view.setImageAlpha(120);
+    }
+
+    private boolean isCampaignLifelineAllowed(String type) {
+        if (!campaignMode) {
+            return true;
+        }
+        if ("5050".equals(type)) {
+            return campaignAllow5050;
+        }
+        if ("audience".equals(type)) {
+            return campaignAllowAudience;
+        }
+        if ("call".equals(type)) {
+            return campaignAllowCall;
+        }
+        return true;
+    }
+
+    private void showCampaignLifelineUnavailable() {
+        Toast.makeText(this, "هذه المساعدة غير متاحة في هذه المرحلة", Toast.LENGTH_SHORT).show();
+    }
+
+    private void recordCampaignLifelineUse(String type) {
+        if (!campaignMode) {
+            return;
+        }
+        if ("5050".equals(type)) {
+            campaignUsed5050++;
+        } else if ("audience".equals(type)) {
+            campaignUsedAudience++;
+        } else if ("call".equals(type)) {
+            campaignUsedCall++;
+        }
+    }
+
+    private void recordCampaignCorrectAnswer() {
+        if (!campaignMode || campaignLastCorrectQuestion == currentQuestion) {
+            return;
+        }
+        campaignLastCorrectQuestion = currentQuestion;
+        campaignCorrectAnswers++;
+        campaignAnsweredQuestions++;
+    }
+
+    private void recordCampaignWrongAnswer() {
+        if (!campaignMode || campaignLastWrongQuestion == currentQuestion) {
+            return;
+        }
+        campaignLastWrongQuestion = currentQuestion;
+        campaignWrongAnswers++;
+        campaignAnsweredQuestions++;
+    }
+
+    private boolean shouldCompleteCampaignAfterCurrentQuestion() {
+        return campaignMode
+                && campaignQuestionCount > 0
+                && campaignAnsweredQuestions >= getCampaignTargetQuestionCount();
+    }
+
+    private void applyCampaignBossRoundMetrics(boolean playerCorrect) {
+        if (!campaignBossBattle || campaignBossOpponent == null) {
+            return;
+        }
+        MatchOpponent boss = campaignBossOpponent;
+        boolean bossCorrect = boss.submittedAnswerKey == ANSWER_KEY_RIGHT;
+        ArrayList<RoundRankEntry> rankedCorrectAnswers = new ArrayList<>();
+        if (playerCorrect) {
+            rankedCorrectAnswers.add(new RoundRankEntry(myID, myAnswerElapsedMs));
+            mySetCorrectAnswers++;
+            myTotalCorrectAnswers++;
+        }
+        if (bossCorrect) {
+            rankedCorrectAnswers.add(new RoundRankEntry(boss.id, boss.answerElapsedMs));
+            boss.setCorrectAnswers++;
+            boss.totalCorrectAnswers++;
+        }
+        Collections.sort(rankedCorrectAnswers, new Comparator<RoundRankEntry>() {
+            @Override
+            public int compare(RoundRankEntry left, RoundRankEntry right) {
+                int byElapsed = Long.compare(left.elapsedMs, right.elapsedMs);
+                if (byElapsed != 0) {
+                    return byElapsed;
+                }
+                return Integer.compare(
+                        getQuestionTieBreaker(left.playerId, currentQuestion),
+                        getQuestionTieBreaker(right.playerId, currentQuestion)
+                );
+            }
+        });
+
+        myRoundPoints = getSpeedPoints(myID, rankedCorrectAnswers);
+        boss.roundPoints = getSpeedPoints(boss.id, rankedCorrectAnswers);
+        setScoreMe += myRoundPoints;
+        gameScoreMe += myRoundPoints;
+        boss.roundScore += boss.roundPoints;
+        boss.gameScore += boss.roundPoints;
+        txtScoreMe.setText(setScoreMe + "");
+        txtSetsMe.setText(myTotalCorrectAnswers + "");
+        txtScoreGameMe.setText(gameScoreMe + "");
+        refreshOpponentPanels();
+    }
+
+    private int getCampaignTargetQuestionCount() {
+        int requested = campaignQuestionCount > 0 ? campaignQuestionCount : 10;
+        if (campaignMode && questions != null && !questions.isEmpty()) {
+            return Math.min(requested, questions.size());
+        }
+        return requested;
+    }
+
+    private void handleCampaignStageAnswer(final boolean timeout) {
+        FAST_LIGHTS = false;
+        T_LIGHTS = 3;
+        CAN_PLAY = false;
+        final boolean correct = !timeout && myAnswer == rightAnswer;
+        myAnswerElapsedMs = timeout ? QUESTION_TIMEOUT_MS : getCurrentAnswerElapsedMs();
+        if (campaignBossBattle) {
+            ensureCampaignBossAnswered();
+            applyCampaignBossRoundMetrics(correct);
+        }
+        if (correct) {
+            recordCampaignCorrectAnswer();
+            if (imgSelected != null) imgSelected.setImageResource(R.drawable.frame_right);
+            PlayerStats.recordCorrectAnswer(GameActivity.this);
+            person.like(700);
+            playSound(R.raw.correct_answer, false, false);
+            showDialog("الجواب صحيح", "", 700, 900, R.drawable.mouth_01, false);
+        } else {
+            recordCampaignWrongAnswer();
+            PlayerStats.recordWrongAnswer(GameActivity.this);
+            playSound(R.raw.wrong_answer, false, false);
+            if (imgSelected != null && !timeout) imgSelected.setImageResource(R.drawable.frame_wrong);
+            if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
+            showDialog(timeout ? "انتهى وقت السؤال" : "إجابة خاطئة، نتابع السؤال التالي", "", 700, 900, R.drawable.mouth_05, false);
+        }
+
+        if (campaignBossBattle && campaignBossOpponent != null
+                && campaignBossOpponent.displayedAnswer > 0) {
+            showThumbPlayerAnswer(campaignBossOpponent, campaignBossOpponent.displayedAnswer);
+        }
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING || campaignResultPersisted) {
+                    return;
+                }
+                if (shouldCompleteCampaignAfterCurrentQuestion()) {
+                    completeCampaignStage();
+                    return;
+                }
+                initQuestion();
+                if (currentStep < steps.size() - 1) {
+                    nextStep();
+                }
+                // Campaign stages use a fast 10-question flow and skip the
+                // classic side/intermediate money screen between questions.
+                nextQuestion();
+            }
+        }, correct ? 1500 : 1800);
+    }
+
+    private void completeCampaignStage() {
+        final int prize = getCampaignCurrentMoney();
+        PlayerStats.recordGameEnd(GameActivity.this, true, prize);
+        PlayerProgress.onGameFinished(GameActivity.this, true, prize,
+                PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+        persistPendingCampaignStageResult(true, prize, 0);
+        finishCampaignAndReturnToFlutter();
+    }
+
+    private int getCampaignCurrentMoney() {
+        try {
+            return Integer.parseInt(getCurrentStepAmount().replace("$", "").trim());
+        } catch (Exception ignored) {
+        }
+        try {
+            if (txtAmount != null && txtAmount.getText() != null) {
+                return Integer.parseInt(txtAmount.getText().toString().replace("$", "").trim());
+            }
+        } catch (Exception ignored) {
+        }
+        return 0;
+    }
+
+    private void createCampaignTimerViewIfNeeded() {
+        if (!campaignMode || campaignTimeLimitSeconds <= 0 || txtCampaignTimer != null) {
+            return;
+        }
+        txtCampaignTimer = new TextView(this);
+        txtCampaignTimer.setTextColor(Color.WHITE);
+        txtCampaignTimer.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        txtCampaignTimer.setPadding(dp(12), dp(6), dp(12), dp(6));
+        txtCampaignTimer.setText(formatCampaignRemaining(campaignTimeLimitSeconds));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(Color.argb(190, 10, 28, 48));
+        background.setCornerRadius(dp(18));
+        background.setStroke(dp(1), Color.argb(210, 255, 215, 90));
+        txtCampaignTimer.setBackground(background);
+        android.widget.FrameLayout.LayoutParams params = new android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
+        params.gravity = android.view.Gravity.TOP | android.view.Gravity.END;
+        params.setMargins(dp(12), dp(16), dp(12), dp(12));
+        View root = findViewById(android.R.id.content);
+        if (root instanceof android.widget.FrameLayout) {
+            ((android.widget.FrameLayout) root).addView(txtCampaignTimer, params);
+        }
+    }
+
+    private void startCampaignStageTimerIfNeeded() {
+        if (!campaignMode || campaignTimeLimitSeconds <= 0 || campaignStageTimer != null || campaignResultPersisted) {
+            return;
+        }
+        campaignStartedAtMs = System.currentTimeMillis();
+        campaignStageTimer = new CountDownTimer(campaignTimeLimitSeconds * 1000L, 1000L) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                if (txtCampaignTimer != null) {
+                    txtCampaignTimer.setText(formatCampaignRemaining((int) Math.ceil(millisUntilFinished / 1000.0)));
+                }
+            }
+
+            @Override
+            public void onFinish() {
+                handleCampaignTimeExpired();
+            }
+        }.start();
+    }
+
+    private String formatCampaignRemaining(int totalSeconds) {
+        int safeSeconds = Math.max(0, totalSeconds);
+        return String.format(Locale.US, "%02d:%02d", safeSeconds / 60, safeSeconds % 60);
+    }
+
+    private void handleCampaignTimeExpired() {
+        if (!campaignMode || campaignResultPersisted || EXITING) {
+            return;
+        }
+        CAN_PLAY = false;
+        CAN_CLICK = false;
+        CAN_HOME = false;
+        stopTimer(false);
+        Toast.makeText(this, "انتهى الوقت!", Toast.LENGTH_SHORT).show();
+        persistPendingCampaignStageResult(false, getCampaignCurrentMoney(), campaignWrongAnswers);
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!isFinishing()) {
+                    finishCampaignAndReturnToFlutter();
+                }
+            }
+        }, 1200);
+    }
+
+    private void finishCampaignAndReturnToFlutter() {
+        if (!campaignMode) {
+            return;
+        }
+        Log.d("CampaignStage", "CAMP_FINISH_TO_FLUTTER");
+        stopSound(mpSound);
+        if (cdtProgress != null) cdtProgress.cancel();
+        stopCampaignStageTimer();
+        finish();
+    }
+
+    private void stopCampaignStageTimer() {
+        if (campaignStageTimer != null) {
+            campaignStageTimer.cancel();
+            campaignStageTimer = null;
+        }
+    }
+
+    private void applyCampaignQuestionSelectionIfNeeded() {
+        if (!campaignMode || questions == null || questions.isEmpty()) {
+            return;
+        }
+        ArrayList<Question> selected = new ArrayList<>();
+        if (!campaignQuestionIds.isEmpty()) {
+            for (Integer id : campaignQuestionIds) {
+                if (id == null) {
+                    continue;
+                }
+                int index = id;
+                if (index >= 0 && index < questions.size()) {
+                    Question question = questions.get(index);
+                    if (isCampaignQuestionLevelAllowed(question)) {
+                        selected.add(question);
+                    } else {
+                        Log.w("CampaignStage", "Skipped question id=" + id
+                                + " level=" + (question == null ? "" : question.getLevel())
+                                + " allowed=" + campaignAllowedLevels);
+                    }
+                } else {
+                    Log.w("CampaignStage", "Question id out of range: " + id);
+                }
+                if (selected.size() >= getCampaignTargetQuestionCount()) {
+                    break;
+                }
+            }
+        }
+        if (selected.size() < getCampaignTargetQuestionCount()
+                && !campaignAllowedLevels.isEmpty()) {
+            for (Question question : questions) {
+                if (selected.size() >= getCampaignTargetQuestionCount()) {
+                    break;
+                }
+                if (isCampaignQuestionLevelAllowed(question) && !selected.contains(question)) {
+                    selected.add(question);
+                }
+            }
+        }
+        if (!selected.isEmpty() || !campaignAllowedLevels.isEmpty()) {
+            questions = selected;
+        }
+        if (isDebuggableBuild()) {
+            Log.d("CampaignStage", "loaded campaign questions=" + questions.size()
+                    + " levels=" + campaignLevelSummary(questions));
+        }
+    }
+
+    private boolean isDebuggableBuild() {
+        return (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+    }
+
+    private boolean isCampaignQuestionLevelAllowed(Question question) {
+        if (question == null || campaignAllowedLevels.isEmpty()) {
+            return true;
+        }
+        String level = question.getLevel() == null ? "" : question.getLevel().trim();
+        return campaignAllowedLevels.contains(level);
+    }
+
+    private String campaignLevelSummary(ArrayList<Question> list) {
+        HashMap<String, Integer> summary = new HashMap<>();
+        for (Question question : list) {
+            String level = question == null || question.getLevel() == null
+                    ? ""
+                    : question.getLevel().trim();
+            Integer count = summary.get(level);
+            summary.put(level, count == null ? 1 : count + 1);
+        }
+        return summary.toString();
+    }
+
     private void confirmExit() {
         if (!txtAmount.getText().toString().equals("$0")) {
             showDialog("هل تريد الخروج والاكتفاء بالمبلغ الحالي ؟", "ConfirmHome", 2000, 0, R.drawable.mouth_05, false);
@@ -3355,6 +3958,9 @@ public class GameActivity extends AppCompatActivity {
                     case 1:
                         person.raiseEyeBrowsUp(2000, false, true);
                         person.like(2000);
+                        if (campaignMode && "boss".equals(campaignStageType) && !campaignBossBotName.trim().isEmpty()) {
+                            Toast.makeText(GameActivity.this, "تواجه الآن " + campaignBossBotName, Toast.LENGTH_SHORT).show();
+                        }
                         if (modeOnline)
                             showDialog("نبدأ الآن.. استعدوا للمباراة", "", 1000, 3000, R.drawable.mouth_01, false);
                         else
@@ -3369,7 +3975,11 @@ public class GameActivity extends AppCompatActivity {
                         handler.postDelayed(this, 2000);
                         break;
                     case 3:
-                        if (modeOnline) {
+                        if (campaignMode) {
+                            campaignStartedAtMs = System.currentTimeMillis();
+                        }
+                        startCampaignStageTimerIfNeeded();
+                        if (modeOnline || campaignBossBattle) {
                             requestSynchronizedQuestion(0);
                         } else {
                             nextQuestion();
@@ -3401,10 +4011,15 @@ public class GameActivity extends AppCompatActivity {
                     int prize = Integer.parseInt(txtAmount.getText().toString().replace("$", "").trim());
                     PlayerStats.recordGameEnd(GameActivity.this, false, prize);
                     PlayerProgress.onGameFinished(GameActivity.this, false, prize, PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+                    persistPendingCampaignStageResult(false, prize, 0);
                 } catch (Exception ignored) {}
                 stopSound(mpSound);
                 if (cdtProgress != null) cdtProgress.cancel();
-                showInterstitialAd();
+                if (campaignMode) {
+                    finishCampaignAndReturnToFlutter();
+                } else {
+                    showInterstitialAd();
+                }
             }
         }, 2000);
     }
@@ -3424,6 +4039,8 @@ public class GameActivity extends AppCompatActivity {
                 Animations.progressZoomIn(rlyProgress);
                 if (modeOnline) {
                     scheduleBotAnswersForCurrentQuestion();
+                } else if (campaignBossBattle) {
+                    scheduleCampaignBossAnswer();
                 }
             }
             final int finalRandomTime = randomTime;
@@ -3554,6 +4171,7 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void onWrongAnswer(boolean timeOut) {
+        recordCampaignWrongAnswer();
         CAN_HOME = false;
         CAN_CLICK = false;
         CAN_PLAY = false;
@@ -3605,6 +4223,7 @@ public class GameActivity extends AppCompatActivity {
                                     PlayerStats.recordGameEnd(GameActivity.this, false, safeHavenPrize);
                                     PlayerProgress.onGameFinished(GameActivity.this, false, safeHavenPrize,
                                         PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+                                    persistPendingCampaignStageResult(false, safeHavenPrize, 1);
                                 } catch (Exception ignored) {}
                             }
                             showInterstitialAd();
@@ -3707,7 +4326,7 @@ public class GameActivity extends AppCompatActivity {
         setVote(imgVote2);
         setVote(imgVote3);
         setVote(imgVote4);
-        if(modeOnline) {
+        if(modeOnline || campaignBossBattle) {
             imgAnswer1Player1.setVisibility(View.INVISIBLE);
             imgAnswer2Player1.setVisibility(View.INVISIBLE);
             imgAnswer3Player1.setVisibility(View.INVISIBLE);
@@ -4371,6 +4990,7 @@ public class GameActivity extends AppCompatActivity {
         detachQuestionSyncListener();
         detachServerTimeOffsetListener();
         if(cdtProgress != null) cdtProgress.cancel();
+        stopCampaignStageTimer();
         releasePlayer(mpSound);
         mpSound = null;
         releasePlayer(mpBeep);
@@ -4438,6 +5058,45 @@ public class GameActivity extends AppCompatActivity {
             }
         } catch (Exception e) {
             Log.w("GameActivity", "initAdsIfNeeded failed", e);
+        }
+    }
+
+    private void persistPendingCampaignStageResult(boolean completed, int money, int wrongAnswers) {
+        if (!campaignMode || campaignResultPersisted) {
+            return;
+        }
+        campaignResultPersisted = true;
+        stopCampaignStageTimer();
+        try {
+            JSONObject payload = new JSONObject();
+            int targetCount = getCampaignTargetQuestionCount();
+            int answeredCorrect = Math.max(0, Math.min(targetCount, campaignCorrectAnswers));
+            payload.put("mode", "campaign");
+            payload.put("campaignId", campaignId);
+            payload.put("stageId", campaignStageId);
+            payload.put("stageType", campaignStageType);
+            payload.put("completed", completed);
+            payload.put("score", 0);
+            payload.put("money", Math.max(0, money));
+            payload.put("correctAnswers", answeredCorrect);
+            payload.put("wrongAnswers", Math.max(campaignWrongAnswers, Math.max(0, wrongAnswers)));
+            payload.put("timeMs", Math.max(0L, System.currentTimeMillis() - campaignStartedAtMs));
+            payload.put("used5050", Math.max(0, campaignUsed5050));
+            payload.put("usedAudience", Math.max(0, campaignUsedAudience));
+            payload.put("usedCall", Math.max(0, campaignUsedCall));
+            if (campaignBossBattle && campaignBossOpponent != null) {
+                payload.put("bossName", campaignBossOpponent.name);
+                payload.put("bossIntelligence", campaignBossOpponent.intelligence);
+                payload.put("bossScore", Math.max(0, campaignBossOpponent.gameScore));
+                payload.put("bossCorrectAnswers", Math.max(0, campaignBossOpponent.totalCorrectAnswers));
+                payload.put("bossBattleWon", gameScoreMe >= campaignBossOpponent.gameScore);
+            }
+            AppPrefs.setPendingCampaignStageResult(this, payload.toString());
+            Log.d("CampaignStage", "CAMP_RESULT_SAVED stageId=" + campaignStageId
+                    + " completed=" + completed
+                    + " correct=" + answeredCorrect
+                    + " wrong=" + Math.max(campaignWrongAnswers, Math.max(0, wrongAnswers)));
+        } catch (Exception ignored) {
         }
     }
 

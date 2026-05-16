@@ -109,6 +109,29 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                         finish()
                     }
+                    "launchCampaignStage" -> {
+                        try {
+                            val intent = Intent(this, GameActivity::class.java).apply {
+                                putExtra("mode", "campaign")
+                                putExtra("campaignId", stringArg(call.argument<Any>("campaignId"), "main_campaign"))
+                                putExtra("stageId", stringArg(call.argument<Any>("stageId"), ""))
+                                putExtra("stageType", stringArg(call.argument<Any>("stageType"), "classic"))
+                                putIntegerArrayListExtra("questionIds", intArrayListArg(call.argument<Any>("questionIds")))
+                                putStringArrayListExtra("allowedLevels", stringArrayListArg(call.argument<Any>("allowedLevels")))
+                                putExtra("questionCount", intArg(call.argument<Any>("questionCount"), 10))
+                                putExtra("timeLimitSeconds", intArg(call.argument<Any>("timeLimitSeconds"), 0))
+                                putExtra("allow5050", boolArg(call.argument<Any>("allow5050"), true))
+                                putExtra("allowAudience", boolArg(call.argument<Any>("allowAudience"), true))
+                                putExtra("allowCall", boolArg(call.argument<Any>("allowCall"), true))
+                                putExtra("bossBotName", stringArg(call.argument<Any>("bossBotName"), ""))
+                                putExtra("bossBotIntelligence", intArg(call.argument<Any>("bossBotIntelligence"), 0))
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("CAMPAIGN_LAUNCH_FAILED", e.message, null)
+                        }
+                    }
                     "announceRoomSeatClaim" -> {
                         Data.announceRoomSeatClaim(
                             call.argument<String>("roomId") ?: "",
@@ -134,6 +157,16 @@ class MainActivity : FlutterActivity() {
                     }
                     "clearPendingRoomMatchResult" -> {
                         AppPrefs.clearPendingRoomMatchResult(this)
+                        result.success(true)
+                    }
+                    "consumePendingCampaignStageResult" -> {
+                        result.success(AppPrefs.consumePendingCampaignStageResult(this))
+                    }
+                    "getPendingCampaignStageResult" -> {
+                        result.success(AppPrefs.getPendingCampaignStageResult(this))
+                    }
+                    "clearPendingCampaignStageResult" -> {
+                        AppPrefs.clearPendingCampaignStageResult(this)
                         result.success(true)
                     }
                     "syncLegacyUser" -> {
@@ -416,5 +449,59 @@ class MainActivity : FlutterActivity() {
 
     private fun isValidPowerUp(type: String): Boolean {
         return type == "5050" || type == "audience" || type == "call"
+    }
+
+    private fun stringArg(value: Any?, defaultValue: String): String {
+        val text = value?.toString()?.trim() ?: return defaultValue
+        return text.ifEmpty { defaultValue }
+    }
+
+    private fun intArg(value: Any?, defaultValue: Int): Int {
+        return when (value) {
+            is Int -> value
+            is Long -> value.toInt()
+            is Number -> value.toInt()
+            is String -> value.trim().toIntOrNull() ?: defaultValue
+            else -> defaultValue
+        }
+    }
+
+    private fun boolArg(value: Any?, defaultValue: Boolean): Boolean {
+        return when (value) {
+            is Boolean -> value
+            is Number -> value.toInt() != 0
+            is String -> {
+                when (value.trim().lowercase()) {
+                    "true", "1" -> true
+                    "false", "0" -> false
+                    else -> defaultValue
+                }
+            }
+            else -> defaultValue
+        }
+    }
+
+    private fun intArrayListArg(value: Any?): ArrayList<Int> {
+        if (value !is Iterable<*>) return arrayListOf()
+        val ids = arrayListOf<Int>()
+        for (item in value) {
+            when (item) {
+                is Int -> ids.add(item)
+                is Long -> ids.add(item.toInt())
+                is Number -> ids.add(item.toInt())
+                is String -> item.trim().toIntOrNull()?.let(ids::add)
+            }
+        }
+        return ids
+    }
+
+    private fun stringArrayListArg(value: Any?): ArrayList<String> {
+        if (value !is Iterable<*>) return arrayListOf()
+        val values = arrayListOf<String>()
+        for (item in value) {
+            val text = item?.toString()?.trim().orEmpty()
+            if (text.isNotEmpty()) values.add(text)
+        }
+        return values
     }
 }

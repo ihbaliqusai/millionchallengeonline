@@ -72,6 +72,36 @@ class NativeBridgeService {
     });
   }
 
+  Future<void> launchCampaignStage({
+    required String campaignId,
+    required String stageId,
+    required String stageType,
+    required List<int> questionIds,
+    required List<String> allowedLevels,
+    required int questionCount,
+    required int timeLimitSeconds,
+    required bool allow5050,
+    required bool allowAudience,
+    required bool allowCall,
+    String bossBotName = '',
+    int bossBotIntelligence = 0,
+  }) async {
+    await _channel.invokeMethod('launchCampaignStage', <String, dynamic>{
+      'campaignId': campaignId,
+      'stageId': stageId,
+      'stageType': stageType,
+      'questionIds': questionIds,
+      'allowedLevels': allowedLevels,
+      'questionCount': questionCount,
+      'timeLimitSeconds': timeLimitSeconds,
+      'allow5050': allow5050,
+      'allowAudience': allowAudience,
+      'allowCall': allowCall,
+      'bossBotName': bossBotName,
+      'bossBotIntelligence': bossBotIntelligence,
+    });
+  }
+
   Future<void> announceRoomSeatClaim({
     required String roomId,
     required String matchMode,
@@ -142,6 +172,34 @@ class NativeBridgeService {
 
   Future<void> clearPendingRoomMatchResult() async {
     await _channel.invokeMethod<void>('clearPendingRoomMatchResult');
+  }
+
+  Future<Map<String, dynamic>?> getPendingCampaignStageResult() async {
+    try {
+      final payload =
+          await _channel.invokeMethod<dynamic>('getPendingCampaignStageResult');
+      return _decodeCampaignResult(payload);
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> consumePendingCampaignStageResult() async {
+    try {
+      final payload = await _channel
+          .invokeMethod<dynamic>('consumePendingCampaignStageResult');
+      return _decodeCampaignResult(payload);
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<void> clearPendingCampaignStageResult() async {
+    try {
+      await _channel.invokeMethod<void>('clearPendingCampaignStageResult');
+    } on MissingPluginException {
+      return;
+    }
   }
 
   Future<void> syncLegacyUser({
@@ -357,5 +415,32 @@ class NativeBridgeService {
       'quantity': quantity,
     });
     return result ?? false;
+  }
+
+  Map<String, dynamic>? _decodeCampaignResult(dynamic raw) {
+    final decoded = _decodeNativeMap(raw);
+    if (decoded == null) return null;
+    final mode = decoded['mode'];
+    if (mode != null && mode.toString() != 'campaign') return null;
+    return decoded;
+  }
+
+  Map<String, dynamic>? _decodeNativeMap(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is String) {
+      if (raw.trim().isEmpty) return null;
+      try {
+        return _decodeNativeMap(jsonDecode(raw));
+      } on Object {
+        return null;
+      }
+    }
+    if (raw is Map<String, dynamic>) return raw;
+    if (raw is Map) {
+      return raw.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    }
+    return null;
   }
 }

@@ -10,6 +10,7 @@ import '../../core/app_state.dart';
 import '../../models/room.dart';
 import '../../core/player_rank.dart';
 import '../../core/trophy_league.dart';
+import '../campaign/campaign_map_screen.dart';
 import 'store_screen.dart';
 import 'leaderboard_screen.dart';
 import 'daily_streak_screen.dart';
@@ -20,6 +21,7 @@ import '../online/achievements_screen.dart';
 import '../../services/room_service.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import '../../services/ad_service.dart';
+import '../../services/campaign_result_handler.dart';
 import '../../services/native_bridge_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -48,6 +50,9 @@ class _HomeScreenState extends State<HomeScreen>
       // when the native game Activity restarts MainActivity with FLAG_ACTIVITY_CLEAR_TASK.
       context.read<AppState>().loadLevelData();
       _consumePendingRoomMatchResult();
+      CampaignResultHandler.consumeAndHandlePendingCampaignResult(
+        context: context,
+      );
     });
     _idleCtrl = AnimationController(
       vsync: this,
@@ -71,6 +76,9 @@ class _HomeScreenState extends State<HomeScreen>
       context.read<AppState>().loadCurrency();
       context.read<AppState>().checkAndAwardXpForGames();
       _consumePendingRoomMatchResult();
+      CampaignResultHandler.consumeAndHandlePendingCampaignResult(
+        context: context,
+      );
     }
   }
 
@@ -639,7 +647,8 @@ class _SideCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (!enabled) const Positioned(top: 4, right: 4, child: _LockBadge()),
+            if (!enabled)
+              const Positioned(top: 4, right: 4, child: _LockBadge()),
           ],
         ),
       ),
@@ -861,6 +870,17 @@ class _CenterArena extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _BattleButton(
+                glowCtrl: glowCtrl,
+                label: 'رحلة المليون',
+                gold: true,
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CampaignMapScreen(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -946,8 +966,7 @@ class _BattleButtonState extends State<_BattleButton> {
           scale: _pressed ? 0.96 : 1.0,
           duration: const Duration(milliseconds: 100),
           child: GestureDetector(
-            onTapDown:
-                enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
             onTapUp: enabled
                 ? (_) {
                     setState(() => _pressed = false);
@@ -989,8 +1008,7 @@ class _BattleButtonState extends State<_BattleButton> {
                     ),
                   ),
                   if (!enabled)
-                    const Positioned(
-                        top: 6, right: 8, child: _LockBadge()),
+                    const Positioned(top: 6, right: 8, child: _LockBadge()),
                 ],
               ),
             ),
@@ -1152,8 +1170,7 @@ class _RightSidebar extends StatelessWidget {
                       child: _UnclaimedDot(),
                     ),
                   if (!isOnline)
-                    const Positioned(
-                        top: 4, right: 4, child: _LockBadge()),
+                    const Positioned(top: 4, right: 4, child: _LockBadge()),
                 ],
               ),
             ),

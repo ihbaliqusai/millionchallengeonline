@@ -13,6 +13,7 @@ public final class AppPrefs {
     public static final String PREF_PURCHASES = "PurchaseDeliveries";
     public static final String PREF_ADS = "AdPrefs";
     private static final String KEY_PENDING_ROOM_MATCH_RESULT = "pendingRoomMatchResult";
+    private static final String KEY_PENDING_CAMPAIGN_STAGE_RESULT = "pending_campaign_stage_result";
     private static final String KEY_DELIVERED_PURCHASES = "deliveredPurchaseKeys";
     private static final String KEY_INTERSTITIAL_LAST_SHOWN_AT = "interstitialLastShownAt";
     private static final String KEY_INTERSTITIAL_PENDING_OPPORTUNITIES = "interstitialPendingOpportunities";
@@ -144,6 +145,26 @@ public final class AppPrefs {
 
     public static void clearPendingRoomMatchResult(Context c) {
         roomPrefs(c).edit().remove(KEY_PENDING_ROOM_MATCH_RESULT).apply();
+    }
+
+    public static void setPendingCampaignStageResult(Context c, String payload) {
+        roomPrefs(c).edit().putString(KEY_PENDING_CAMPAIGN_STAGE_RESULT, payload).apply();
+    }
+
+    public static String consumePendingCampaignStageResult(Context c) {
+        SharedPreferences prefs = roomPrefs(c);
+        String payload = prefs.getString(KEY_PENDING_CAMPAIGN_STAGE_RESULT, "");
+        prefs.edit().remove(KEY_PENDING_CAMPAIGN_STAGE_RESULT).apply();
+        return payload == null ? "" : payload;
+    }
+
+    public static String getPendingCampaignStageResult(Context c) {
+        String payload = roomPrefs(c).getString(KEY_PENDING_CAMPAIGN_STAGE_RESULT, "");
+        return payload == null ? "" : payload;
+    }
+
+    public static void clearPendingCampaignStageResult(Context c) {
+        roomPrefs(c).edit().remove(KEY_PENDING_CAMPAIGN_STAGE_RESULT).apply();
     }
 
     public static boolean isPurchaseDelivered(Context c, String deliveryKey) {

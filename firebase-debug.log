@@ -1,0 +1,23 @@
+[debug] [2026-05-15T08:57:25.388Z] ----------------------------------------------------------------------
+[debug] [2026-05-15T08:57:25.398Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Qusai\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js emulators:exec --only firestore echo rules-ok
+[debug] [2026-05-15T08:57:25.398Z] CLI Version:   15.15.0
+[debug] [2026-05-15T08:57:25.398Z] Platform:      win32
+[debug] [2026-05-15T08:57:25.398Z] Node Version:  v24.15.0
+[debug] [2026-05-15T08:57:25.399Z] Time:          Fri May 15 2026 11:57:25 GMT+0300 (Türkiye Standard Time)
+[debug] [2026-05-15T08:57:25.399Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-05-15T08:57:25.401Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-05-15T08:57:34.085Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-05-15T08:57:34.086Z] > authorizing via signed-in user (ihbaliqusai@gmail.com)
+[debug] [2026-05-15T08:57:34.261Z] java version "17.0.1" 2021-10-19 LTS
+
+[debug] [2026-05-15T08:57:34.261Z] Java(TM) SE Runtime Environment (build 17.0.1+12-LTS-39)
+Java HotSpot(TM) 64-Bit Server VM (build 17.0.1+12-LTS-39, mixed mode, sharing)
+
+[debug] [2026-05-15T08:57:34.278Z] Parsed Java major version: 17
+[debug] [2026-05-15T08:57:34.282Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase SQL Connect VSCode extension, this is expected and not an issue.
+[info] i  emulators: Shutting down emulators. {"metadata":{"emulator":{"name":"hub"},"message":"Shutting down emulators."}}
+[debug] [2026-05-15T08:57:34.285Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase SQL Connect VSCode extension, this is expected and not an issue.
+[error] 
+[error] Error: firebase-tools no longer supports Java version before 21. Please install a JDK at version 21 or above to get a compatible runtime.
+[debug] [2026-05-15T08:57:34.549Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200

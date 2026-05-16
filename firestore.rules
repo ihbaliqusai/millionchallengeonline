@@ -22,6 +22,98 @@ service cloud.firestore {
       ]);
     }
 
+    function campaignLeaderboardFieldsAreSafe(uid) {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'displayName',
+        'photoUrl',
+        'campaignId',
+        'stageId',
+        'score',
+        'stars',
+        'money',
+        'correctAnswers',
+        'timeMs',
+        'usedLifelines',
+        'assisted',
+        'updatedAt'
+      ]) &&
+      request.resource.data.uid == uid &&
+      request.resource.data.uid is string &&
+      request.resource.data.displayName is string &&
+      request.resource.data.campaignId is string &&
+      request.resource.data.stageId is string &&
+      request.resource.data.score is int &&
+      request.resource.data.score >= 0 &&
+      request.resource.data.stars is int &&
+      request.resource.data.stars >= 0 &&
+      request.resource.data.stars <= 3 &&
+      request.resource.data.money is int &&
+      request.resource.data.money >= 0 &&
+      request.resource.data.correctAnswers is int &&
+      request.resource.data.correctAnswers >= 0 &&
+      request.resource.data.timeMs is int &&
+      request.resource.data.timeMs >= 0 &&
+      request.resource.data.usedLifelines is int &&
+      request.resource.data.usedLifelines >= 0 &&
+      request.resource.data.assisted is bool &&
+      (!request.resource.data.keys().hasAny(['photoUrl']) ||
+        request.resource.data.photoUrl == null ||
+        request.resource.data.photoUrl is string) &&
+      (!request.resource.data.keys().hasAny(['updatedAt']) ||
+        request.resource.data.updatedAt is timestamp);
+    }
+
+    function campaignRewardClaimFieldsAreSafe(uid) {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'campaignId',
+        'stageId',
+        'previousStars',
+        'newStars',
+        'coins',
+        'gems',
+        'xp',
+        'status',
+        'createdAt',
+        'claimedAt',
+        'updatedAt',
+        'attemptId',
+        'currencyClaimed',
+        'xpClaimed',
+        'retryCount'
+      ]) &&
+      request.resource.data.uid == uid &&
+      request.resource.data.uid is string &&
+      request.resource.data.campaignId is string &&
+      request.resource.data.stageId is string &&
+      request.resource.data.previousStars is int &&
+      request.resource.data.previousStars >= 0 &&
+      request.resource.data.previousStars <= 3 &&
+      request.resource.data.newStars is int &&
+      request.resource.data.newStars >= 0 &&
+      request.resource.data.newStars <= 3 &&
+      request.resource.data.coins is int &&
+      request.resource.data.coins >= 0 &&
+      request.resource.data.gems is int &&
+      request.resource.data.gems >= 0 &&
+      request.resource.data.xp is int &&
+      request.resource.data.xp >= 0 &&
+      request.resource.data.status in ['pending', 'claimed', 'failed'] &&
+      request.resource.data.attemptId is string &&
+      request.resource.data.currencyClaimed is bool &&
+      request.resource.data.xpClaimed is bool &&
+      request.resource.data.retryCount is int &&
+      request.resource.data.retryCount >= 0 &&
+      (!request.resource.data.keys().hasAny(['createdAt']) ||
+        request.resource.data.createdAt is timestamp) &&
+      (!request.resource.data.keys().hasAny(['updatedAt']) ||
+        request.resource.data.updatedAt is timestamp) &&
+      (!request.resource.data.keys().hasAny(['claimedAt']) ||
+        request.resource.data.claimedAt == null ||
+        request.resource.data.claimedAt is timestamp);
+    }
+
     function roomCoreUnchanged() {
       return request.resource.data.hostId == resource.data.hostId &&
         request.resource.data.mode == resource.data.mode &&
@@ -40,6 +132,37 @@ service cloud.firestore {
 
       match /match_history/{matchId} {
         allow read, create, update, delete: if isOwner(uid);
+      }
+
+      match /campaignProgress/{stageId} {
+        allow read, create, update: if isOwner(uid);
+        allow delete: if false;
+      }
+
+      match /campaignAttempts/{attemptId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+          request.resource.data.uid == uid;
+        allow update, delete: if false;
+      }
+
+      match /campaignRewardClaims/{claimId} {
+        allow read: if isOwner(uid);
+        allow create, update: if isOwner(uid) &&
+          campaignRewardClaimFieldsAreSafe(uid);
+        allow delete: if false;
+      }
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if true;
+      // TODO: Seed campaign definitions through an admin backend or custom claim.
+      allow create, update, delete: if false;
+
+      match /stages/{stageId} {
+        allow read: if true;
+        // TODO: Seed campaign stages through an admin backend or custom claim.
+        allow create, update, delete: if false;
       }
     }
 
@@ -102,6 +225,19 @@ service cloud.firestore {
       );
 
       allow delete: if signedIn() && resource.data.hostId == request.auth.uid;
+    }
+
+    match /stageLeaderboards/{leaderboardId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+
+      match /scores/{uid} {
+        allow read: if true;
+        // TODO: Move campaign anti-cheat and score verification to Cloud Functions.
+        allow create, update: if isOwner(uid) &&
+          campaignLeaderboardFieldsAreSafe(uid);
+        allow delete: if false;
+      }
     }
   }
 }

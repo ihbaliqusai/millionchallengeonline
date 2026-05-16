@@ -66,6 +66,36 @@ public class LocalQuestions {
         return questions;
     }
 
+    public static ArrayList<Question> loadAll(Context context) {
+        final ArrayList<Question> questions = new ArrayList<>();
+        try {
+            AssetManager assets = context.getAssets();
+            InputStream inputStream = openQuestionsStream(assets);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            int n;
+            while ((n = inputStream.read(buffer)) >= 0) {
+                output.write(buffer, 0, n);
+            }
+            inputStream.close();
+
+            JSONArray array = new JSONArray(output.toString(StandardCharsets.UTF_8.name()));
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject item = array.getJSONObject(i);
+                Question q = new Question();
+                q.setQ(item.optString("Q"));
+                q.setR(item.optString("R"));
+                q.setW1(item.optString("W1"));
+                q.setW2(item.optString("W2"));
+                q.setW3(item.optString("W3"));
+                q.setLevel(item.optString("Level"));
+                questions.add(q);
+            }
+        } catch (Exception ignored) {
+        }
+        return questions;
+    }
+
     private static void populate(ArrayList<Question> questions, ArrayList<Question> subList, int count) {
         if (subList.isEmpty()) return;
         ArrayList<Integer> used = new ArrayList<>();
