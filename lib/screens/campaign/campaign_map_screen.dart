@@ -97,12 +97,14 @@ class _CampaignMapScreenState extends State<CampaignMapScreen>
             }
             if (snapshot.hasError) {
               return _MapScaffoldBackground(
-                  child: _ErrorState(onRetry: _reload));
+                child: _ErrorState(onRetry: _reload),
+              );
             }
             final data = snapshot.data;
             if (data == null || data.stages.isEmpty) {
               return _MapScaffoldBackground(
-                  child: _EmptyState(onRetry: _reload));
+                child: _EmptyState(onRetry: _reload),
+              );
             }
             return _CampaignMapContent(
               data: data,
@@ -259,7 +261,9 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
                                 widget.onLockedTap(widget.data.stages[index]);
                               } else {
                                 widget.onStageTap(
-                                    widget.data.stages[index], progress);
+                                  widget.data.stages[index],
+                                  progress,
+                                );
                               }
                             },
                           ),
@@ -303,7 +307,7 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
   }
 
   double _mapHeightFor(int stageCount, double viewportHeight) {
-    final count = stageCount.clamp(1, 30);
+    final count = math.max(1, stageCount);
     return math.max(viewportHeight + 120, 210 + count * 76.0);
   }
 

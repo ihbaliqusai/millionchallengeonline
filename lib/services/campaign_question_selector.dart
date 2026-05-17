@@ -41,11 +41,13 @@ class CampaignQuestionSelector {
     exactCandidates.shuffle(math.Random());
     final candidates = <int>[...exactCandidates];
     if (allowedLevels.isNotEmpty && candidates.length < stage.questionCount) {
+      final fallbackFloor = _fallbackLevelFloor(allowedLevels, availableLevels);
       final distances = fallbackByDistance.keys.toList()..sort();
       for (final distance in distances) {
         final bucket = fallbackByDistance[distance]!..shuffle(math.Random());
         for (final id in bucket) {
           if (candidates.length >= stage.questionCount) break;
+          if (!_passesFallbackFloor(decoded[id], fallbackFloor)) continue;
           candidates.add(id);
         }
         if (candidates.length >= stage.questionCount) break;
@@ -134,6 +136,31 @@ class CampaignQuestionSelector {
       if (distance < best) best = distance;
     }
     return best;
+  }
+
+  int? _fallbackLevelFloor(Set<String> allowedLevels, Set<String> available) {
+    final allowedNumbers = allowedLevels
+        .map(int.tryParse)
+        .whereType<int>()
+        .toList(growable: false);
+    if (allowedNumbers.isEmpty) return null;
+    final minAllowed = allowedNumbers.reduce(math.min);
+    if (minAllowed < 4) return null;
+
+    final availableNumbers = available
+        .map(int.tryParse)
+        .whereType<int>()
+        .where((level) => level < minAllowed)
+        .toList(growable: false);
+    if (availableNumbers.isEmpty) return null;
+    return availableNumbers.reduce(math.max);
+  }
+
+  bool _passesFallbackFloor(dynamic item, int? fallbackFloor) {
+    if (fallbackFloor == null) return true;
+    if (item is! Map) return false;
+    final level = int.tryParse(_readString(item['Level'] ?? item['level']));
+    return level != null && level >= fallbackFloor;
   }
 
   Map<String, int> _levelSummary(List<dynamic> decoded, List<int> ids) {

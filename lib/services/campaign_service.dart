@@ -177,18 +177,22 @@ class CampaignService {
   CampaignService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
+  // TODO: Disable debugUnlockAllCampaignStages before production release.
+  static const bool debugUnlockAllCampaignStages = true;
+
   final FirebaseFirestore _firestore;
 
   Future<List<CampaignStage>> loadStages({
     String campaignId = CampaignDefaults.mainCampaignId,
   }) async {
+    final defaults = CampaignDefaults.stages(campaignId: campaignId);
     try {
       final snapshot = await _firestore
           .collection('campaigns')
           .doc(campaignId)
           .collection('stages')
           .get();
-      final stages = snapshot.docs.map((doc) {
+      final remoteStages = snapshot.docs.map((doc) {
         final data = doc.data();
         return _withDefaultAllowedLevels(
             CampaignStage.fromMap(<String, dynamic>{
@@ -199,13 +203,32 @@ class CampaignService {
             defaultValue: campaignId,
           ),
         }));
-      }).toList(growable: false)
-        ..sort((left, right) => left.order.compareTo(right.order));
-      if (stages.isNotEmpty) return stages;
+      }).toList(growable: false);
+      if (remoteStages.isNotEmpty) {
+        return _mergeDefaultAndRemoteStages(defaults, remoteStages);
+      }
     } catch (_) {
       // Offline or permission failures should not block the campaign map.
     }
-    return CampaignDefaults.stages(campaignId: campaignId);
+    return defaults;
+  }
+
+  List<CampaignStage> _mergeDefaultAndRemoteStages(
+    List<CampaignStage> defaults,
+    List<CampaignStage> remoteStages,
+  ) {
+    final merged = <String, CampaignStage>{
+      for (final stage in defaults) stage.id: stage,
+    };
+    for (final stage in remoteStages) {
+      merged[stage.id] = stage;
+    }
+    return merged.values.toList(growable: false)
+      ..sort((left, right) {
+        final byOrder = left.order.compareTo(right.order);
+        if (byOrder != 0) return byOrder;
+        return left.id.compareTo(right.id);
+      });
   }
 
   CampaignStage _withDefaultAllowedLevels(CampaignStage stage) {
@@ -241,7 +264,10 @@ class CampaignService {
   List<StageProgress> resolveProgressForStages({
     required List<CampaignStage> stages,
     required Map<String, StageProgress> savedProgress,
+    bool? debugUnlockAllCampaignStagesOverride,
   }) {
+    final debugUnlockAll =
+        debugUnlockAllCampaignStagesOverride ?? debugUnlockAllCampaignStages;
     final sortedStages = List<CampaignStage>.from(stages)
       ..sort((left, right) => left.order.compareTo(right.order));
     final resolved = <StageProgress>[];
@@ -265,11 +291,11 @@ class CampaignService {
               previousStageCompleted: previousStageCompleted,
               earnedStars: earnedStars,
             );
-      final status = completed
-          ? StageProgressStatus.completed
-          : unlocked
-              ? StageProgressStatus.unlocked
-              : StageProgressStatus.locked;
+      final status = completed || unlocked || debugUnlockAll
+          ? completed
+              ? StageProgressStatus.completed
+              : StageProgressStatus.unlocked
+          : StageProgressStatus.locked;
       final progress = StageProgress(
         campaignId: saved?.campaignId.isNotEmpty == true
             ? saved!.campaignId
