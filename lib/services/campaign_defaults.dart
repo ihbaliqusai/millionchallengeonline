@@ -6,145 +6,401 @@ class CampaignDefaults {
   static List<CampaignStage> stages({
     String campaignId = mainCampaignId,
   }) {
-    return List<CampaignStage>.generate(30, (index) {
-      final order = index + 1;
-      final type = _typeFor(order);
-      final allowedLevels = allowedLevelsForOrder(order);
-      final world = order <= 10
-          ? 'غابة البداية'
-          : order <= 20
-              ? 'تلال المعرفة'
-              : 'طريق المليون';
-      return _stage(
-        id: 'stage_${order.toString().padLeft(3, '0')}',
+    return <CampaignStage>[
+      _stage(
         campaignId: campaignId,
-        order: order,
-        title: _titleFor(order, type),
-        subtitle: type == CampaignStageType.boss
-            ? '$world - اهزم الزعيم لفتح الطريق التالي.'
-            : '$world - أجب عن 10 أسئلة واجمع أكبر عدد من النجوم.',
-        type: type,
-        timeLimitSeconds: _timeLimitFor(type, order),
-        categories: const <String>['general'],
-        allowedLevels: allowedLevels,
-        minDifficulty: _minDifficultyFor(allowedLevels),
-        maxDifficulty: _maxDifficultyFor(allowedLevels),
-        unlockRequirementStars: order == 1 ? 0 : (order - 1) * 2,
-        rewardCoins: 100 + order * 22,
-        rewardGems: order % 5 == 0 ? 2 : (order % 3 == 0 ? 1 : 0),
-        rewardXp: 70 + order * 18,
-        bossBotName:
-            type == CampaignStageType.boss ? _bossNameFor(order) : null,
-        bossBotIntelligence:
-            type == CampaignStageType.boss ? _bossIntelligenceFor(order) : null,
-        starRules: _starRulesFor(type, order),
-      );
-    });
+        order: 1,
+        title: 'البداية',
+        subtitle: 'غابة البداية - أجب عن 10 أسئلة وتعلم نظام النجوم.',
+        campaignMode: CampaignMode.classic,
+        winCondition: CampaignWinCondition.completeQuestions,
+        allowedLevels: const <String>['0'],
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 2,
+        title: 'أول خطوة',
+        subtitle: 'غابة البداية - أسئلة سهلة مع انتقال بسيط في المستوى.',
+        campaignMode: CampaignMode.classic,
+        winCondition: CampaignWinCondition.completeQuestions,
+        allowedLevels: const <String>['0', '1'],
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 3,
+        title: 'ثقة المعرفة',
+        subtitle: 'غابة البداية - أثبت ثباتك في أسئلة المستوى الأول.',
+        campaignMode: CampaignMode.classic,
+        winCondition: CampaignWinCondition.completeQuestions,
+        allowedLevels: const <String>['1'],
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 4,
+        title: 'سباق خفيف',
+        subtitle: 'غابة البداية - أنه الأسئلة قبل انتهاء الوقت.',
+        campaignMode: CampaignMode.blitz,
+        winCondition: CampaignWinCondition.finishBeforeTime,
+        allowedLevels: const <String>['1'],
+        timeLimitSeconds: 150,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 5,
+        title: 'اختبار التركيز',
+        subtitle: 'غابة البداية - لا تدع الأخطاء تصل إلى حد الإقصاء.',
+        campaignMode: CampaignMode.elimination,
+        winCondition: CampaignWinCondition.noMistakes,
+        allowedLevels: const <String>['1', '2'],
+        maxWrongAnswers: 2,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 6,
+        title: 'بلا مساعدة',
+        subtitle: 'غابة البداية - أكمل المرحلة دون أي وسيلة مساعدة.',
+        campaignMode: CampaignMode.noLifeline,
+        winCondition: CampaignWinCondition.completeQuestions,
+        allowedLevels: const <String>['2'],
+        allow5050: false,
+        allowAudience: false,
+        allowCall: false,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 7,
+        title: 'النجاة الأولى',
+        subtitle: 'غابة البداية - لديك ثلاث أرواح حتى نهاية المرحلة.',
+        campaignMode: CampaignMode.survival,
+        winCondition: CampaignWinCondition.survive,
+        allowedLevels: const <String>['2'],
+        lives: 3,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 8,
+        title: 'منافس مبتدئ',
+        subtitle: 'غابة البداية - اهزم سامي في مواجهة ودية.',
+        campaignMode: CampaignMode.battle,
+        winCondition: CampaignWinCondition.beatOpponent,
+        allowedLevels: const <String>['2'],
+        opponentName: 'سامي',
+        opponentAccuracy: 55,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 9,
+        title: 'طريق الزعيم',
+        subtitle: 'غابة البداية - سباق أسرع قبل أول مواجهة كبرى.',
+        campaignMode: CampaignMode.blitz,
+        winCondition: CampaignWinCondition.finishBeforeTime,
+        allowedLevels: const <String>['2', '3'],
+        timeLimitSeconds: 120,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 10,
+        title: 'طارق السريع',
+        subtitle: 'غابة البداية - اهزم الزعيم لفتح العالم التالي.',
+        campaignMode: CampaignMode.bossBattle,
+        winCondition: CampaignWinCondition.defeatBoss,
+        allowedLevels: const <String>['2', '3'],
+        bossBotName: 'طارق السريع',
+        bossBotIntelligence: 65,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 11,
+        title: 'بوابة التحدي',
+        subtitle: 'تلال المعرفة - بداية متوسطة بأسئلة أكثر جدية.',
+        campaignMode: CampaignMode.classic,
+        winCondition: CampaignWinCondition.completeQuestions,
+        allowedLevels: const <String>['2', '3'],
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 12,
+        title: 'ضغط الوقت',
+        subtitle: 'تلال المعرفة - الوقت أقل والقرار أسرع.',
+        campaignMode: CampaignMode.blitz,
+        winCondition: CampaignWinCondition.finishBeforeTime,
+        allowedLevels: const <String>['3'],
+        timeLimitSeconds: 100,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 13,
+        title: 'لا مجال للخطأ',
+        subtitle: 'تلال المعرفة - خطأ واحد يكفي لإقصائك.',
+        campaignMode: CampaignMode.elimination,
+        winCondition: CampaignWinCondition.noMistakes,
+        allowedLevels: const <String>['3'],
+        maxWrongAnswers: 1,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 14,
+        title: 'نجاة المحترفين',
+        subtitle: 'تلال المعرفة - حافظ على أرواحك أمام أسئلة أصعب.',
+        campaignMode: CampaignMode.survival,
+        winCondition: CampaignWinCondition.survive,
+        allowedLevels: const <String>['3'],
+        lives: 3,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 15,
+        title: 'منافسة النقاط',
+        subtitle: 'تلال المعرفة - واجه مازن وتفوق عليه بالنقاط.',
+        campaignMode: CampaignMode.battle,
+        winCondition: CampaignWinCondition.beatOpponent,
+        allowedLevels: const <String>['3', '4'],
+        opponentName: 'مازن',
+        opponentAccuracy: 65,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 16,
+        title: 'بدون جمهور',
+        subtitle: 'تلال المعرفة - الجمهور والاتصال غير متاحين.',
+        campaignMode: CampaignMode.noLifeline,
+        winCondition: CampaignWinCondition.completeQuestions,
+        allowedLevels: const <String>['4'],
+        allow5050: true,
+        allowAudience: false,
+        allowCall: false,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 17,
+        title: 'جولة فاصلة',
+        subtitle: 'تلال المعرفة - اربح جولتين من ثلاث أمام رامي.',
+        campaignMode: CampaignMode.series,
+        winCondition: CampaignWinCondition.winSeries,
+        allowedLevels: const <String>['4'],
+        seriesRounds: 3,
+        seriesWinsRequired: 2,
+        opponentName: 'رامي',
+        opponentAccuracy: 66,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 18,
+        title: 'مطاردة المنافس',
+        subtitle: 'تلال المعرفة - تجاوز نتيجة الهدف قبل نهاية المرحلة.',
+        campaignMode: CampaignMode.rival,
+        winCondition: CampaignWinCondition.beatTargetScore,
+        allowedLevels: const <String>['4'],
+        targetScore: 700,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 19,
+        title: 'قبل البوابة',
+        subtitle: 'تلال المعرفة - سباق ضيق مع مساعدات محدودة.',
+        campaignMode: CampaignMode.blitz,
+        winCondition: CampaignWinCondition.finishBeforeTime,
+        allowedLevels: const <String>['4', '5'],
+        timeLimitSeconds: 90,
+        allow5050: true,
+        allowAudience: false,
+        allowCall: false,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 20,
+        title: 'ليلى العبقرية',
+        subtitle: 'تلال المعرفة - اهزم ليلى لفتح طريق المليون.',
+        campaignMode: CampaignMode.bossBattle,
+        winCondition: CampaignWinCondition.defeatBoss,
+        allowedLevels: const <String>['4', '5'],
+        bossBotName: 'ليلى العبقرية',
+        bossBotIntelligence: 74,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 21,
+        title: 'أسئلة الكبار',
+        subtitle: 'طريق المليون - مستوى صعب يحتاج تركيزا عاليا.',
+        campaignMode: CampaignMode.classic,
+        winCondition: CampaignWinCondition.completeQuestions,
+        allowedLevels: const <String>['5'],
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 22,
+        title: 'ثلاث أرواح فقط',
+        subtitle: 'طريق المليون - ثلاث فرص فقط حتى النهاية.',
+        campaignMode: CampaignMode.survival,
+        winCondition: CampaignWinCondition.survive,
+        allowedLevels: const <String>['5'],
+        lives: 3,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 23,
+        title: 'سباق المئة ثانية',
+        subtitle: 'طريق المليون - مئة ثانية لعشر إجابات.',
+        campaignMode: CampaignMode.blitz,
+        winCondition: CampaignWinCondition.finishBeforeTime,
+        allowedLevels: const <String>['5'],
+        timeLimitSeconds: 100,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 24,
+        title: 'إقصاء النخبة',
+        subtitle: 'طريق المليون - خطأ واحد في أسئلة النخبة خطر حقيقي.',
+        campaignMode: CampaignMode.elimination,
+        winCondition: CampaignWinCondition.noMistakes,
+        allowedLevels: const <String>['5', '6'],
+        maxWrongAnswers: 1,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 25,
+        title: 'سلسلة العباقرة',
+        subtitle: 'طريق المليون - اربح سلسلة صعبة أمام نديم.',
+        campaignMode: CampaignMode.series,
+        winCondition: CampaignWinCondition.winSeries,
+        allowedLevels: const <String>['6'],
+        seriesRounds: 3,
+        seriesWinsRequired: 2,
+        opponentName: 'نديم',
+        opponentAccuracy: 72,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 26,
+        title: 'فريق المليون',
+        subtitle: 'طريق المليون - تعاون مع سارة ضد فريق التحدي.',
+        campaignMode: CampaignMode.teamBattle,
+        winCondition: CampaignWinCondition.teamScore,
+        allowedLevels: const <String>['6'],
+        teamAllyName: 'سارة',
+        teamEnemyName: 'فريق التحدي',
+        opponentAccuracy: 72,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 27,
+        title: 'ضد الزمن',
+        subtitle: 'طريق المليون - 75 ثانية فقط أمام أسئلة عالية الصعوبة.',
+        campaignMode: CampaignMode.blitz,
+        winCondition: CampaignWinCondition.finishBeforeTime,
+        allowedLevels: const <String>['6', '7'],
+        timeLimitSeconds: 75,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 28,
+        title: 'بلا طوق نجاة',
+        subtitle: 'طريق المليون - لا توجد أي وسيلة مساعدة.',
+        campaignMode: CampaignMode.noLifeline,
+        winCondition: CampaignWinCondition.completeQuestions,
+        allowedLevels: const <String>['7'],
+        allow5050: false,
+        allowAudience: false,
+        allowCall: false,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 29,
+        title: 'قبل المليون',
+        subtitle: 'طريق المليون - اهزم الخصم الذهبي قبل المواجهة الأخيرة.',
+        campaignMode: CampaignMode.battle,
+        winCondition: CampaignWinCondition.beatOpponent,
+        allowedLevels: const <String>['7'],
+        opponentName: 'الخصم الذهبي',
+        opponentAccuracy: 76,
+      ),
+      _stage(
+        campaignId: campaignId,
+        order: 30,
+        title: 'سيد المليون',
+        subtitle: 'طريق المليون - المواجهة الأخيرة على قمة التحدي.',
+        campaignMode: CampaignMode.bossBattle,
+        winCondition: CampaignWinCondition.defeatBoss,
+        allowedLevels: const <String>['7', '8'],
+        timeLimitSeconds: 180,
+        bossBotName: 'سيد المليون',
+        bossBotIntelligence: 82,
+      ),
+    ];
   }
 
   static List<String> allowedLevelsForOrder(int order) {
-    const levelPlan = <int, List<String>>{
-      1: ['0'],
-      2: ['0', '1'],
-      3: ['1'],
-      4: ['1'],
-      5: ['1', '2'],
-      6: ['1', '2'],
-      7: ['2'],
-      8: ['2'],
-      9: ['2', '3'],
-      10: ['2', '3'],
-      11: ['2', '3'],
-      12: ['3'],
-      13: ['3'],
-      14: ['3'],
-      15: ['3', '4'],
-      16: ['4'],
-      17: ['4'],
-      18: ['4'],
-      19: ['4', '5'],
-      20: ['4', '5'],
-      21: ['5'],
-      22: ['5'],
-      23: ['5'],
-      24: ['5', '6'],
-      25: ['6'],
-      26: ['6'],
-      27: ['6', '7'],
-      28: ['7'],
-      29: ['7'],
-      30: ['7', '8'],
-    };
-    return levelPlan[order] ?? const <String>['0'];
+    final stage = stages().where((stage) => stage.order == order).firstOrNull;
+    return stage?.allowedLevels ?? const <String>['0'];
   }
 
   static CampaignStage _stage({
-    required String id,
     required String campaignId,
     required int order,
     required String title,
     required String subtitle,
-    required CampaignStageType type,
-    required int timeLimitSeconds,
-    required List<String> categories,
+    required CampaignMode campaignMode,
+    required CampaignWinCondition winCondition,
     required List<String> allowedLevels,
-    required int minDifficulty,
-    required int maxDifficulty,
-    required int unlockRequirementStars,
-    required int rewardCoins,
-    required int rewardGems,
-    required int rewardXp,
-    required StageStarRules starRules,
+    int timeLimitSeconds = 0,
+    bool allow5050 = true,
+    bool allowAudience = true,
+    bool allowCall = true,
+    int? lives,
+    int? maxWrongAnswers,
+    int? targetScore,
+    String? opponentName,
+    int? opponentAccuracy,
+    int? opponentStartScore,
     String? bossBotName,
     int? bossBotIntelligence,
+    int? seriesRounds,
+    int? seriesWinsRequired,
+    String? teamAllyName,
+    String? teamEnemyName,
   }) {
-    final noLifeline = type == CampaignStageType.noLifeline;
     return CampaignStage(
-      id: id,
+      id: 'stage_${order.toString().padLeft(3, '0')}',
       campaignId: campaignId,
       order: order,
       title: title,
       subtitle: subtitle,
-      type: type,
+      type: campaignMode.legacyType,
+      campaignMode: campaignMode,
+      winCondition: winCondition,
       questionCount: 10,
       timeLimitSeconds: timeLimitSeconds,
-      categories: categories,
+      categories: const <String>['general'],
       allowedLevels: allowedLevels,
-      minDifficulty: minDifficulty,
-      maxDifficulty: maxDifficulty,
-      unlockRequirementStars: unlockRequirementStars,
-      allow5050: !noLifeline,
-      allowAudience: !noLifeline,
-      allowCall: !noLifeline,
-      rewardCoins: rewardCoins,
-      rewardGems: rewardGems,
-      rewardXp: rewardXp,
+      minDifficulty: _minDifficultyFor(allowedLevels),
+      maxDifficulty: _maxDifficultyFor(allowedLevels),
+      unlockRequirementStars: order == 1 ? 0 : (order - 1) * 2,
+      allow5050: allow5050,
+      allowAudience: allowAudience,
+      allowCall: allowCall,
+      rewardCoins: 100 + order * 22,
+      rewardGems: order % 5 == 0 ? 2 : (order % 3 == 0 ? 1 : 0),
+      rewardXp: 70 + order * 18,
+      lives: lives,
+      maxWrongAnswers: maxWrongAnswers,
+      targetScore: targetScore,
+      opponentName: opponentName,
+      opponentAccuracy: opponentAccuracy,
+      opponentStartScore: opponentStartScore,
       bossBotName: bossBotName,
       bossBotIntelligence: bossBotIntelligence,
-      starRules: starRules,
+      seriesRounds: seriesRounds,
+      seriesWinsRequired: seriesWinsRequired,
+      teamAllyName: teamAllyName,
+      teamEnemyName: teamEnemyName,
+      starRules: _starRulesFor(campaignMode, timeLimitSeconds),
     );
   }
 
-  static CampaignStageType _typeFor(int order) {
-    if (order == 10 || order == 20 || order == 30) {
-      return CampaignStageType.boss;
-    }
-    if (order == 6 ||
-        order == 12 ||
-        order == 17 ||
-        order == 23 ||
-        order == 27) {
-      return CampaignStageType.speed;
-    }
-    if (order == 7 || order == 14 || order == 22 || order == 28) {
-      return CampaignStageType.noLifeline;
-    }
-    if (order == 9 || order == 25) return CampaignStageType.survival;
-    if (order == 18) return CampaignStageType.rival;
-    return CampaignStageType.classic;
-  }
-
-  static StageStarRules _starRulesFor(CampaignStageType type, int order) {
+  static StageStarRules _starRulesFor(
+    CampaignMode campaignMode,
+    int timeLimitSeconds,
+  ) {
     return StageStarRules(
       oneStarMinScore: 0,
       twoStarsMinScore: 0,
@@ -153,50 +409,21 @@ class CampaignDefaults {
       twoStarsMinCorrectAnswers: 7,
       threeStarsMinCorrectAnswers: 9,
       maxWrongAnswersForThreeStars: null,
-      twoStarsMaxTimeMs: type == CampaignStageType.speed ? 165000 : null,
-      threeStarsMaxTimeMs: type == CampaignStageType.speed ? 125000 : null,
-      threeStarsMaxLifelinesUsed: type == CampaignStageType.noLifeline
+      twoStarsMaxTimeMs:
+          campaignMode == CampaignMode.blitz && timeLimitSeconds > 0
+              ? timeLimitSeconds * 1000
+              : null,
+      threeStarsMaxTimeMs:
+          campaignMode == CampaignMode.blitz && timeLimitSeconds > 0
+              ? timeLimitSeconds * 1000
+              : null,
+      threeStarsMaxLifelinesUsed: campaignMode == CampaignMode.noLifeline
           ? 0
-          : type == CampaignStageType.boss
+          : campaignMode == CampaignMode.bossBattle
               ? 1
               : null,
       completedRequired: true,
     );
-  }
-
-  static int _timeLimitFor(CampaignStageType type, int order) {
-    if (type == CampaignStageType.speed) return order >= 20 ? 130 : 150;
-    if (type == CampaignStageType.boss) return order == 30 ? 180 : 210;
-    return 0;
-  }
-
-  static String _titleFor(int order, CampaignStageType type) {
-    switch (type) {
-      case CampaignStageType.speed:
-        return 'سباق المعرفة $order';
-      case CampaignStageType.survival:
-        return 'تحدي الصمود $order';
-      case CampaignStageType.noLifeline:
-        return 'بدون مساعدات $order';
-      case CampaignStageType.boss:
-        return order == 30 ? 'زعيم طريق المليون' : 'مواجهة الزعيم $order';
-      case CampaignStageType.rival:
-        return 'منافسة المعرفة';
-      case CampaignStageType.classic:
-        return 'مرحلة $order';
-    }
-  }
-
-  static String _bossNameFor(int order) {
-    if (order == 10) return 'طارق السريع';
-    if (order == 20) return 'ليلى الحاسمة';
-    return 'حارس المليون';
-  }
-
-  static int _bossIntelligenceFor(int order) {
-    if (order >= 30) return 85;
-    if (order >= 20) return 75;
-    return 65;
   }
 
   static int _minDifficultyFor(List<String> levels) {

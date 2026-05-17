@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import io.flutter.embedding.android.FlutterActivity
@@ -111,11 +112,20 @@ class MainActivity : FlutterActivity() {
                     }
                     "launchCampaignStage" -> {
                         try {
+                            val stageId = stringArg(call.argument<Any>("stageId"), "")
+                            val campaignMode = stringArg(call.argument<Any>("campaignMode"), "classic")
+                            val winCondition = stringArg(call.argument<Any>("winCondition"), "completeQuestions")
+                            Log.d(
+                                "CampaignStage",
+                                "CAMPAIGN_LAUNCH_CONFIG mode=$campaignMode winCondition=$winCondition stageId=$stageId"
+                            )
                             val intent = Intent(this, GameActivity::class.java).apply {
                                 putExtra("mode", "campaign")
                                 putExtra("campaignId", stringArg(call.argument<Any>("campaignId"), "main_campaign"))
-                                putExtra("stageId", stringArg(call.argument<Any>("stageId"), ""))
+                                putExtra("stageId", stageId)
                                 putExtra("stageType", stringArg(call.argument<Any>("stageType"), "classic"))
+                                putExtra("campaignMode", campaignMode)
+                                putExtra("winCondition", winCondition)
                                 putIntegerArrayListExtra("questionIds", intArrayListArg(call.argument<Any>("questionIds")))
                                 putStringArrayListExtra("allowedLevels", stringArrayListArg(call.argument<Any>("allowedLevels")))
                                 putExtra("questionCount", intArg(call.argument<Any>("questionCount"), 10))
@@ -125,6 +135,16 @@ class MainActivity : FlutterActivity() {
                                 putExtra("allowCall", boolArg(call.argument<Any>("allowCall"), true))
                                 putExtra("bossBotName", stringArg(call.argument<Any>("bossBotName"), ""))
                                 putExtra("bossBotIntelligence", intArg(call.argument<Any>("bossBotIntelligence"), 0))
+                                putExtra("lives", intArg(call.argument<Any>("lives"), 0))
+                                putExtra("maxWrongAnswers", intArg(call.argument<Any>("maxWrongAnswers"), 0))
+                                putExtra("targetScore", intArg(call.argument<Any>("targetScore"), 0))
+                                putExtra("opponentName", stringArg(call.argument<Any>("opponentName"), ""))
+                                putExtra("opponentAccuracy", intArg(call.argument<Any>("opponentAccuracy"), 0))
+                                putExtra("opponentStartScore", intArg(call.argument<Any>("opponentStartScore"), 0))
+                                putExtra("seriesRounds", intArg(call.argument<Any>("seriesRounds"), 0))
+                                putExtra("seriesWinsRequired", intArg(call.argument<Any>("seriesWinsRequired"), 0))
+                                putExtra("teamAllyName", stringArg(call.argument<Any>("teamAllyName"), ""))
+                                putExtra("teamEnemyName", stringArg(call.argument<Any>("teamEnemyName"), ""))
                             }
                             startActivity(intent)
                             result.success(true)

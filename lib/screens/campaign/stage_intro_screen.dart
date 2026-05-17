@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/campaign_stage.dart';
 import '../../models/stage_progress.dart';
+import '../../services/campaign_mode_engine.dart';
 import '../../services/campaign_question_selector.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/native_bridge_service.dart';
@@ -30,6 +31,7 @@ class StageIntroScreen extends StatefulWidget {
 class _StageIntroScreenState extends State<StageIntroScreen>
     with WidgetsBindingObserver {
   final CampaignQuestionSelector _questionSelector = CampaignQuestionSelector();
+  final CampaignModeEngine _modeEngine = const CampaignModeEngine();
   bool _launching = false;
   bool _waitingForResult = false;
 
@@ -113,19 +115,37 @@ class _StageIntroScreenState extends State<StageIntroScreen>
       if (questionIds.length < stage.questionCount) {
         throw StateError('Not enough campaign questions selected');
       }
+      final launchConfig = _modeEngine.buildLaunchConfig(stage);
       await nativeBridge.launchCampaignStage(
-        campaignId: stage.campaignId,
-        stageId: stage.id,
-        stageType: stage.type.value,
+        campaignId: launchConfig['campaignId'] as String? ?? stage.campaignId,
+        stageId: launchConfig['stageId'] as String? ?? stage.id,
+        stageType: launchConfig['stageType'] as String? ?? stage.type.value,
+        campaignMode:
+            launchConfig['campaignMode'] as String? ?? stage.campaignMode.value,
+        winCondition:
+            launchConfig['winCondition'] as String? ?? stage.winCondition.value,
         questionIds: questionIds,
         allowedLevels: effectiveAllowedLevels,
-        questionCount: stage.questionCount,
-        timeLimitSeconds: stage.timeLimitSeconds,
-        allow5050: stage.allow5050,
-        allowAudience: stage.allowAudience,
-        allowCall: stage.allowCall,
-        bossBotName: stage.bossBotName ?? '',
-        bossBotIntelligence: stage.bossBotIntelligence ?? 0,
+        questionCount:
+            launchConfig['questionCount'] as int? ?? stage.questionCount,
+        timeLimitSeconds:
+            launchConfig['timeLimitSeconds'] as int? ?? stage.timeLimitSeconds,
+        allow5050: launchConfig['allow5050'] as bool? ?? stage.allow5050,
+        allowAudience:
+            launchConfig['allowAudience'] as bool? ?? stage.allowAudience,
+        allowCall: launchConfig['allowCall'] as bool? ?? stage.allowCall,
+        bossBotName: launchConfig['bossBotName'] as String? ?? '',
+        bossBotIntelligence: launchConfig['bossBotIntelligence'] as int? ?? 0,
+        lives: launchConfig['lives'] as int? ?? 0,
+        maxWrongAnswers: launchConfig['maxWrongAnswers'] as int? ?? 0,
+        targetScore: launchConfig['targetScore'] as int? ?? 0,
+        opponentName: launchConfig['opponentName'] as String? ?? '',
+        opponentAccuracy: launchConfig['opponentAccuracy'] as int? ?? 0,
+        opponentStartScore: launchConfig['opponentStartScore'] as int? ?? 0,
+        seriesRounds: launchConfig['seriesRounds'] as int? ?? 0,
+        seriesWinsRequired: launchConfig['seriesWinsRequired'] as int? ?? 0,
+        teamAllyName: launchConfig['teamAllyName'] as String? ?? '',
+        teamEnemyName: launchConfig['teamEnemyName'] as String? ?? '',
       );
       if (mounted) setState(() => _waitingForResult = true);
     } catch (_) {
@@ -298,7 +318,9 @@ class StageIntroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final boss = stage.type == CampaignStageType.boss;
+    const modeEngine = CampaignModeEngine();
+    final boss = stage.campaignMode == CampaignMode.bossBattle ||
+        stage.type == CampaignStageType.boss;
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
       decoration: BoxDecoration(
@@ -354,7 +376,7 @@ class StageIntroHeader extends StatelessWidget {
                   children: [
                     _MiniPill(
                       icon: Icons.sports_esports_rounded,
-                      label: stageTypeLabel(stage.type),
+                      label: modeEngine.modeLabelArabic(stage.campaignMode),
                       color: const Color(0xFFFFF0A7),
                     ),
                     if (boss)
@@ -643,6 +665,8 @@ class _RulesPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const modeEngine = CampaignModeEngine();
+    final objective = modeEngine.objectiveText(stage);
     return _GlassPanel(
       title: 'المساعدات',
       icon: Icons.auto_awesome_rounded,
@@ -652,11 +676,11 @@ class _RulesPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: _InfoChip(
                   icon: Icons.quiz_rounded,
-                  label: '10 أسئلة',
-                  color: Color(0xFF54F088),
+                  label: objective,
+                  color: const Color(0xFF54F088),
                 ),
               ),
               if (stage.timeLimitSeconds > 0) ...[

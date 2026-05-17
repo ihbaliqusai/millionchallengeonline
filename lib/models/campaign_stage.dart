@@ -27,23 +27,226 @@ extension CampaignStageTypeX on CampaignStageType {
 }
 
 CampaignStageType campaignStageTypeFromString(dynamic value) {
-  final normalized = _readString(value).trim().toLowerCase();
+  final normalized = _normalizeKey(value);
   switch (normalized) {
     case 'speed':
+    case 'blitz':
       return CampaignStageType.speed;
     case 'survival':
       return CampaignStageType.survival;
     case 'nolifeline':
-    case 'no_lifeline':
-    case 'no-lifeline':
       return CampaignStageType.noLifeline;
     case 'boss':
+    case 'bossbattle':
       return CampaignStageType.boss;
     case 'rival':
       return CampaignStageType.rival;
     case 'classic':
     default:
       return CampaignStageType.classic;
+  }
+}
+
+enum CampaignMode {
+  classic,
+  blitz,
+  elimination,
+  survival,
+  noLifeline,
+  battle,
+  rival,
+  series,
+  teamBattle,
+  bossBattle,
+}
+
+extension CampaignModeX on CampaignMode {
+  String get value {
+    switch (this) {
+      case CampaignMode.classic:
+        return 'classic';
+      case CampaignMode.blitz:
+        return 'blitz';
+      case CampaignMode.elimination:
+        return 'elimination';
+      case CampaignMode.survival:
+        return 'survival';
+      case CampaignMode.noLifeline:
+        return 'noLifeline';
+      case CampaignMode.battle:
+        return 'battle';
+      case CampaignMode.rival:
+        return 'rival';
+      case CampaignMode.series:
+        return 'series';
+      case CampaignMode.teamBattle:
+        return 'teamBattle';
+      case CampaignMode.bossBattle:
+        return 'bossBattle';
+    }
+  }
+
+  CampaignStageType get legacyType {
+    switch (this) {
+      case CampaignMode.blitz:
+        return CampaignStageType.speed;
+      case CampaignMode.survival:
+        return CampaignStageType.survival;
+      case CampaignMode.noLifeline:
+        return CampaignStageType.noLifeline;
+      case CampaignMode.bossBattle:
+        return CampaignStageType.boss;
+      case CampaignMode.rival:
+        return CampaignStageType.rival;
+      case CampaignMode.classic:
+      case CampaignMode.elimination:
+      case CampaignMode.battle:
+      case CampaignMode.series:
+      case CampaignMode.teamBattle:
+        return CampaignStageType.classic;
+    }
+  }
+}
+
+CampaignMode campaignModeFromString(
+  dynamic value, {
+  CampaignStageType? fallbackType,
+}) {
+  final normalized = _normalizeKey(value);
+  switch (normalized) {
+    case 'blitz':
+    case 'speed':
+      return CampaignMode.blitz;
+    case 'elimination':
+      return CampaignMode.elimination;
+    case 'survival':
+      return CampaignMode.survival;
+    case 'nolifeline':
+      return CampaignMode.noLifeline;
+    case 'battle':
+      return CampaignMode.battle;
+    case 'rival':
+      return CampaignMode.rival;
+    case 'series':
+      return CampaignMode.series;
+    case 'teambattle':
+      return CampaignMode.teamBattle;
+    case 'bossbattle':
+    case 'boss':
+      return CampaignMode.bossBattle;
+    case 'classic':
+      return CampaignMode.classic;
+    default:
+      return campaignModeFromLegacyType(
+        fallbackType ?? CampaignStageType.classic,
+      );
+  }
+}
+
+CampaignMode campaignModeFromLegacyType(CampaignStageType type) {
+  switch (type) {
+    case CampaignStageType.classic:
+      return CampaignMode.classic;
+    case CampaignStageType.speed:
+      return CampaignMode.blitz;
+    case CampaignStageType.survival:
+      return CampaignMode.survival;
+    case CampaignStageType.noLifeline:
+      return CampaignMode.noLifeline;
+    case CampaignStageType.boss:
+      return CampaignMode.bossBattle;
+    case CampaignStageType.rival:
+      return CampaignMode.rival;
+  }
+}
+
+enum CampaignWinCondition {
+  completeQuestions,
+  finishBeforeTime,
+  survive,
+  noMistakes,
+  beatOpponent,
+  beatTargetScore,
+  winSeries,
+  teamScore,
+  defeatBoss,
+}
+
+extension CampaignWinConditionX on CampaignWinCondition {
+  String get value {
+    switch (this) {
+      case CampaignWinCondition.completeQuestions:
+        return 'completeQuestions';
+      case CampaignWinCondition.finishBeforeTime:
+        return 'finishBeforeTime';
+      case CampaignWinCondition.survive:
+        return 'survive';
+      case CampaignWinCondition.noMistakes:
+        return 'noMistakes';
+      case CampaignWinCondition.beatOpponent:
+        return 'beatOpponent';
+      case CampaignWinCondition.beatTargetScore:
+        return 'beatTargetScore';
+      case CampaignWinCondition.winSeries:
+        return 'winSeries';
+      case CampaignWinCondition.teamScore:
+        return 'teamScore';
+      case CampaignWinCondition.defeatBoss:
+        return 'defeatBoss';
+    }
+  }
+}
+
+CampaignWinCondition campaignWinConditionFromString(
+  dynamic value, {
+  required CampaignMode fallbackMode,
+}) {
+  final normalized = _normalizeKey(value);
+  switch (normalized) {
+    case 'finishbeforetime':
+      return CampaignWinCondition.finishBeforeTime;
+    case 'survive':
+      return CampaignWinCondition.survive;
+    case 'nomistakes':
+      return CampaignWinCondition.noMistakes;
+    case 'beatopponent':
+      return CampaignWinCondition.beatOpponent;
+    case 'beattargetscore':
+      return CampaignWinCondition.beatTargetScore;
+    case 'winseries':
+      return CampaignWinCondition.winSeries;
+    case 'teamscore':
+      return CampaignWinCondition.teamScore;
+    case 'defeatboss':
+      return CampaignWinCondition.defeatBoss;
+    case 'completequestions':
+      return CampaignWinCondition.completeQuestions;
+    default:
+      return defaultWinConditionForCampaignMode(fallbackMode);
+  }
+}
+
+CampaignWinCondition defaultWinConditionForCampaignMode(CampaignMode mode) {
+  switch (mode) {
+    case CampaignMode.blitz:
+      return CampaignWinCondition.finishBeforeTime;
+    case CampaignMode.elimination:
+      return CampaignWinCondition.noMistakes;
+    case CampaignMode.survival:
+      return CampaignWinCondition.survive;
+    case CampaignMode.battle:
+      return CampaignWinCondition.beatOpponent;
+    case CampaignMode.rival:
+      return CampaignWinCondition.beatTargetScore;
+    case CampaignMode.series:
+      return CampaignWinCondition.winSeries;
+    case CampaignMode.teamBattle:
+      return CampaignWinCondition.teamScore;
+    case CampaignMode.bossBattle:
+      return CampaignWinCondition.defeatBoss;
+    case CampaignMode.classic:
+    case CampaignMode.noLifeline:
+      return CampaignWinCondition.completeQuestions;
   }
 }
 
@@ -156,7 +359,7 @@ class StageStarRules {
 }
 
 class CampaignStage {
-  const CampaignStage({
+  CampaignStage({
     required this.id,
     required this.campaignId,
     required this.order,
@@ -177,9 +380,25 @@ class CampaignStage {
     required this.rewardGems,
     required this.rewardXp,
     required this.starRules,
+    CampaignMode? campaignMode,
+    CampaignWinCondition? winCondition,
+    this.lives,
+    this.maxWrongAnswers,
+    this.targetScore,
+    this.opponentName,
+    this.opponentAccuracy,
+    this.opponentStartScore,
     this.bossBotName,
     this.bossBotIntelligence,
-  });
+    this.seriesRounds,
+    this.seriesWinsRequired,
+    this.teamAllyName,
+    this.teamEnemyName,
+  })  : campaignMode = campaignMode ?? type._defaultCampaignMode,
+        winCondition = winCondition ??
+            (campaignMode == null
+                ? type._defaultCampaignMode._defaultWinCondition
+                : campaignMode._defaultWinCondition);
 
   final String id;
   final String campaignId;
@@ -187,6 +406,8 @@ class CampaignStage {
   final String title;
   final String subtitle;
   final CampaignStageType type;
+  final CampaignMode campaignMode;
+  final CampaignWinCondition winCondition;
   final int questionCount;
   final int timeLimitSeconds;
   final List<String> categories;
@@ -200,8 +421,18 @@ class CampaignStage {
   final int rewardCoins;
   final int rewardGems;
   final int rewardXp;
+  final int? lives;
+  final int? maxWrongAnswers;
+  final int? targetScore;
+  final String? opponentName;
+  final int? opponentAccuracy;
+  final int? opponentStartScore;
   final String? bossBotName;
   final int? bossBotIntelligence;
+  final int? seriesRounds;
+  final int? seriesWinsRequired;
+  final String? teamAllyName;
+  final String? teamEnemyName;
   final StageStarRules starRules;
 
   factory CampaignStage.empty() => CampaignStage(
@@ -211,6 +442,8 @@ class CampaignStage {
         title: '',
         subtitle: '',
         type: CampaignStageType.classic,
+        campaignMode: CampaignMode.classic,
+        winCondition: CampaignWinCondition.completeQuestions,
         questionCount: 0,
         timeLimitSeconds: 0,
         categories: const <String>[],
@@ -227,30 +460,53 @@ class CampaignStage {
         starRules: StageStarRules.empty(),
       );
 
-  factory CampaignStage.fromMap(Map<String, dynamic> map) => CampaignStage(
-        id: _readString(map['id']),
-        campaignId: _readString(map['campaignId']),
-        order: _readInt(map['order']),
-        title: _readString(map['title']),
-        subtitle: _readString(map['subtitle']),
-        type: campaignStageTypeFromString(map['type']),
-        questionCount: _readInt(map['questionCount']),
-        timeLimitSeconds: _readInt(map['timeLimitSeconds']),
-        categories: _readStringList(map['categories']),
-        allowedLevels: _readStringList(map['allowedLevels']),
-        minDifficulty: _readInt(map['minDifficulty']),
-        maxDifficulty: _readInt(map['maxDifficulty']),
-        unlockRequirementStars: _readInt(map['unlockRequirementStars']),
-        allow5050: _readBool(map['allow5050'], defaultValue: true),
-        allowAudience: _readBool(map['allowAudience'], defaultValue: true),
-        allowCall: _readBool(map['allowCall'], defaultValue: true),
-        rewardCoins: _readInt(map['rewardCoins']),
-        rewardGems: _readInt(map['rewardGems']),
-        rewardXp: _readInt(map['rewardXp']),
-        bossBotName: _readNullableString(map['bossBotName']),
-        bossBotIntelligence: _readNullableInt(map['bossBotIntelligence']),
-        starRules: StageStarRules.fromMap(_readMap(map['starRules'])),
-      );
+  factory CampaignStage.fromMap(Map<String, dynamic> map) {
+    final legacyType = campaignStageTypeFromString(map['type']);
+    final mode = campaignModeFromString(
+      map['campaignMode'] ?? map['mode'],
+      fallbackType: legacyType,
+    );
+    final condition = campaignWinConditionFromString(
+      map['winCondition'],
+      fallbackMode: mode,
+    );
+    return CampaignStage(
+      id: _readString(map['id']),
+      campaignId: _readString(map['campaignId']),
+      order: _readInt(map['order']),
+      title: _readString(map['title']),
+      subtitle: _readString(map['subtitle']),
+      type: _readLegacyType(map['type'], mode),
+      campaignMode: mode,
+      winCondition: condition,
+      questionCount: _readInt(map['questionCount']),
+      timeLimitSeconds: _readInt(map['timeLimitSeconds']),
+      categories: _readStringList(map['categories']),
+      allowedLevels: _readStringList(map['allowedLevels']),
+      minDifficulty: _readInt(map['minDifficulty']),
+      maxDifficulty: _readInt(map['maxDifficulty']),
+      unlockRequirementStars: _readInt(map['unlockRequirementStars']),
+      allow5050: _readBool(map['allow5050'], defaultValue: true),
+      allowAudience: _readBool(map['allowAudience'], defaultValue: true),
+      allowCall: _readBool(map['allowCall'], defaultValue: true),
+      rewardCoins: _readInt(map['rewardCoins']),
+      rewardGems: _readInt(map['rewardGems']),
+      rewardXp: _readInt(map['rewardXp']),
+      lives: _readNullableInt(map['lives']),
+      maxWrongAnswers: _readNullableInt(map['maxWrongAnswers']),
+      targetScore: _readNullableInt(map['targetScore']),
+      opponentName: _readNullableString(map['opponentName']),
+      opponentAccuracy: _readNullableInt(map['opponentAccuracy']),
+      opponentStartScore: _readNullableInt(map['opponentStartScore']),
+      bossBotName: _readNullableString(map['bossBotName']),
+      bossBotIntelligence: _readNullableInt(map['bossBotIntelligence']),
+      seriesRounds: _readNullableInt(map['seriesRounds']),
+      seriesWinsRequired: _readNullableInt(map['seriesWinsRequired']),
+      teamAllyName: _readNullableString(map['teamAllyName']),
+      teamEnemyName: _readNullableString(map['teamEnemyName']),
+      starRules: StageStarRules.fromMap(_readMap(map['starRules'])),
+    );
+  }
 
   Map<String, dynamic> toMap() => <String, dynamic>{
         'id': id,
@@ -259,6 +515,8 @@ class CampaignStage {
         'title': title,
         'subtitle': subtitle,
         'type': type.value,
+        'campaignMode': campaignMode.value,
+        'winCondition': winCondition.value,
         'questionCount': questionCount,
         'timeLimitSeconds': timeLimitSeconds,
         'categories': categories,
@@ -272,8 +530,18 @@ class CampaignStage {
         'rewardCoins': rewardCoins,
         'rewardGems': rewardGems,
         'rewardXp': rewardXp,
+        'lives': lives,
+        'maxWrongAnswers': maxWrongAnswers,
+        'targetScore': targetScore,
+        'opponentName': opponentName,
+        'opponentAccuracy': opponentAccuracy,
+        'opponentStartScore': opponentStartScore,
         'bossBotName': bossBotName,
         'bossBotIntelligence': bossBotIntelligence,
+        'seriesRounds': seriesRounds,
+        'seriesWinsRequired': seriesWinsRequired,
+        'teamAllyName': teamAllyName,
+        'teamEnemyName': teamEnemyName,
         'starRules': starRules.toMap(),
       };
 
@@ -284,6 +552,8 @@ class CampaignStage {
     String? title,
     String? subtitle,
     CampaignStageType? type,
+    CampaignMode? campaignMode,
+    CampaignWinCondition? winCondition,
     int? questionCount,
     int? timeLimitSeconds,
     List<String>? categories,
@@ -297,10 +567,21 @@ class CampaignStage {
     int? rewardCoins,
     int? rewardGems,
     int? rewardXp,
+    int? lives,
+    int? maxWrongAnswers,
+    int? targetScore,
+    String? opponentName,
+    int? opponentAccuracy,
+    int? opponentStartScore,
     String? bossBotName,
     int? bossBotIntelligence,
+    int? seriesRounds,
+    int? seriesWinsRequired,
+    String? teamAllyName,
+    String? teamEnemyName,
     StageStarRules? starRules,
   }) {
+    final effectiveMode = campaignMode ?? this.campaignMode;
     return CampaignStage(
       id: id ?? this.id,
       campaignId: campaignId ?? this.campaignId,
@@ -308,6 +589,8 @@ class CampaignStage {
       title: title ?? this.title,
       subtitle: subtitle ?? this.subtitle,
       type: type ?? this.type,
+      campaignMode: effectiveMode,
+      winCondition: winCondition ?? this.winCondition,
       questionCount: questionCount ?? this.questionCount,
       timeLimitSeconds: timeLimitSeconds ?? this.timeLimitSeconds,
       categories: categories ?? this.categories,
@@ -322,11 +605,36 @@ class CampaignStage {
       rewardCoins: rewardCoins ?? this.rewardCoins,
       rewardGems: rewardGems ?? this.rewardGems,
       rewardXp: rewardXp ?? this.rewardXp,
+      lives: lives ?? this.lives,
+      maxWrongAnswers: maxWrongAnswers ?? this.maxWrongAnswers,
+      targetScore: targetScore ?? this.targetScore,
+      opponentName: opponentName ?? this.opponentName,
+      opponentAccuracy: opponentAccuracy ?? this.opponentAccuracy,
+      opponentStartScore: opponentStartScore ?? this.opponentStartScore,
       bossBotName: bossBotName ?? this.bossBotName,
       bossBotIntelligence: bossBotIntelligence ?? this.bossBotIntelligence,
+      seriesRounds: seriesRounds ?? this.seriesRounds,
+      seriesWinsRequired: seriesWinsRequired ?? this.seriesWinsRequired,
+      teamAllyName: teamAllyName ?? this.teamAllyName,
+      teamEnemyName: teamEnemyName ?? this.teamEnemyName,
       starRules: starRules ?? this.starRules,
     );
   }
+}
+
+extension on CampaignStageType {
+  CampaignMode get _defaultCampaignMode => campaignModeFromLegacyType(this);
+}
+
+extension on CampaignMode {
+  CampaignWinCondition get _defaultWinCondition =>
+      defaultWinConditionForCampaignMode(this);
+}
+
+CampaignStageType _readLegacyType(dynamic value, CampaignMode mode) {
+  final normalized = _normalizeKey(value);
+  if (normalized.isEmpty) return mode.legacyType;
+  return campaignStageTypeFromString(value);
 }
 
 bool _readBool(dynamic value, {bool defaultValue = false}) {
@@ -363,12 +671,13 @@ Map<String, dynamic>? _readMap(dynamic value) {
 
 String _readString(dynamic value, {String defaultValue = ''}) {
   if (value == null) return defaultValue;
-  return value.toString();
+  final text = value.toString();
+  return text.isEmpty ? defaultValue : text;
 }
 
 String? _readNullableString(dynamic value) {
   if (value == null) return null;
-  final text = value.toString();
+  final text = value.toString().trim();
   return text.isEmpty ? null : text;
 }
 
@@ -383,4 +692,13 @@ List<String> _readStringList(dynamic value) {
     return <String>[value.trim()];
   }
   return const <String>[];
+}
+
+String _normalizeKey(dynamic value) {
+  if (value == null) return '';
+  return value
+      .toString()
+      .trim()
+      .replaceAll(RegExp(r'[\s_-]+'), '')
+      .toLowerCase();
 }

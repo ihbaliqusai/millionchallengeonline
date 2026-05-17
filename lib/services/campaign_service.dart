@@ -333,15 +333,83 @@ class CampaignService {
     required int wrongAnswers,
     required int timeMs,
     required int usedLifelines,
+    String failureReason = '',
+    int answeredQuestions = 0,
+    int lives = 0,
+    int livesRemaining = 0,
+    int maxWrongAnswers = 0,
+    int targetScore = 0,
+    int playerScore = 0,
+    int opponentScore = 0,
+    int bossScore = 0,
+    bool bossDefeated = false,
+    int playerSeriesWins = 0,
+    int opponentSeriesWins = 0,
+    int seriesWinsRequired = 0,
+    int teamScore = 0,
+    int enemyTeamScore = 0,
   }) {
     final rules = stage.starRules;
-    if (rules.completedRequired && !completed) return 0;
+    if (!completed) return 0;
 
-    if (stage.type == CampaignStageType.boss) {
-      if (correctAnswers >= 9) return 3;
-      if (correctAnswers >= 7) return 2;
-      if (correctAnswers >= 5) return 1;
-      return 0;
+    final mode = stage.campaignMode;
+    final effectiveAnswered = answeredQuestions > 0
+        ? answeredQuestions
+        : correctAnswers + wrongAnswers;
+    final effectivePlayerScore = playerScore > 0 ? playerScore : score;
+    final margin = effectivePlayerScore - opponentScore;
+
+    switch (mode) {
+      case CampaignMode.blitz:
+        var stars = 1;
+        if (correctAnswers >= 7) stars = 2;
+        if (correctAnswers >= 9 &&
+            _passesMax(timeMs, rules.threeStarsMaxTimeMs)) {
+          stars = 3;
+        }
+        return stars;
+      case CampaignMode.elimination:
+        if (effectiveAnswered >= stage.questionCount &&
+            wrongAnswers <
+                (maxWrongAnswers > 0
+                    ? maxWrongAnswers
+                    : (stage.maxWrongAnswers ?? 1))) {
+          return 3;
+        }
+        if (effectiveAnswered >= 8) return 2;
+        if (effectiveAnswered >= 6) return 1;
+        return 0;
+      case CampaignMode.survival:
+        final startLives = lives > 0 ? lives : (stage.lives ?? 3);
+        if (livesRemaining >= startLives) return 3;
+        if (livesRemaining >= 2) return 2;
+        return 1;
+      case CampaignMode.battle:
+      case CampaignMode.rival:
+        if (correctAnswers >= 9 || margin >= 300) return 3;
+        if (correctAnswers >= 7 || margin >= 150) return 2;
+        return 1;
+      case CampaignMode.bossBattle:
+        if (!bossDefeated) return 0;
+        final bossMargin = effectivePlayerScore - bossScore;
+        if (correctAnswers >= 9 || bossMargin >= 300) return 3;
+        if (correctAnswers >= 7 || bossMargin >= 150) return 2;
+        return 1;
+      case CampaignMode.series:
+        final required = seriesWinsRequired > 0
+            ? seriesWinsRequired
+            : (stage.seriesWinsRequired ?? 2);
+        if (playerSeriesWins >= required && opponentSeriesWins == 0) return 3;
+        if (playerSeriesWins >= required && opponentSeriesWins <= 1) return 2;
+        return 1;
+      case CampaignMode.teamBattle:
+        final teamMargin = teamScore - enemyTeamScore;
+        if (teamMargin >= 400 && correctAnswers >= 7) return 3;
+        if (teamMargin >= 200 || correctAnswers >= 7) return 2;
+        return 1;
+      case CampaignMode.classic:
+      case CampaignMode.noLifeline:
+        break;
     }
 
     var stars = 0;
@@ -363,6 +431,67 @@ class CampaignService {
       stars = 3;
     }
     return stars.clamp(0, 3);
+  }
+
+  bool normalizeStageCompleted({
+    required CampaignStage stage,
+    required Map<String, dynamic> nativeResult,
+    required int correctAnswers,
+    required int wrongAnswers,
+  }) {
+    final nativeCompleted = _readBool(nativeResult['completed']);
+    if (!nativeCompleted) return false;
+
+    final mode = campaignModeFromString(
+      nativeResult['campaignMode'],
+      fallbackType: stage.type,
+    );
+    final failureReason = _readString(nativeResult['failureReason']);
+    final playerScore = _readInt(
+      nativeResult['playerScore'],
+      defaultValue: correctAnswers * 100,
+    );
+    final opponentScore = _readInt(nativeResult['opponentScore']);
+    final opponentCorrectAnswers =
+        _readInt(nativeResult['opponentCorrectAnswers']);
+    final bossDefeated = _readBool(nativeResult['bossDefeated'],
+        defaultValue: _readBool(nativeResult['bossBattleWon']));
+    final targetScore = _readInt(
+      nativeResult['targetScore'],
+      defaultValue: stage.targetScore ?? 700,
+    );
+    final livesRemaining = _readInt(nativeResult['livesRemaining']);
+    final playerSeriesWins = _readInt(nativeResult['playerSeriesWins']);
+    final seriesWinsRequired = _readInt(
+      nativeResult['seriesWinsRequired'],
+      defaultValue: stage.seriesWinsRequired ?? 2,
+    );
+    final teamScore = _readInt(nativeResult['teamScore']);
+    final enemyTeamScore = _readInt(nativeResult['enemyTeamScore']);
+
+    switch (mode) {
+      case CampaignMode.classic:
+      case CampaignMode.noLifeline:
+        return true;
+      case CampaignMode.blitz:
+        return failureReason != 'timeExpired';
+      case CampaignMode.elimination:
+        return failureReason != 'eliminated';
+      case CampaignMode.survival:
+        return livesRemaining > 0 && failureReason != 'outOfLives';
+      case CampaignMode.battle:
+        return playerScore > opponentScore ||
+            (playerScore == opponentScore &&
+                correctAnswers > opponentCorrectAnswers);
+      case CampaignMode.rival:
+        return playerScore >= targetScore;
+      case CampaignMode.bossBattle:
+        return bossDefeated;
+      case CampaignMode.series:
+        return playerSeriesWins >= seriesWinsRequired;
+      case CampaignMode.teamBattle:
+        return teamScore > enemyTeamScore;
+    }
   }
 
   Future<StageSubmissionResult> submitStageResult({
@@ -387,12 +516,20 @@ class CampaignService {
       nativeResult['stageType'],
       defaultValue: stage.type.value,
     );
-    final isBossStage =
-        stage.type == CampaignStageType.boss || stageType == 'boss';
+    final campaignMode = campaignModeFromString(
+      nativeResult['campaignMode'],
+      fallbackType: stage.type,
+    );
+    final winCondition = _readString(
+      nativeResult['winCondition'],
+      defaultValue: stage.winCondition.value,
+    );
+    final failureReason = _readString(nativeResult['failureReason']);
+    final isBossStage = campaignMode == CampaignMode.bossBattle ||
+        stage.type == CampaignStageType.boss ||
+        stageType == 'boss';
     final bossDefeated = _readBool(nativeResult['bossDefeated'],
         defaultValue: _readBool(nativeResult['bossBattleWon']));
-    final completed =
-        isBossStage ? bossDefeated : _readBool(nativeResult['completed']);
     final money = _readInt(nativeResult['money']);
     final correctAnswers = _readInt(nativeResult['correctAnswers']);
     final wrongAnswers = _readInt(nativeResult['wrongAnswers']);
@@ -402,20 +539,53 @@ class CampaignService {
     final usedCall = _readInt(nativeResult['usedCall']);
     final usedLifelines = used5050 + usedAudience + usedCall;
     final playerScore = _readInt(nativeResult['playerScore']);
+    final opponentScore = _readInt(nativeResult['opponentScore']);
+    final opponentCorrectAnswers =
+        _readInt(nativeResult['opponentCorrectAnswers']);
+    final opponentWrongAnswers = _readInt(nativeResult['opponentWrongAnswers']);
     final bossScore = _readInt(nativeResult['bossScore']);
     final bossCorrectAnswers = _readInt(nativeResult['bossCorrectAnswers']);
     final bossWrongAnswers = _readInt(nativeResult['bossWrongAnswers']);
-    final score = isBossStage
-        ? (playerScore > 0 ? playerScore : correctAnswers * 100)
-        : calculateScore(
-            money: money,
-            correctAnswers: correctAnswers,
-            wrongAnswers: wrongAnswers,
-            timeMs: timeMs,
-            used5050: used5050,
-            usedAudience: usedAudience,
-            usedCall: usedCall,
-          );
+    final lives =
+        _readInt(nativeResult['lives'], defaultValue: stage.lives ?? 0);
+    final livesRemaining = _readInt(nativeResult['livesRemaining']);
+    final maxWrongAnswers = _readInt(
+      nativeResult['maxWrongAnswers'],
+      defaultValue: stage.maxWrongAnswers ?? 0,
+    );
+    final targetScore = _readInt(
+      nativeResult['targetScore'],
+      defaultValue: stage.targetScore ?? 0,
+    );
+    final seriesRounds = _readInt(
+      nativeResult['seriesRounds'],
+      defaultValue: stage.seriesRounds ?? 0,
+    );
+    final seriesWinsRequired = _readInt(
+      nativeResult['seriesWinsRequired'],
+      defaultValue: stage.seriesWinsRequired ?? 0,
+    );
+    final playerSeriesWins = _readInt(nativeResult['playerSeriesWins']);
+    final opponentSeriesWins = _readInt(nativeResult['opponentSeriesWins']);
+    final allyScore = _readInt(nativeResult['allyScore']);
+    final teamScore = _readInt(nativeResult['teamScore']);
+    final enemyTeamScore = _readInt(nativeResult['enemyTeamScore']);
+    final completed = normalizeStageCompleted(
+      stage: stage,
+      nativeResult: nativeResult,
+      correctAnswers: correctAnswers,
+      wrongAnswers: wrongAnswers,
+    );
+    final calculatedScore = calculateScore(
+      money: money,
+      correctAnswers: correctAnswers,
+      wrongAnswers: wrongAnswers,
+      timeMs: timeMs,
+      used5050: used5050,
+      usedAudience: usedAudience,
+      usedCall: usedCall,
+    );
+    final score = playerScore > 0 ? playerScore : calculatedScore;
     final stars = calculateStars(
       stage: stage,
       completed: completed,
@@ -424,6 +594,21 @@ class CampaignService {
       wrongAnswers: wrongAnswers,
       timeMs: timeMs,
       usedLifelines: usedLifelines,
+      failureReason: failureReason,
+      answeredQuestions: correctAnswers + wrongAnswers,
+      lives: lives,
+      livesRemaining: livesRemaining,
+      maxWrongAnswers: maxWrongAnswers,
+      targetScore: targetScore,
+      playerScore: playerScore,
+      opponentScore: opponentScore,
+      bossScore: bossScore,
+      bossDefeated: bossDefeated,
+      playerSeriesWins: playerSeriesWins,
+      opponentSeriesWins: opponentSeriesWins,
+      seriesWinsRequired: seriesWinsRequired,
+      teamScore: teamScore,
+      enemyTeamScore: enemyTeamScore,
     );
 
     final attemptRef = _userAttempts(normalizedUid).doc();
@@ -434,6 +619,9 @@ class CampaignService {
       campaignId: campaignId,
       stageId: stageId,
       stageType: stageType,
+      campaignMode: campaignMode.value,
+      winCondition: winCondition,
+      failureReason: failureReason,
       score: score,
       money: money,
       correctAnswers: correctAnswers,
@@ -444,12 +632,29 @@ class CampaignService {
       usedCall: usedCall,
       completed: completed,
       stars: stars,
+      lives: lives,
+      livesRemaining: livesRemaining,
+      maxWrongAnswers: maxWrongAnswers,
+      targetScore: targetScore,
+      playerScore: score,
+      opponentName: _cleanString(_readString(nativeResult['opponentName'])),
+      opponentScore: opponentScore,
+      opponentCorrectAnswers: opponentCorrectAnswers,
+      opponentWrongAnswers: opponentWrongAnswers,
       bossDefeated: isBossStage && bossDefeated,
       bossName: _cleanString(_readString(nativeResult['bossName'])),
       bossCorrectAnswers: bossCorrectAnswers,
       bossWrongAnswers: bossWrongAnswers,
       bossScore: bossScore,
-      playerScore: score,
+      seriesRounds: seriesRounds,
+      seriesWinsRequired: seriesWinsRequired,
+      playerSeriesWins: playerSeriesWins,
+      opponentSeriesWins: opponentSeriesWins,
+      teamAllyName: _cleanString(_readString(nativeResult['teamAllyName'])),
+      teamEnemyName: _cleanString(_readString(nativeResult['teamEnemyName'])),
+      allyScore: allyScore,
+      teamScore: teamScore,
+      enemyTeamScore: enemyTeamScore,
       createdAt: DateTime.now(),
     );
     final leaderboardEntry = StageLeaderboardEntry(
@@ -488,8 +693,7 @@ class CampaignService {
       final previousStars = previousProgress?.stars ?? 0;
       final previousCompleted =
           previousProgress != null && isStageCompleted(previousProgress);
-      final completedNow =
-          completed || (!isBossStage && stars > 0) || previousCompleted;
+      final completedNow = completed || previousCompleted;
       final newStars = math.max(previousStars, stars);
       final improvedBestScore = score > (previousProgress?.bestScore ?? 0);
       final improvedStars = newStars > previousStars;
@@ -575,7 +779,7 @@ class CampaignService {
         ),
       );
     });
-    final leaderboardUpdated = isBossStage && !completed
+    final leaderboardUpdated = !completed
         ? false
         : await _tryUpdateStageLeaderboard(
             campaignId: campaignId,
@@ -612,9 +816,7 @@ class CampaignService {
     required bool previousStageCompleted,
     required int earnedStars,
   }) {
-    return isFirstStage ||
-        previousStageCompleted ||
-        earnedStars >= stage.unlockRequirementStars;
+    return isFirstStage || previousStageCompleted;
   }
 
   int totalStars(Iterable<StageProgress> progress) {

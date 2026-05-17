@@ -15,12 +15,32 @@ class StageAttempt {
     required this.usedCall,
     required this.completed,
     required this.stars,
+    this.campaignMode = '',
+    this.winCondition = '',
+    this.failureReason = '',
+    this.lives = 0,
+    this.livesRemaining = 0,
+    this.maxWrongAnswers = 0,
+    this.targetScore = 0,
+    this.playerScore = 0,
+    this.opponentName,
+    this.opponentScore = 0,
+    this.opponentCorrectAnswers = 0,
+    this.opponentWrongAnswers = 0,
     this.bossDefeated = false,
     this.bossName,
     this.bossCorrectAnswers = 0,
     this.bossWrongAnswers = 0,
     this.bossScore = 0,
-    this.playerScore = 0,
+    this.seriesRounds = 0,
+    this.seriesWinsRequired = 0,
+    this.playerSeriesWins = 0,
+    this.opponentSeriesWins = 0,
+    this.teamAllyName,
+    this.teamEnemyName,
+    this.allyScore = 0,
+    this.teamScore = 0,
+    this.enemyTeamScore = 0,
     this.createdAt,
   });
 
@@ -29,6 +49,9 @@ class StageAttempt {
   final String campaignId;
   final String stageId;
   final String stageType;
+  final String campaignMode;
+  final String winCondition;
+  final String failureReason;
   final int score;
   final int money;
   final int correctAnswers;
@@ -39,12 +62,29 @@ class StageAttempt {
   final int usedCall;
   final bool completed;
   final int stars;
+  final int lives;
+  final int livesRemaining;
+  final int maxWrongAnswers;
+  final int targetScore;
+  final int playerScore;
+  final String? opponentName;
+  final int opponentScore;
+  final int opponentCorrectAnswers;
+  final int opponentWrongAnswers;
   final bool bossDefeated;
   final String? bossName;
   final int bossCorrectAnswers;
   final int bossWrongAnswers;
   final int bossScore;
-  final int playerScore;
+  final int seriesRounds;
+  final int seriesWinsRequired;
+  final int playerSeriesWins;
+  final int opponentSeriesWins;
+  final String? teamAllyName;
+  final String? teamEnemyName;
+  final int allyScore;
+  final int teamScore;
+  final int enemyTeamScore;
   final DateTime? createdAt;
 
   factory StageAttempt.empty() => const StageAttempt(
@@ -63,7 +103,6 @@ class StageAttempt {
         usedCall: 0,
         completed: false,
         stars: 0,
-        bossDefeated: false,
       );
 
   factory StageAttempt.fromMap(Map<String, dynamic> map) => StageAttempt(
@@ -72,6 +111,9 @@ class StageAttempt {
         campaignId: _readString(map['campaignId']),
         stageId: _readString(map['stageId']),
         stageType: _readString(map['stageType']),
+        campaignMode: _readString(map['campaignMode']),
+        winCondition: _readString(map['winCondition']),
+        failureReason: _readString(map['failureReason']),
         score: _readInt(map['score']),
         money: _readInt(map['money']),
         correctAnswers: _readInt(map['correctAnswers']),
@@ -82,12 +124,29 @@ class StageAttempt {
         usedCall: _readInt(map['usedCall']),
         completed: _readBool(map['completed']),
         stars: _readInt(map['stars']),
+        lives: _readInt(map['lives']),
+        livesRemaining: _readInt(map['livesRemaining']),
+        maxWrongAnswers: _readInt(map['maxWrongAnswers']),
+        targetScore: _readInt(map['targetScore']),
+        playerScore: _readInt(map['playerScore']),
+        opponentName: _readNullableString(map['opponentName']),
+        opponentScore: _readInt(map['opponentScore']),
+        opponentCorrectAnswers: _readInt(map['opponentCorrectAnswers']),
+        opponentWrongAnswers: _readInt(map['opponentWrongAnswers']),
         bossDefeated: _readBool(map['bossDefeated']),
         bossName: _readNullableString(map['bossName']),
         bossCorrectAnswers: _readInt(map['bossCorrectAnswers']),
         bossWrongAnswers: _readInt(map['bossWrongAnswers']),
         bossScore: _readInt(map['bossScore']),
-        playerScore: _readInt(map['playerScore']),
+        seriesRounds: _readInt(map['seriesRounds']),
+        seriesWinsRequired: _readInt(map['seriesWinsRequired']),
+        playerSeriesWins: _readInt(map['playerSeriesWins']),
+        opponentSeriesWins: _readInt(map['opponentSeriesWins']),
+        teamAllyName: _readNullableString(map['teamAllyName']),
+        teamEnemyName: _readNullableString(map['teamEnemyName']),
+        allyScore: _readInt(map['allyScore']),
+        teamScore: _readInt(map['teamScore']),
+        enemyTeamScore: _readInt(map['enemyTeamScore']),
         createdAt: _readDate(map['createdAt']),
       );
 
@@ -97,6 +156,9 @@ class StageAttempt {
         'campaignId': campaignId,
         'stageId': stageId,
         'stageType': stageType,
+        'campaignMode': campaignMode,
+        'winCondition': winCondition,
+        'failureReason': failureReason,
         'score': score,
         'money': money,
         'correctAnswers': correctAnswers,
@@ -107,64 +169,31 @@ class StageAttempt {
         'usedCall': usedCall,
         'completed': completed,
         'stars': stars,
+        'lives': lives,
+        'livesRemaining': livesRemaining,
+        'maxWrongAnswers': maxWrongAnswers,
+        'targetScore': targetScore,
+        'playerScore': playerScore,
+        if (opponentName != null) 'opponentName': opponentName,
+        'opponentScore': opponentScore,
+        'opponentCorrectAnswers': opponentCorrectAnswers,
+        'opponentWrongAnswers': opponentWrongAnswers,
         'bossDefeated': bossDefeated,
         if (bossName != null) 'bossName': bossName,
         'bossCorrectAnswers': bossCorrectAnswers,
         'bossWrongAnswers': bossWrongAnswers,
         'bossScore': bossScore,
-        'playerScore': playerScore,
+        'seriesRounds': seriesRounds,
+        'seriesWinsRequired': seriesWinsRequired,
+        'playerSeriesWins': playerSeriesWins,
+        'opponentSeriesWins': opponentSeriesWins,
+        if (teamAllyName != null) 'teamAllyName': teamAllyName,
+        if (teamEnemyName != null) 'teamEnemyName': teamEnemyName,
+        'allyScore': allyScore,
+        'teamScore': teamScore,
+        'enemyTeamScore': enemyTeamScore,
         'createdAt': createdAt,
       };
-
-  StageAttempt copyWith({
-    String? attemptId,
-    String? uid,
-    String? campaignId,
-    String? stageId,
-    String? stageType,
-    int? score,
-    int? money,
-    int? correctAnswers,
-    int? wrongAnswers,
-    int? timeMs,
-    int? used5050,
-    int? usedAudience,
-    int? usedCall,
-    bool? completed,
-    int? stars,
-    bool? bossDefeated,
-    String? bossName,
-    int? bossCorrectAnswers,
-    int? bossWrongAnswers,
-    int? bossScore,
-    int? playerScore,
-    DateTime? createdAt,
-  }) {
-    return StageAttempt(
-      attemptId: attemptId ?? this.attemptId,
-      uid: uid ?? this.uid,
-      campaignId: campaignId ?? this.campaignId,
-      stageId: stageId ?? this.stageId,
-      stageType: stageType ?? this.stageType,
-      score: score ?? this.score,
-      money: money ?? this.money,
-      correctAnswers: correctAnswers ?? this.correctAnswers,
-      wrongAnswers: wrongAnswers ?? this.wrongAnswers,
-      timeMs: timeMs ?? this.timeMs,
-      used5050: used5050 ?? this.used5050,
-      usedAudience: usedAudience ?? this.usedAudience,
-      usedCall: usedCall ?? this.usedCall,
-      completed: completed ?? this.completed,
-      stars: stars ?? this.stars,
-      bossDefeated: bossDefeated ?? this.bossDefeated,
-      bossName: bossName ?? this.bossName,
-      bossCorrectAnswers: bossCorrectAnswers ?? this.bossCorrectAnswers,
-      bossWrongAnswers: bossWrongAnswers ?? this.bossWrongAnswers,
-      bossScore: bossScore ?? this.bossScore,
-      playerScore: playerScore ?? this.playerScore,
-      createdAt: createdAt ?? this.createdAt,
-    );
-  }
 }
 
 bool _readBool(dynamic value, {bool defaultValue = false}) {

@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import '../../models/campaign_stage.dart';
+import '../../models/stage_attempt.dart';
+import '../../services/campaign_mode_engine.dart';
 import '../../services/campaign_question_selector.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
@@ -46,11 +48,13 @@ class _StageResultScreenState extends State<StageResultScreen>
   StageSubmissionResult get submissionResult => widget.submissionResult;
   Map<String, dynamic>? get rawNativeResult => widget.rawNativeResult;
   bool get currencyRewardApplied => widget.currencyRewardApplied;
-  bool get _isBossStage => stage.type == CampaignStageType.boss;
-
   bool get _isUnsavedPreview {
     return submissionResult.attempt.uid.isEmpty && rawNativeResult != null;
   }
+
+  bool get _isBossStage =>
+      stage.campaignMode == CampaignMode.bossBattle ||
+      stage.type == CampaignStageType.boss;
 
   @override
   void initState() {
@@ -146,10 +150,12 @@ class _StageResultScreenState extends State<StageResultScreen>
                                     _ResultMessage(
                                       completed: completed,
                                       stage: stage,
+                                      attempt: attempt,
                                       bossDefeated: bossDefeated,
                                       message: _cleanMessage(
                                         submissionResult.motivationalMessage,
                                         completed: completed,
+                                        attempt: attempt,
                                         bossStage: _isBossStage,
                                         bossDefeated: bossDefeated,
                                       ),
@@ -167,6 +173,13 @@ class _StageResultScreenState extends State<StageResultScreen>
                                       timeMs: attempt.timeMs,
                                       usedLifelines: usedLifelines,
                                     ),
+                                    if (_hasModeDetails(attempt)) ...[
+                                      const SizedBox(height: 10),
+                                      _ModeDetailsPanel(
+                                        stage: stage,
+                                        attempt: attempt,
+                                      ),
+                                    ],
                                     if (_isBossStage) ...[
                                       const SizedBox(height: 10),
                                       _BossBattleResultPanel(
@@ -251,19 +264,59 @@ class _StageResultScreenState extends State<StageResultScreen>
   String _cleanMessage(
     String message, {
     required bool completed,
+    required StageAttempt attempt,
     bool bossStage = false,
     bool bossDefeated = false,
   }) {
-    if (bossStage) {
+    final mode = _modeForAttempt(attempt, stage);
+    if (bossStage || mode == CampaignMode.bossBattle) {
       return bossDefeated
           ? 'مواجهة رائعة، لقد فتحت الطريق التالي.'
           : 'لم تهزم الزعيم بعد. حاول مرة أخرى.';
     }
+    switch (mode) {
+      case CampaignMode.blitz:
+        if (!completed && attempt.failureReason == 'timeExpired') {
+          return 'انتهى الوقت قبل إكمال المرحلة.';
+        }
+        break;
+      case CampaignMode.elimination:
+        if (!completed) return 'تجاوزت حد الأخطاء المسموح.';
+        break;
+      case CampaignMode.survival:
+        if (!completed) return 'انتهت الأرواح قبل نهاية الأسئلة.';
+        break;
+      case CampaignMode.battle:
+        return completed
+            ? 'تفوقت على الخصم بالنقاط.'
+            : 'الخصم أنهى المواجهة متقدمًا.';
+      case CampaignMode.rival:
+        return completed
+            ? 'تجاوزت نتيجة الهدف.'
+            : 'اقتربت، لكن الهدف لم يتحقق.';
+      case CampaignMode.series:
+        return completed
+            ? 'حسمت السلسلة لصالحك.'
+            : 'السلسلة لم تكن لصالحك هذه المرة.';
+      case CampaignMode.teamBattle:
+        return completed
+            ? 'فريقك أنهى المواجهة متقدمًا.'
+            : 'فريق الخصم تفوق بالنقاط.';
+      case CampaignMode.classic:
+      case CampaignMode.noLifeline:
+      case CampaignMode.bossBattle:
+        break;
+    }
     final trimmed = message.trim();
     if (trimmed.isNotEmpty && !trimmed.contains('\u00D8')) return trimmed;
     return completed
-        ? 'الأخطاء لا تنهي المرحلة، لكنها تقلل عدد النجوم.'
-        : 'حاول مرة أخرى واجمع المزيد من النجوم.';
+        ? 'تم حفظ النتيجة واحتساب النجوم حسب قواعد المرحلة.'
+        : 'حاول مرة أخرى وأكمل شرط المرحلة لفتح الطريق التالي.';
+  }
+
+  bool _hasModeDetails(StageAttempt attempt) {
+    final mode = _modeForAttempt(attempt, stage);
+    return mode != CampaignMode.classic && mode != CampaignMode.noLifeline;
   }
 
   Future<void> _retrySave(BuildContext context) async {
@@ -347,19 +400,37 @@ class _StageResultScreenState extends State<StageResultScreen>
       if (questionIds.length < stage.questionCount) {
         throw StateError('Not enough campaign questions selected');
       }
+      final launchConfig = const CampaignModeEngine().buildLaunchConfig(stage);
       await nativeBridge.launchCampaignStage(
-        campaignId: stage.campaignId,
-        stageId: stage.id,
-        stageType: stage.type.value,
+        campaignId: launchConfig['campaignId'] as String? ?? stage.campaignId,
+        stageId: launchConfig['stageId'] as String? ?? stage.id,
+        stageType: launchConfig['stageType'] as String? ?? stage.type.value,
+        campaignMode:
+            launchConfig['campaignMode'] as String? ?? stage.campaignMode.value,
+        winCondition:
+            launchConfig['winCondition'] as String? ?? stage.winCondition.value,
         questionIds: questionIds,
         allowedLevels: effectiveAllowedLevels,
-        questionCount: stage.questionCount,
-        timeLimitSeconds: stage.timeLimitSeconds,
-        allow5050: stage.allow5050,
-        allowAudience: stage.allowAudience,
-        allowCall: stage.allowCall,
-        bossBotName: stage.bossBotName ?? '',
-        bossBotIntelligence: stage.bossBotIntelligence ?? 0,
+        questionCount:
+            launchConfig['questionCount'] as int? ?? stage.questionCount,
+        timeLimitSeconds:
+            launchConfig['timeLimitSeconds'] as int? ?? stage.timeLimitSeconds,
+        allow5050: launchConfig['allow5050'] as bool? ?? stage.allow5050,
+        allowAudience:
+            launchConfig['allowAudience'] as bool? ?? stage.allowAudience,
+        allowCall: launchConfig['allowCall'] as bool? ?? stage.allowCall,
+        bossBotName: launchConfig['bossBotName'] as String? ?? '',
+        bossBotIntelligence: launchConfig['bossBotIntelligence'] as int? ?? 0,
+        lives: launchConfig['lives'] as int? ?? 0,
+        maxWrongAnswers: launchConfig['maxWrongAnswers'] as int? ?? 0,
+        targetScore: launchConfig['targetScore'] as int? ?? 0,
+        opponentName: launchConfig['opponentName'] as String? ?? '',
+        opponentAccuracy: launchConfig['opponentAccuracy'] as int? ?? 0,
+        opponentStartScore: launchConfig['opponentStartScore'] as int? ?? 0,
+        seriesRounds: launchConfig['seriesRounds'] as int? ?? 0,
+        seriesWinsRequired: launchConfig['seriesWinsRequired'] as int? ?? 0,
+        teamAllyName: launchConfig['teamAllyName'] as String? ?? '',
+        teamEnemyName: launchConfig['teamEnemyName'] as String? ?? '',
       );
       if (mounted) setState(() => _waitingForResult = true);
     } catch (_) {
@@ -527,24 +598,29 @@ class _ResultMessage extends StatelessWidget {
   const _ResultMessage({
     required this.completed,
     required this.stage,
+    required this.attempt,
     required this.bossDefeated,
     required this.message,
   });
 
   final bool completed;
   final CampaignStage stage;
+  final StageAttempt attempt;
   final bool bossDefeated;
   final String message;
 
   @override
   Widget build(BuildContext context) {
-    final isBoss = stage.type == CampaignStageType.boss;
+    final mode = _modeForAttempt(attempt, stage);
     return Column(
       children: [
         Text(
-          isBoss
-              ? (bossDefeated ? 'هزمت الزعيم!' : 'خسرت المواجهة')
-              : (completed ? 'تم إنهاء المرحلة!' : 'انتهت المرحلة'),
+          _resultTitle(
+            mode: mode,
+            completed: completed,
+            failureReason: attempt.failureReason,
+            bossDefeated: bossDefeated,
+          ),
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: Colors.white,
@@ -587,6 +663,194 @@ class _ResultMessage extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _ModeDetailsPanel extends StatelessWidget {
+  const _ModeDetailsPanel({
+    required this.stage,
+    required this.attempt,
+  });
+
+  final CampaignStage stage;
+  final StageAttempt attempt;
+
+  @override
+  Widget build(BuildContext context) {
+    final mode = _modeForAttempt(attempt, stage);
+    final chips = _chipsForMode(mode);
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF061642).withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: GridView.count(
+        crossAxisCount: chips.length > 2 ? 3 : 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        childAspectRatio: 1.28,
+        mainAxisSpacing: 7,
+        crossAxisSpacing: 7,
+        children: chips,
+      ),
+    );
+  }
+
+  List<Widget> _chipsForMode(CampaignMode mode) {
+    switch (mode) {
+      case CampaignMode.blitz:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.timer_rounded,
+            label: 'الوقت',
+            value: _formatTime(attempt.timeMs),
+            color: const Color(0xFF7DD3FC),
+          ),
+          _StatChip(
+            icon: Icons.flag_rounded,
+            label: 'الحالة',
+            value: attempt.failureReason == 'timeExpired' ? 'انتهى' : 'مكتمل',
+            color: const Color(0xFFFFD95A),
+          ),
+        ];
+      case CampaignMode.elimination:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.close_rounded,
+            label: 'الأخطاء',
+            value: '${attempt.wrongAnswers}/$_effectiveMaxWrongAnswers',
+            color: const Color(0xFFFF6B7C),
+          ),
+          _StatChip(
+            icon: Icons.quiz_rounded,
+            label: 'المجاب',
+            value: '${attempt.correctAnswers + attempt.wrongAnswers}',
+            color: const Color(0xFF54F088),
+          ),
+        ];
+      case CampaignMode.survival:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.favorite_rounded,
+            label: 'الأرواح',
+            value: '${attempt.livesRemaining}/$_effectiveLives',
+            color: const Color(0xFFFF6B7C),
+          ),
+        ];
+      case CampaignMode.battle:
+        return _scoreChips(
+          opponentName: attempt.opponentName ?? 'الخصم',
+          opponentScore: attempt.opponentScore,
+        );
+      case CampaignMode.rival:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.person_rounded,
+            label: 'نقاطك',
+            value: '${attempt.playerScore}',
+            color: const Color(0xFF54F088),
+          ),
+          _StatChip(
+            icon: Icons.flag_rounded,
+            label: 'الهدف',
+            value: '$_effectiveTargetScore',
+            color: const Color(0xFFFFD95A),
+          ),
+        ];
+      case CampaignMode.bossBattle:
+        return _scoreChips(
+          opponentName: attempt.bossName ?? stage.bossBotName ?? 'الزعيم',
+          opponentScore: attempt.bossScore,
+        );
+      case CampaignMode.series:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.emoji_events_rounded,
+            label: 'جولاتك',
+            value: '${attempt.playerSeriesWins}',
+            color: const Color(0xFF54F088),
+          ),
+          _StatChip(
+            icon: Icons.shield_rounded,
+            label: 'الخصم',
+            value: '${attempt.opponentSeriesWins}',
+            color: const Color(0xFFFFD95A),
+          ),
+          _StatChip(
+            icon: Icons.flag_rounded,
+            label: 'المطلوب',
+            value: '$_effectiveSeriesWinsRequired',
+            color: const Color(0xFF7DD3FC),
+          ),
+        ];
+      case CampaignMode.teamBattle:
+        return <Widget>[
+          _StatChip(
+            icon: Icons.groups_rounded,
+            label: 'فريقك',
+            value: '${attempt.teamScore}',
+            color: const Color(0xFF54F088),
+          ),
+          _StatChip(
+            icon: Icons.shield_rounded,
+            label: attempt.teamEnemyName ?? 'الخصم',
+            value: '${attempt.enemyTeamScore}',
+            color: const Color(0xFFFFD95A),
+          ),
+          _StatChip(
+            icon: Icons.person_add_rounded,
+            label: attempt.teamAllyName ?? 'الحليف',
+            value: '${attempt.allyScore}',
+            color: const Color(0xFF7DD3FC),
+          ),
+        ];
+      case CampaignMode.classic:
+      case CampaignMode.noLifeline:
+        return const <Widget>[];
+    }
+  }
+
+  List<Widget> _scoreChips({
+    required String opponentName,
+    required int opponentScore,
+  }) {
+    return <Widget>[
+      _StatChip(
+        icon: Icons.person_rounded,
+        label: 'نقاطك',
+        value: '${attempt.playerScore}',
+        color: const Color(0xFF54F088),
+      ),
+      _StatChip(
+        icon: Icons.shield_rounded,
+        label: opponentName,
+        value: '$opponentScore',
+        color: const Color(0xFFFFD95A),
+      ),
+    ];
+  }
+
+  int get _effectiveLives {
+    if (attempt.lives > 0) return attempt.lives;
+    return stage.lives ?? 3;
+  }
+
+  int get _effectiveMaxWrongAnswers {
+    if (attempt.maxWrongAnswers > 0) return attempt.maxWrongAnswers;
+    return stage.maxWrongAnswers ?? 1;
+  }
+
+  int get _effectiveTargetScore {
+    if (attempt.targetScore > 0) return attempt.targetScore;
+    return stage.targetScore ?? 700;
+  }
+
+  int get _effectiveSeriesWinsRequired {
+    if (attempt.seriesWinsRequired > 0) return attempt.seriesWinsRequired;
+    return stage.seriesWinsRequired ?? 2;
   }
 }
 
@@ -915,4 +1179,41 @@ String _formatTime(int timeMs) {
   final minutesPart = (seconds ~/ 60).toString().padLeft(2, '0');
   final secondsPart = (seconds % 60).toString().padLeft(2, '0');
   return '$minutesPart:$secondsPart';
+}
+
+CampaignMode _modeForAttempt(StageAttempt attempt, CampaignStage stage) {
+  return campaignModeFromString(
+    attempt.campaignMode.isNotEmpty ? attempt.campaignMode : null,
+    fallbackType: stage.type,
+  );
+}
+
+String _resultTitle({
+  required CampaignMode mode,
+  required bool completed,
+  required String failureReason,
+  required bool bossDefeated,
+}) {
+  switch (mode) {
+    case CampaignMode.classic:
+    case CampaignMode.noLifeline:
+      return completed ? 'تم إنهاء المرحلة' : 'لم تكتمل المرحلة';
+    case CampaignMode.blitz:
+      if (!completed && failureReason == 'timeExpired') return 'انتهى الوقت';
+      return completed ? 'تم إنهاء المرحلة' : 'لم تكتمل المرحلة';
+    case CampaignMode.elimination:
+      return completed ? 'تم إنهاء المرحلة' : 'تم إقصاؤك';
+    case CampaignMode.survival:
+      return completed ? 'تم إنهاء المرحلة' : 'انتهت الأرواح';
+    case CampaignMode.battle:
+      return completed ? 'فزت بالمواجهة' : 'خسرت المواجهة';
+    case CampaignMode.rival:
+      return completed ? 'تجاوزت الهدف' : 'لم تصل إلى الهدف';
+    case CampaignMode.bossBattle:
+      return bossDefeated ? 'هزمت الزعيم' : 'خسرت أمام الزعيم';
+    case CampaignMode.series:
+      return completed ? 'فزت بالسلسلة' : 'خسرت السلسلة';
+    case CampaignMode.teamBattle:
+      return completed ? 'فاز فريقك' : 'خسر فريقك';
+  }
 }

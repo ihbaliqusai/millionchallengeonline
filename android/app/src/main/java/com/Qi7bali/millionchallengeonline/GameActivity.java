@@ -196,11 +196,33 @@ public class GameActivity extends AppCompatActivity {
     private String campaignId = "main_campaign";
     private String campaignStageId = "";
     private String campaignStageType = "classic";
+    private String campaignStageMode = "classic";
+    private String campaignWinCondition = "completeQuestions";
     private int campaignQuestionCount = 15;
     private int campaignTimeLimitSeconds = 0;
     private boolean campaignAllow5050 = true;
     private boolean campaignAllowAudience = true;
     private boolean campaignAllowCall = true;
+    private int campaignLives = 0;
+    private int campaignLivesRemaining = 0;
+    private int campaignMaxWrongAnswers = 0;
+    private int campaignTargetScore = 0;
+    private String campaignOpponentName = "";
+    private int campaignOpponentAccuracy = 0;
+    private int campaignOpponentStartScore = 0;
+    private int campaignOpponentScore = 0;
+    private int campaignOpponentCorrectAnswers = 0;
+    private int campaignOpponentWrongAnswers = 0;
+    private int campaignSeriesRounds = 0;
+    private int campaignSeriesWinsRequired = 0;
+    private int campaignPlayerSeriesWins = 0;
+    private int campaignOpponentSeriesWins = 0;
+    private String campaignTeamAllyName = "";
+    private String campaignTeamEnemyName = "";
+    private int campaignAllyScore = 0;
+    private int campaignTeamScore = 0;
+    private int campaignEnemyTeamScore = 0;
+    private String campaignFailureReason = "";
     private String campaignBossBotName = "";
     private int campaignBossBotIntelligence = 0;
     private long campaignStartedAtMs = 0L;
@@ -319,11 +341,23 @@ public class GameActivity extends AppCompatActivity {
         campaignId = safeIntentString("campaignId", "main_campaign");
         campaignStageId = safeIntentString("stageId", "");
         campaignStageType = safeIntentString("stageType", "classic");
+        campaignStageMode = normalizeCampaignMode(safeIntentString("campaignMode", campaignStageType));
+        campaignWinCondition = safeIntentString("winCondition", defaultCampaignWinCondition(campaignStageMode));
         campaignQuestionCount = Math.max(0, getIntent().getIntExtra("questionCount", 10));
         campaignTimeLimitSeconds = Math.max(0, getIntent().getIntExtra("timeLimitSeconds", 0));
         campaignAllow5050 = getIntent().getBooleanExtra("allow5050", true);
         campaignAllowAudience = getIntent().getBooleanExtra("allowAudience", true);
         campaignAllowCall = getIntent().getBooleanExtra("allowCall", true);
+        campaignLives = Math.max(0, getIntent().getIntExtra("lives", 0));
+        campaignMaxWrongAnswers = Math.max(0, getIntent().getIntExtra("maxWrongAnswers", 0));
+        campaignTargetScore = Math.max(0, getIntent().getIntExtra("targetScore", 0));
+        campaignOpponentName = safeIntentString("opponentName", "");
+        campaignOpponentAccuracy = Math.max(0, getIntent().getIntExtra("opponentAccuracy", 0));
+        campaignOpponentStartScore = Math.max(0, getIntent().getIntExtra("opponentStartScore", 0));
+        campaignSeriesRounds = Math.max(0, getIntent().getIntExtra("seriesRounds", 0));
+        campaignSeriesWinsRequired = Math.max(0, getIntent().getIntExtra("seriesWinsRequired", 0));
+        campaignTeamAllyName = safeIntentString("teamAllyName", "");
+        campaignTeamEnemyName = safeIntentString("teamEnemyName", "");
         campaignBossBotName = safeIntentString("bossBotName", "");
         campaignBossBotIntelligence = Math.max(0, getIntent().getIntExtra("bossBotIntelligence", 0));
         ArrayList<Integer> stageQuestionIds = getIntent().getIntegerArrayListExtra("questionIds");
@@ -347,7 +381,7 @@ public class GameActivity extends AppCompatActivity {
         modeOnline = "online".equals(modeExtra);
         eliminationMode = "elimination".equals(matchModeExtra);
         meOwner = getIntent().getBooleanExtra("meOwner", true);
-        campaignBossBattle = campaignMode && "boss".equals(campaignStageType);
+        campaignBossBattle = campaignMode && isCampaignBossMode();
 
 
         findViewById(android.R.id.content).post(new Runnable() {
@@ -3844,22 +3878,105 @@ public class GameActivity extends AppCompatActivity {
         return Math.max(minAccuracy, Math.min(maxAccuracy, baseAccuracy + variation));
     }
 
+    private String normalizeCampaignMode(String mode) {
+        String normalized = mode == null ? "" : mode.trim().replace("_", "").replace("-", "").toLowerCase(Locale.US);
+        if ("speed".equals(normalized) || "blitz".equals(normalized)) return "blitz";
+        if ("elimination".equals(normalized)) return "elimination";
+        if ("survival".equals(normalized)) return "survival";
+        if ("nolifeline".equals(normalized)) return "noLifeline";
+        if ("battle".equals(normalized)) return "battle";
+        if ("rival".equals(normalized)) return "rival";
+        if ("series".equals(normalized)) return "series";
+        if ("teambattle".equals(normalized)) return "teamBattle";
+        if ("boss".equals(normalized) || "bossbattle".equals(normalized)) return "bossBattle";
+        return "classic";
+    }
+
+    private String defaultCampaignWinCondition(String mode) {
+        String normalized = normalizeCampaignMode(mode);
+        if ("blitz".equals(normalized)) return "finishBeforeTime";
+        if ("elimination".equals(normalized)) return "noMistakes";
+        if ("survival".equals(normalized)) return "survive";
+        if ("battle".equals(normalized)) return "beatOpponent";
+        if ("rival".equals(normalized)) return "beatTargetScore";
+        if ("series".equals(normalized)) return "winSeries";
+        if ("teamBattle".equals(normalized)) return "teamScore";
+        if ("bossBattle".equals(normalized)) return "defeatBoss";
+        return "completeQuestions";
+    }
+
+    private boolean isCampaignBlitzMode() { return "blitz".equals(campaignStageMode); }
+    private boolean isCampaignEliminationMode() { return "elimination".equals(campaignStageMode); }
+    private boolean isCampaignSurvivalMode() { return "survival".equals(campaignStageMode); }
+    private boolean isCampaignNoLifelineMode() { return "noLifeline".equals(campaignStageMode); }
+    private boolean isCampaignBattleMode() { return "battle".equals(campaignStageMode); }
+    private boolean isCampaignRivalMode() { return "rival".equals(campaignStageMode); }
+    private boolean isCampaignSeriesMode() { return "series".equals(campaignStageMode); }
+    private boolean isCampaignTeamBattleMode() { return "teamBattle".equals(campaignStageMode); }
+    private boolean isCampaignBossMode() { return "bossBattle".equals(campaignStageMode) || "boss".equals(campaignStageType); }
+
+    private boolean isCampaignCompetitiveSimulationMode() {
+        return isCampaignBattleMode() || isCampaignSeriesMode() || isCampaignTeamBattleMode();
+    }
+
+    private int clampInt(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private void applyCampaignStageTypeDefaults() {
         if (!campaignMode) {
             return;
         }
         campaignStageType = campaignStageType == null ? "classic" : campaignStageType.trim().toLowerCase(Locale.US);
+        campaignStageMode = normalizeCampaignMode(campaignStageMode);
+        campaignWinCondition = campaignWinCondition == null || campaignWinCondition.trim().isEmpty()
+                ? defaultCampaignWinCondition(campaignStageMode)
+                : campaignWinCondition.trim();
         if ("nolifeline".equals(campaignStageType) || "no_lifeline".equals(campaignStageType)) {
             campaignAllow5050 = false;
             campaignAllowAudience = false;
             campaignAllowCall = false;
             campaignStageType = "noLifeline";
-        } else if ("survival".equals(campaignStageType)) {
-            // TODO: survival lives need deeper quiz-flow support; the existing game ends on a wrong answer.
-        } else if ("boss".equals(campaignStageType)) {
+        }
+        if (isCampaignNoLifelineMode()) {
+            campaignAllow5050 = false;
+            campaignAllowAudience = false;
+            campaignAllowCall = false;
+        }
+        if (isCampaignSurvivalMode()) {
+            campaignLives = campaignLives > 0 ? campaignLives : 3;
+            campaignLivesRemaining = campaignLives;
+        }
+        if (isCampaignEliminationMode()) {
+            campaignMaxWrongAnswers = campaignMaxWrongAnswers > 0 ? campaignMaxWrongAnswers : 1;
+        }
+        if (isCampaignRivalMode()) {
+            campaignTargetScore = campaignTargetScore > 0 ? campaignTargetScore : 700;
+        }
+        if (isCampaignBattleMode() || isCampaignSeriesMode() || isCampaignTeamBattleMode()) {
+            campaignOpponentAccuracy = clampInt(campaignOpponentAccuracy > 0 ? campaignOpponentAccuracy : 60, 35, 85);
+            campaignOpponentScore = Math.max(0, campaignOpponentStartScore);
+            if (campaignOpponentName == null || campaignOpponentName.trim().isEmpty()) {
+                campaignOpponentName = isCampaignTeamBattleMode() ? "فريق التحدي" : "خصم آلي";
+            }
+        }
+        if (isCampaignSeriesMode()) {
+            campaignSeriesRounds = campaignSeriesRounds > 0 ? campaignSeriesRounds : 3;
+            campaignSeriesWinsRequired = campaignSeriesWinsRequired > 0 ? campaignSeriesWinsRequired : 2;
+        }
+        if (isCampaignTeamBattleMode()) {
+            if (campaignTeamAllyName == null || campaignTeamAllyName.trim().isEmpty()) {
+                campaignTeamAllyName = "زميلك";
+            }
+            if (campaignTeamEnemyName == null || campaignTeamEnemyName.trim().isEmpty()) {
+                campaignTeamEnemyName = "الفريق المنافس";
+            }
+        }
+        if (isCampaignBossMode()) {
+            if (campaignBossBotIntelligence <= 0 && campaignOpponentAccuracy > 0) {
+                campaignBossBotIntelligence = campaignOpponentAccuracy;
+            }
             campaignBossBotIntelligence = resolveCampaignBossIntelligence();
-        } else if ("rival".equals(campaignStageType)) {
-            // TODO: add ghost-rival pacing when campaign rival data is available.
         }
     }
 
@@ -3932,6 +4049,93 @@ public class GameActivity extends AppCompatActivity {
         campaignAnsweredQuestions++;
     }
 
+    private void applyCampaignModeAfterAnswer(boolean correct) {
+        if (!campaignMode) {
+            return;
+        }
+        if (!correct && isCampaignSurvivalMode()) {
+            campaignLivesRemaining = Math.max(0, campaignLivesRemaining - 1);
+        }
+        if (isCampaignCompetitiveSimulationMode()) {
+            simulateCampaignOpponentAnswer();
+        }
+        if (isCampaignTeamBattleMode()) {
+            simulateCampaignTeamRound();
+        }
+    }
+
+    private void simulateCampaignOpponentAnswer() {
+        int accuracy = clampInt(campaignOpponentAccuracy > 0 ? campaignOpponentAccuracy : 60, 35, 85);
+        boolean opponentCorrect = new Random().nextInt(100) < accuracy;
+        if (opponentCorrect) {
+            campaignOpponentCorrectAnswers++;
+            campaignOpponentScore += 100;
+        } else {
+            campaignOpponentWrongAnswers++;
+        }
+    }
+
+    private void simulateCampaignTeamRound() {
+        int allyAccuracy = clampInt(campaignOpponentAccuracy - 6, 45, 78);
+        int enemyAccuracy = clampInt(campaignOpponentAccuracy, 45, 85);
+        if (new Random().nextInt(100) < allyAccuracy) {
+            campaignAllyScore += 100;
+        }
+        int enemyCorrectThisQuestion = 0;
+        if (new Random().nextInt(100) < enemyAccuracy) enemyCorrectThisQuestion++;
+        if (new Random().nextInt(100) < Math.max(40, enemyAccuracy - 7)) enemyCorrectThisQuestion++;
+        campaignEnemyTeamScore += enemyCorrectThisQuestion * 100;
+        campaignTeamScore = getCampaignPlayerScore() + campaignAllyScore;
+    }
+
+    private int getCampaignPlayerScore() {
+        if (campaignBossBattle) {
+            return Math.max(0, gameScoreMe);
+        }
+        return Math.max(0, campaignCorrectAnswers * 100);
+    }
+
+    private boolean campaignPlayerBeatsOpponent(int playerScore, int opponentScoreValue, int opponentCorrect) {
+        if (playerScore != opponentScoreValue) {
+            return playerScore > opponentScoreValue;
+        }
+        return campaignCorrectAnswers > opponentCorrect;
+    }
+
+    private boolean shouldFailCampaignAfterCurrentAnswer() {
+        if (!campaignMode) {
+            return false;
+        }
+        if (isCampaignEliminationMode() && campaignWrongAnswers >= Math.max(1, campaignMaxWrongAnswers)) {
+            campaignFailureReason = "eliminated";
+            return true;
+        }
+        if (isCampaignSurvivalMode() && campaignLivesRemaining <= 0) {
+            campaignFailureReason = "outOfLives";
+            return true;
+        }
+        return false;
+    }
+
+    private void failCampaignStage(String reason, int delayMs) {
+        if (!campaignMode || campaignResultPersisted) {
+            return;
+        }
+        campaignFailureReason = reason == null ? "" : reason;
+        PlayerStats.recordGameEnd(GameActivity.this, false, 0);
+        PlayerProgress.onGameFinished(GameActivity.this, false, 0,
+                PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+        persistPendingCampaignStageResult(false, 0, campaignWrongAnswers);
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!isFinishing()) {
+                    finishCampaignAndReturnToFlutter();
+                }
+            }
+        }, Math.max(0, delayMs));
+    }
+
     private boolean shouldCompleteCampaignAfterCurrentQuestion() {
         return campaignMode
                 && campaignQuestionCount > 0
@@ -4002,6 +4206,8 @@ public class GameActivity extends AppCompatActivity {
             updateCampaignProgressHud(false);
             showDialog(getCampaignAnswerMessage(false, starsBefore), "", 700, 900, R.drawable.mouth_05, false);
         }
+        applyCampaignModeAfterAnswer(correct);
+        updateCampaignProgressHud(false);
 
         if (campaignBossBattle && campaignBossOpponent != null
                 && campaignBossOpponent.displayedAnswer > 0) {
@@ -4012,6 +4218,10 @@ public class GameActivity extends AppCompatActivity {
             @Override
             public void run() {
                 if (EXITING || campaignResultPersisted) {
+                    return;
+                }
+                if (shouldFailCampaignAfterCurrentAnswer()) {
+                    failCampaignStage(campaignFailureReason, 0);
                     return;
                 }
                 if (shouldCompleteCampaignAfterCurrentQuestion()) {
@@ -4031,12 +4241,70 @@ public class GameActivity extends AppCompatActivity {
 
     private void completeCampaignStage() {
         final int prize = getCampaignCurrentMoney();
-        final boolean completed = !campaignBossBattle || isCampaignBossDefeated();
+        final boolean completed = isCampaignStageCompleteByMode();
         PlayerStats.recordGameEnd(GameActivity.this, completed, prize);
         PlayerProgress.onGameFinished(GameActivity.this, completed, completed ? prize : 0,
                 PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
         persistPendingCampaignStageResult(completed, completed ? prize : 0, 0);
         finishCampaignAndReturnToFlutter();
+    }
+
+    private boolean isCampaignStageCompleteByMode() {
+        if (!campaignMode) {
+            return true;
+        }
+        int playerScore = getCampaignPlayerScore();
+        if (isCampaignEliminationMode()) {
+            boolean completed = campaignWrongAnswers < Math.max(1, campaignMaxWrongAnswers);
+            if (!completed) campaignFailureReason = "eliminated";
+            return completed;
+        }
+        if (isCampaignSurvivalMode()) {
+            boolean completed = campaignLivesRemaining > 0;
+            if (!completed) campaignFailureReason = "outOfLives";
+            return completed;
+        }
+        if (isCampaignBattleMode()) {
+            boolean completed = campaignPlayerBeatsOpponent(playerScore, campaignOpponentScore, campaignOpponentCorrectAnswers);
+            if (!completed) campaignFailureReason = "lostBattle";
+            return completed;
+        }
+        if (isCampaignRivalMode()) {
+            int targetScore = campaignTargetScore > 0 ? campaignTargetScore : 700;
+            boolean completed = playerScore >= targetScore;
+            if (!completed) campaignFailureReason = "targetNotReached";
+            return completed;
+        }
+        if (isCampaignBossMode()) {
+            boolean completed = isCampaignBossDefeated();
+            if (!completed) campaignFailureReason = "bossDefeatedPlayer";
+            return completed;
+        }
+        if (isCampaignSeriesMode()) {
+            resolveSimpleCampaignSeries();
+            boolean completed = campaignPlayerSeriesWins >= Math.max(2, campaignSeriesWinsRequired);
+            if (!completed) campaignFailureReason = "lostSeries";
+            return completed;
+        }
+        if (isCampaignTeamBattleMode()) {
+            campaignTeamScore = playerScore + campaignAllyScore;
+            boolean completed = campaignTeamScore > campaignEnemyTeamScore;
+            if (!completed) campaignFailureReason = "lostTeamBattle";
+            return completed;
+        }
+        return true;
+    }
+
+    private void resolveSimpleCampaignSeries() {
+        // TODO: Replace this summary with visible per-round campaign series UI.
+        int requiredWins = Math.max(2, campaignSeriesWinsRequired);
+        boolean playerWon = campaignPlayerBeatsOpponent(
+                getCampaignPlayerScore(),
+                campaignOpponentScore,
+                campaignOpponentCorrectAnswers
+        );
+        campaignPlayerSeriesWins = playerWon ? requiredWins : Math.max(0, requiredWins - 1);
+        campaignOpponentSeriesWins = playerWon ? Math.max(0, requiredWins - 1) : requiredWins;
     }
 
     private boolean isCampaignBossDefeated() {
@@ -4074,7 +4342,7 @@ public class GameActivity extends AppCompatActivity {
         }
         txtCampaignTimer = new TextView(this);
         txtCampaignTimer.setTextColor(Color.WHITE);
-        txtCampaignTimer.setTextSize(TypedValue.COMPLEX_UNIT_SP, "speed".equals(campaignStageType) ? 19 : 16);
+        txtCampaignTimer.setTextSize(TypedValue.COMPLEX_UNIT_SP, isCampaignBlitzMode() ? 19 : 16);
         txtCampaignTimer.setTypeface(null, android.graphics.Typeface.BOLD);
         txtCampaignTimer.setPadding(dp(12), dp(7), dp(12), dp(7));
         txtCampaignTimer.setText(formatCampaignRemaining(campaignTimeLimitSeconds));
@@ -4121,12 +4389,12 @@ public class GameActivity extends AppCompatActivity {
         if (txtCampaignTimer == null) {
             return;
         }
-        boolean urgent = secondsLeft <= 20 || ("speed".equals(campaignStageType) && secondsLeft <= 30);
+        boolean urgent = secondsLeft <= 20 || (isCampaignBlitzMode() && secondsLeft <= 30);
         txtCampaignTimer.setTextColor(urgent ? Color.rgb(255, 230, 230) : Color.WHITE);
         txtCampaignTimer.setBackground(createRoundedDrawable(
                 urgent ? Color.argb(225, 150, 20, 34) : Color.argb(205, 10, 28, 48),
                 urgent ? Color.argb(240, 255, 112, 112) : Color.argb(220, 255, 216, 74),
-                "speed".equals(campaignStageType) ? 2 : 1,
+                isCampaignBlitzMode() ? 2 : 1,
                 18
         ));
     }
@@ -4140,6 +4408,7 @@ public class GameActivity extends AppCompatActivity {
         CAN_HOME = false;
         stopTimer(false);
         Toast.makeText(this, "انتهى الوقت!", Toast.LENGTH_SHORT).show();
+        campaignFailureReason = "timeExpired";
         persistPendingCampaignStageResult(false, getCampaignCurrentMoney(), campaignWrongAnswers);
         new Handler().postDelayed(new Runnable() {
             @Override
@@ -5416,9 +5685,9 @@ public class GameActivity extends AppCompatActivity {
             payload.put("campaignId", campaignId);
             payload.put("stageId", campaignStageId);
             payload.put("stageType", campaignStageType);
-            boolean bossDefeated = !campaignBossBattle || isCampaignBossDefeated();
+            boolean bossDefeated = campaignBossBattle && isCampaignBossDefeated();
             boolean effectiveCompleted = campaignBossBattle ? bossDefeated : completed;
-            int playerScore = campaignBossBattle ? Math.max(0, gameScoreMe) : 0;
+            int playerScore = getCampaignPlayerScore();
             payload.put("completed", effectiveCompleted);
             payload.put("score", playerScore);
             payload.put("money", Math.max(0, money));
@@ -5428,6 +5697,34 @@ public class GameActivity extends AppCompatActivity {
             payload.put("used5050", Math.max(0, campaignUsed5050));
             payload.put("usedAudience", Math.max(0, campaignUsedAudience));
             payload.put("usedCall", Math.max(0, campaignUsedCall));
+            payload.put("campaignMode", campaignStageMode);
+            payload.put("winCondition", campaignWinCondition);
+            payload.put("failureReason", effectiveCompleted ? "" : safeString(campaignFailureReason));
+            payload.put("lives", Math.max(0, campaignLives));
+            payload.put("livesRemaining", Math.max(0, campaignLivesRemaining));
+            payload.put("maxWrongAnswers", Math.max(0, campaignMaxWrongAnswers));
+            payload.put("targetScore", Math.max(0, campaignTargetScore));
+            payload.put("playerScore", Math.max(0, playerScore));
+            payload.put("opponentName", safeString(campaignOpponentName));
+            payload.put("opponentAccuracy", Math.max(0, campaignOpponentAccuracy));
+            payload.put("opponentScore", Math.max(0, campaignOpponentScore));
+            payload.put("opponentCorrectAnswers", Math.max(0, campaignOpponentCorrectAnswers));
+            payload.put("opponentWrongAnswers", Math.max(0, campaignOpponentWrongAnswers));
+            payload.put("bossName", campaignBossOpponent != null ? campaignBossOpponent.name : safeString(campaignBossBotName));
+            payload.put("bossDefeated", bossDefeated);
+            payload.put("bossBattleWon", bossDefeated);
+            payload.put("bossScore", campaignBossOpponent != null ? Math.max(0, campaignBossOpponent.gameScore) : 0);
+            payload.put("bossCorrectAnswers", campaignBossOpponent != null ? Math.max(0, campaignBossOpponent.totalCorrectAnswers) : 0);
+            payload.put("bossWrongAnswers", campaignBossOpponent != null ? Math.max(0, targetCount - campaignBossOpponent.totalCorrectAnswers) : 0);
+            payload.put("seriesRounds", Math.max(0, campaignSeriesRounds));
+            payload.put("seriesWinsRequired", Math.max(0, campaignSeriesWinsRequired));
+            payload.put("playerSeriesWins", Math.max(0, campaignPlayerSeriesWins));
+            payload.put("opponentSeriesWins", Math.max(0, campaignOpponentSeriesWins));
+            payload.put("teamAllyName", safeString(campaignTeamAllyName));
+            payload.put("teamEnemyName", safeString(campaignTeamEnemyName));
+            payload.put("allyScore", Math.max(0, campaignAllyScore));
+            payload.put("teamScore", Math.max(0, campaignTeamScore));
+            payload.put("enemyTeamScore", Math.max(0, campaignEnemyTeamScore));
             if (campaignBossBattle && campaignBossOpponent != null) {
                 payload.put("bossName", campaignBossOpponent.name);
                 payload.put("bossIntelligence", campaignBossOpponent.intelligence);

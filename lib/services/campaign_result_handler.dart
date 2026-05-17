@@ -354,12 +354,21 @@ class CampaignResultHandler {
     required Map<String, dynamic> payload,
     bool saveFailed = false,
   }) {
-    final isBossStage = stage.type == CampaignStageType.boss ||
+    final campaignMode = campaignModeFromString(
+      payload['campaignMode'],
+      fallbackType: stage.type,
+    );
+    final isBossStage = campaignMode == CampaignMode.bossBattle ||
+        stage.type == CampaignStageType.boss ||
         (payload['stageType']?.toString() == 'boss');
     final bossDefeated = _readBool(payload['bossDefeated']) ||
         _readBool(payload['bossBattleWon']);
-    final completed =
-        isBossStage ? bossDefeated : _readBool(payload['completed']);
+    final completed = campaignService.normalizeStageCompleted(
+      stage: stage,
+      nativeResult: payload,
+      correctAnswers: _readInt(payload['correctAnswers']),
+      wrongAnswers: _readInt(payload['wrongAnswers']),
+    );
     final money = _readInt(payload['money']);
     final correctAnswers = _readInt(payload['correctAnswers']);
     final wrongAnswers = _readInt(payload['wrongAnswers']);
@@ -368,19 +377,28 @@ class CampaignResultHandler {
     final usedAudience = _readInt(payload['usedAudience']);
     final usedCall = _readInt(payload['usedCall']);
     final usedLifelines = used5050 + usedAudience + usedCall;
-    final score = isBossStage
-        ? (_readInt(payload['playerScore']) > 0
-            ? _readInt(payload['playerScore'])
-            : correctAnswers * 100)
-        : campaignService.calculateScore(
-            money: money,
-            correctAnswers: correctAnswers,
-            wrongAnswers: wrongAnswers,
-            timeMs: timeMs,
-            used5050: used5050,
-            usedAudience: usedAudience,
-            usedCall: usedCall,
-          );
+    final calculatedScore = campaignService.calculateScore(
+      money: money,
+      correctAnswers: correctAnswers,
+      wrongAnswers: wrongAnswers,
+      timeMs: timeMs,
+      used5050: used5050,
+      usedAudience: usedAudience,
+      usedCall: usedCall,
+    );
+    final playerScore = _readInt(payload['playerScore']);
+    final score = playerScore > 0 ? playerScore : calculatedScore;
+    final lives = _readInt(payload['lives']);
+    final livesRemaining = _readInt(payload['livesRemaining']);
+    final maxWrongAnswers = _readInt(payload['maxWrongAnswers']);
+    final targetScore = _readInt(payload['targetScore']);
+    final opponentScore = _readInt(payload['opponentScore']);
+    final bossScore = _readInt(payload['bossScore']);
+    final playerSeriesWins = _readInt(payload['playerSeriesWins']);
+    final opponentSeriesWins = _readInt(payload['opponentSeriesWins']);
+    final seriesWinsRequired = _readInt(payload['seriesWinsRequired']);
+    final teamScore = _readInt(payload['teamScore']);
+    final enemyTeamScore = _readInt(payload['enemyTeamScore']);
     final stars = campaignService.calculateStars(
       stage: stage,
       completed: completed,
@@ -389,6 +407,21 @@ class CampaignResultHandler {
       wrongAnswers: wrongAnswers,
       timeMs: timeMs,
       usedLifelines: usedLifelines,
+      failureReason: payload['failureReason']?.toString() ?? '',
+      answeredQuestions: correctAnswers + wrongAnswers,
+      lives: lives,
+      livesRemaining: livesRemaining,
+      maxWrongAnswers: maxWrongAnswers,
+      targetScore: targetScore,
+      playerScore: score,
+      opponentScore: opponentScore,
+      bossScore: bossScore,
+      bossDefeated: bossDefeated,
+      playerSeriesWins: playerSeriesWins,
+      opponentSeriesWins: opponentSeriesWins,
+      seriesWinsRequired: seriesWinsRequired,
+      teamScore: teamScore,
+      enemyTeamScore: enemyTeamScore,
     );
     final now = DateTime.now();
     final attempt = StageAttempt(
@@ -397,6 +430,10 @@ class CampaignResultHandler {
       campaignId: stage.campaignId,
       stageId: stage.id,
       stageType: stage.type.value,
+      campaignMode: campaignMode.value,
+      winCondition:
+          payload['winCondition']?.toString() ?? stage.winCondition.value,
+      failureReason: payload['failureReason']?.toString() ?? '',
       score: score,
       money: money,
       correctAnswers: correctAnswers,
@@ -407,12 +444,29 @@ class CampaignResultHandler {
       usedCall: usedCall,
       completed: completed,
       stars: stars,
+      lives: lives,
+      livesRemaining: livesRemaining,
+      maxWrongAnswers: maxWrongAnswers,
+      targetScore: targetScore,
+      opponentName: _cleanString(payload['opponentName']?.toString()),
+      opponentScore: opponentScore,
+      opponentCorrectAnswers: _readInt(payload['opponentCorrectAnswers']),
+      opponentWrongAnswers: _readInt(payload['opponentWrongAnswers']),
       bossDefeated: isBossStage && bossDefeated,
-      bossName: payload['bossName']?.toString(),
+      bossName: _cleanString(payload['bossName']?.toString()),
       bossCorrectAnswers: _readInt(payload['bossCorrectAnswers']),
       bossWrongAnswers: _readInt(payload['bossWrongAnswers']),
-      bossScore: _readInt(payload['bossScore']),
+      bossScore: bossScore,
       playerScore: score,
+      seriesRounds: _readInt(payload['seriesRounds']),
+      seriesWinsRequired: seriesWinsRequired,
+      playerSeriesWins: playerSeriesWins,
+      opponentSeriesWins: opponentSeriesWins,
+      teamAllyName: _cleanString(payload['teamAllyName']?.toString()),
+      teamEnemyName: _cleanString(payload['teamEnemyName']?.toString()),
+      allyScore: _readInt(payload['allyScore']),
+      teamScore: teamScore,
+      enemyTeamScore: enemyTeamScore,
       createdAt: now,
     );
     final progress = StageProgress(
@@ -466,6 +520,12 @@ class CampaignResultHandler {
       return normalized == 'true' || normalized == '1' || normalized == 'yes';
     }
     return false;
+  }
+
+  static String? _cleanString(String? value) {
+    final text = value?.trim();
+    if (text == null || text.isEmpty) return null;
+    return text;
   }
 
   static void _showSnack(BuildContext context, String message) {
