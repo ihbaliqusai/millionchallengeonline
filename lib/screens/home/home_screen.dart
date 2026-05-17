@@ -873,7 +873,7 @@ class _CenterArena extends StatelessWidget {
               _BattleButton(
                 glowCtrl: glowCtrl,
                 label: 'رحلة المليون',
-                gold: true,
+                green: true,
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const CampaignMapScreen(),
@@ -929,12 +929,14 @@ class _BattleButton extends StatefulWidget {
     required this.glowCtrl,
     required this.label,
     required this.onPressed,
+    this.green = false,
     this.gold = true,
     this.enabled = true,
   });
   final AnimationController glowCtrl;
   final String label;
   final VoidCallback onPressed;
+  final bool green;
   final bool gold;
   final bool enabled;
 
@@ -947,16 +949,26 @@ class _BattleButtonState extends State<_BattleButton> {
 
   @override
   Widget build(BuildContext context) {
+    final isGreen = widget.green;
     final isGold = widget.gold;
     final enabled = widget.enabled;
-    final gradColors = isGold
-        ? const [Color(0xFFF8D34C), Color(0xFFF59E0B)]
-        : const [Color(0xFF6D28D9), Color(0xFF2563EB)];
-    final borderColor =
-        isGold ? const Color(0xFFFFF3A3) : const Color(0xFFA5F3FC);
-    final glowColor =
-        isGold ? const Color(0xFFF59E0B) : const Color(0xFF2563EB);
-    final textColor = isGold ? const Color(0xFF1F2937) : Colors.white;
+    final gradColors = isGreen
+        ? const [Color(0xFF34D399), Color(0xFF16A34A)]
+        : isGold
+            ? const [Color(0xFFF8D34C), Color(0xFFF59E0B)]
+            : const [Color(0xFF6D28D9), Color(0xFF2563EB)];
+    final borderColor = isGreen
+        ? const Color(0xFFBBF7D0)
+        : isGold
+            ? const Color(0xFFFFF3A3)
+            : const Color(0xFFA5F3FC);
+    final glowColor = isGreen
+        ? const Color(0xFF22C55E)
+        : isGold
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFF2563EB);
+    final textColor =
+        isGold && !isGreen ? const Color(0xFF1F2937) : Colors.white;
 
     return AnimatedBuilder(
       animation: widget.glowCtrl,

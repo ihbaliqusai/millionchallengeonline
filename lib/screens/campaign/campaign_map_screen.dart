@@ -6,11 +6,10 @@ import 'package:provider/provider.dart';
 import '../../core/app_state.dart';
 import '../../models/campaign_stage.dart';
 import '../../models/stage_progress.dart';
+import '../../models/campaign_world.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/campaign_service.dart';
 import 'stage_intro_screen.dart';
-import 'widgets/campaign_map_background.dart';
-import 'widgets/campaign_path_painter.dart';
 import 'widgets/stage_node.dart';
 
 class CampaignMapScreen extends StatefulWidget {
@@ -165,12 +164,25 @@ class _CampaignMapContent extends StatefulWidget {
 }
 
 class _CampaignMapContentState extends State<_CampaignMapContent> {
-  final ScrollController _scrollController = ScrollController();
-  bool _didAutoScroll = false;
+  late final PageController _pageController;
+  late int _selectedWorldIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedWorldIndex = _initialWorldIndex();
+    _pageController = PageController(initialPage: _selectedWorldIndex);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _precacheWorld(_selectedWorldIndex);
+  }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -180,159 +192,390 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
     final completedStages = widget.data.progress
         .where(widget.campaignService.isStageCompleted)
         .length;
+    final worlds = _worldStageBundles();
+    final selectedWorld =
+        campaignWorlds[_selectedWorldIndex.clamp(0, campaignWorlds.length - 1)];
+
+    return Stack(
+      children: [
+        PageView.builder(
+          controller: _pageController,
+          physics: const BouncingScrollPhysics(),
+          itemCount: worlds.length,
+          onPageChanged: (index) {
+            setState(() {
+              _selectedWorldIndex = index;
+            });
+            _precacheWorld(index);
+          },
+          itemBuilder: (context, index) {
+            return _WorldMapPage(
+              bundle: worlds[index],
+              campaignService: widget.campaignService,
+              pulseAnimation: widget.pulseAnimation,
+              onLockedTap: widget.onLockedTap,
+              onStageTap: widget.onStageTap,
+              onRefresh: widget.onRefresh,
+            );
+          },
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: _MapTopOverlay(
+            totalStars: totalStars,
+            completedStages: completedStages,
+            totalStages: widget.data.stages.length,
+          ),
+        ),
+        Positioned(
+          left: 14,
+          right: 14,
+          bottom: 16,
+          child: SafeArea(
+            top: false,
+            child: _WorldPagerControls(
+              world: selectedWorld,
+              selectedIndex: _selectedWorldIndex,
+              completedStages: worlds[_selectedWorldIndex].completedStages,
+              totalStages: worlds[_selectedWorldIndex].stages.length,
+              onPrevious: _selectedWorldIndex == 0
+                  ? null
+                  : () => _goToWorld(_selectedWorldIndex - 1),
+              onNext: _selectedWorldIndex == campaignWorlds.length - 1
+                  ? null
+                  : () => _goToWorld(_selectedWorldIndex + 1),
+              onDotTap: _goToWorld,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  int _initialWorldIndex() {
+    final allUnlocked = widget.data.progress.isNotEmpty &&
+        widget.data.progress.every(
+          (progress) => progress.status != StageProgressStatus.locked,
+        );
+    final hasCompleted = widget.data.progress.any(
+      widget.campaignService.isStageCompleted,
+    );
+    if (allUnlocked && !hasCompleted) return 0;
+
     final nextPlayableIndex = widget.data.progress.indexWhere(
       (progress) =>
           progress.status == StageProgressStatus.unlocked &&
           !widget.campaignService.isStageCompleted(progress),
     );
-    final currentIndex = nextPlayableIndex >= 0
+    final stageIndex = nextPlayableIndex >= 0
         ? nextPlayableIndex
-        : math.max(0, completedStages - 1);
+        : math.max(
+            0,
+            widget.data.progress
+                    .where(widget.campaignService.isStageCompleted)
+                    .length -
+                1,
+          );
+    if (stageIndex >= widget.data.stages.length) return 0;
+    return campaignWorldIndexForStageOrder(
+        widget.data.stages[stageIndex].order);
+  }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final viewportHeight = constraints.maxHeight;
-        final mapHeight =
-            _mapHeightFor(widget.data.stages.length, viewportHeight);
-        final centers = _stageCenters(
-          width: width,
-          height: mapHeight,
-          stages: widget.data.stages,
-        );
+  List<_WorldStageBundle> _worldStageBundles() {
+    final progressByStageId = {
+      for (final progress in widget.data.progress) progress.stageId: progress,
+    };
+    return [
+      for (final world in campaignWorlds)
+        _WorldStageBundle(
+          world: world,
+          stages: widget.data.stages
+              .where((stage) => world.containsStageOrder(stage.order))
+              .toList()
+            ..sort((a, b) => a.order.compareTo(b.order)),
+          progressByStageId: progressByStageId,
+          campaignService: widget.campaignService,
+        ),
+    ];
+  }
 
-        _scheduleAutoScroll(
-          centers: centers,
-          currentIndex: currentIndex,
-          mapHeight: mapHeight,
-          viewportHeight: viewportHeight,
-        );
-
-        return Stack(
-          children: [
-            RefreshIndicator(
-              onRefresh: widget.onRefresh,
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                child: SizedBox(
-                  width: width,
-                  height: mapHeight,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned.fill(
-                        child: CampaignMapBackground(
-                          height: mapHeight,
-                          stageCount: widget.data.stages.length,
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: CampaignPathPainter(points: centers),
-                        ),
-                      ),
-                      for (var index = 0;
-                          index < widget.data.stages.length;
-                          index += 1)
-                        Positioned(
-                          left: centers[index].dx - StageNode.hitWidth / 2,
-                          top: centers[index].dy -
-                              StageNode.centerOffsetFor(
-                                widget.data.stages[index],
-                              ),
-                          child: StageNode(
-                            stage: widget.data.stages[index],
-                            progress: widget.data.progress[index],
-                            locked: widget.data.progress[index].status ==
-                                StageProgressStatus.locked,
-                            completed: widget.campaignService
-                                .isStageCompleted(widget.data.progress[index]),
-                            current: index == currentIndex &&
-                                widget.data.progress[index].status !=
-                                    StageProgressStatus.locked,
-                            animation: widget.pulseAnimation,
-                            onTap: () {
-                              final progress = widget.data.progress[index];
-                              if (progress.status ==
-                                  StageProgressStatus.locked) {
-                                widget.onLockedTap(widget.data.stages[index]);
-                              } else {
-                                widget.onStageTap(
-                                  widget.data.stages[index],
-                                  progress,
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: _MapTopOverlay(
-                totalStars: totalStars,
-                completedStages: completedStages,
-                totalStages: widget.data.stages.length,
-              ),
-            ),
-          ],
-        );
-      },
+  void _goToWorld(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
     );
   }
 
-  void _scheduleAutoScroll({
-    required List<Offset> centers,
-    required int currentIndex,
-    required double mapHeight,
-    required double viewportHeight,
-  }) {
-    if (_didAutoScroll || centers.isEmpty) return;
-    _didAutoScroll = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      final targetY = centers[currentIndex.clamp(0, centers.length - 1)].dy;
-      final maxOffset = math.max(0.0, mapHeight - viewportHeight);
-      final desired = (targetY - viewportHeight * 0.78).clamp(0.0, maxOffset);
-      _scrollController.jumpTo(desired);
-    });
+  void _precacheWorld(int index) {
+    if (!mounted) return;
+    for (final candidate in <int>[index, index - 1, index + 1]) {
+      if (candidate < 0 || candidate >= campaignWorlds.length) continue;
+      precacheImage(
+        AssetImage(campaignWorlds[candidate].backgroundAsset),
+        context,
+      );
+    }
   }
+}
 
-  double _mapHeightFor(int stageCount, double viewportHeight) {
-    final count = math.max(1, stageCount);
-    return math.max(viewportHeight + 120, 210 + count * 76.0);
+class _WorldMapPage extends StatelessWidget {
+  const _WorldMapPage({
+    required this.bundle,
+    required this.campaignService,
+    required this.pulseAnimation,
+    required this.onLockedTap,
+    required this.onStageTap,
+    required this.onRefresh,
+  });
+
+  final _WorldStageBundle bundle;
+  final CampaignService campaignService;
+  final Animation<double> pulseAnimation;
+  final void Function(CampaignStage stage) onLockedTap;
+  final void Function(CampaignStage stage, StageProgress progress) onStageTap;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final height = constraints.maxHeight;
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: Image.asset(
+                      bundle.world.backgroundAsset,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.10),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  for (var index = 0; index < bundle.stages.length; index += 1)
+                    Positioned(
+                      left: width * bundle.world.nodePositions[index].dx -
+                          StageNode.hitWidth / 2,
+                      top: height * bundle.world.nodePositions[index].dy -
+                          StageNode.centerOffsetFor(bundle.stages[index]),
+                      child: StageNode(
+                        stage: bundle.stages[index],
+                        progress: bundle.progress[index],
+                        locked: bundle.progress[index].status ==
+                            StageProgressStatus.locked,
+                        completed: campaignService.isStageCompleted(
+                          bundle.progress[index],
+                        ),
+                        current:
+                            bundle.currentStageId == bundle.stages[index].id &&
+                                bundle.progress[index].status !=
+                                    StageProgressStatus.locked,
+                        animation: pulseAnimation,
+                        onTap: () {
+                          final progress = bundle.progress[index];
+                          if (progress.status == StageProgressStatus.locked) {
+                            onLockedTap(bundle.stages[index]);
+                          } else {
+                            onStageTap(bundle.stages[index], progress);
+                          }
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
+}
 
-  List<Offset> _stageCenters({
-    required double width,
-    required double height,
-    required List<CampaignStage> stages,
-  }) {
-    const pattern = <double>[0.50, 0.25, 0.72, 0.34, 0.78, 0.56, 0.28, 0.68];
-    final horizontalInset = width < 360 ? 44.0 : 52.0;
-    final usableWidth = width - horizontalInset * 2;
-    final step = _stageStepFor(height, stages.length);
-    return List.generate(stages.length, (index) {
-      final boss = stages[index].type == CampaignStageType.boss;
-      final ratio = boss ? 0.50 : pattern[index % pattern.length];
-      final x = horizontalInset + usableWidth * ratio;
-      final y = height - 86 - index * step;
-      return Offset(x.clamp(42.0, width - 42.0), y);
-    });
+class _WorldStageBundle {
+  _WorldStageBundle({
+    required this.world,
+    required this.stages,
+    required Map<String, StageProgress> progressByStageId,
+    required CampaignService campaignService,
+  })  : progress = [
+          for (final stage in stages)
+            progressByStageId[stage.id] ??
+                StageProgress.empty().copyWith(
+                  campaignId: stage.campaignId,
+                  stageId: stage.id,
+                ),
+        ],
+        completedStages = stages
+            .map((stage) => progressByStageId[stage.id])
+            .whereType<StageProgress>()
+            .where(campaignService.isStageCompleted)
+            .length,
+        currentStageId = _currentStageId(
+          stages,
+          progressByStageId,
+          campaignService,
+        );
+
+  final CampaignWorld world;
+  final List<CampaignStage> stages;
+  final List<StageProgress> progress;
+  final int completedStages;
+  final String? currentStageId;
+
+  static String? _currentStageId(
+    List<CampaignStage> stages,
+    Map<String, StageProgress> progressByStageId,
+    CampaignService campaignService,
+  ) {
+    for (final stage in stages) {
+      final progress = progressByStageId[stage.id];
+      if (progress == null) continue;
+      if (progress.status == StageProgressStatus.unlocked &&
+          !campaignService.isStageCompleted(progress)) {
+        return stage.id;
+      }
+    }
+    return null;
   }
+}
 
-  double _stageStepFor(double mapHeight, int stageCount) {
-    if (stageCount <= 1) return 82;
-    final usableHeight = math.max(0.0, mapHeight - 190);
-    return (usableHeight / (stageCount - 1)).clamp(70.0, 88.0);
+class _WorldPagerControls extends StatelessWidget {
+  const _WorldPagerControls({
+    required this.world,
+    required this.selectedIndex,
+    required this.completedStages,
+    required this.totalStages,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onDotTap,
+  });
+
+  final CampaignWorld world;
+  final int selectedIndex;
+  final int completedStages;
+  final int totalStages;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+  final ValueChanged<int> onDotTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0C3B25).withValues(alpha: 0.58),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.20),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              _WorldArrowButton(
+                icon: Icons.chevron_right_rounded,
+                onTap: onPrevious,
+              ),
+              Expanded(
+                child: Text(
+                  'العالم ${world.worldIndex + 1}  •  ${world.name}  •  $completedStages/$totalStages',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _WorldArrowButton(
+                icon: Icons.chevron_left_rounded,
+                onTap: onNext,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var index = 0; index < campaignWorlds.length; index += 1)
+              GestureDetector(
+                onTap: () => onDotTap(index),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: index == selectedIndex ? 20 : 7,
+                  height: 7,
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  decoration: BoxDecoration(
+                    color: index == selectedIndex
+                        ? const Color(0xFFFFD84D)
+                        : Colors.white.withValues(alpha: 0.40),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _WorldArrowButton extends StatelessWidget {
+  const _WorldArrowButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      onPressed: onTap,
+      icon: Icon(
+        icon,
+        color: onTap == null ? Colors.white38 : Colors.white,
+        size: 26,
+      ),
+    );
   }
 }
 

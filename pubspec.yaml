@@ -57,6 +57,8 @@ flutter:
     - assets/ui/box3.png
     - assets/ui/box4.png
     - assets/ui/splash_transparent.webp
+    - assets/images/campaign/worlds/
+    - assets/images/campaign/ui/
   fonts:
     - family: Baloo
       fonts:
