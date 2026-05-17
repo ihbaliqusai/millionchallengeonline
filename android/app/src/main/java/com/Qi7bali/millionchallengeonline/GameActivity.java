@@ -28,6 +28,7 @@ import android.view.animation.TranslateAnimation;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -207,6 +208,14 @@ public class GameActivity extends AppCompatActivity {
     private final ArrayList<String> campaignAllowedLevels = new ArrayList<>();
     private CountDownTimer campaignStageTimer;
     private TextView txtCampaignTimer;
+    private LinearLayout campaignHudPanel;
+    private TextView txtCampaignHudQuestion;
+    private TextView txtCampaignHudCorrect;
+    private TextView txtCampaignHudBattle;
+    private TextView txtCampaignHudBadge;
+    private FrameLayout campaignHudProgressTrack;
+    private View campaignHudProgressFill;
+    private final ArrayList<TextView> campaignHudStars = new ArrayList<>();
     private int campaignCorrectAnswers = 0;
     private int campaignWrongAnswers = 0;
     private int campaignAnsweredQuestions = 0;
@@ -215,6 +224,7 @@ public class GameActivity extends AppCompatActivity {
     private int campaignUsedCall = 0;
     private int campaignLastCorrectQuestion = -1;
     private int campaignLastWrongQuestion = -1;
+    private int campaignLastDisplayedStars = 0;
 
     private boolean adsInitialized = false;
     private boolean questionsReady = false;
@@ -466,6 +476,7 @@ public class GameActivity extends AppCompatActivity {
         llySolde = findViewById(R.id.llySolde);
         txtAmount = findViewById(R.id.txtAmount);
         btnGetMoney = findViewById(R.id.btnGetMoney);
+        configureCampaignGameplayHud();
 
         FAST_LIGHTS = false;
         animLights();
@@ -500,6 +511,10 @@ public class GameActivity extends AppCompatActivity {
                             rlyScore.setVisibility(View.VISIBLE);
                             Animations.move(rlyScore, 500, -300, 0, 0, 0);
                             showDialog("مرحبا بكما في مباراة جديدة", "", 800, 2000, R.drawable.mouth_01, false);
+                        } else if (campaignMode) {
+                            hideCampaignMoneyBox();
+                            showCampaignGameplayHud();
+                            showDialog(getCampaignOpeningMessage(), "", 800, 2200, R.drawable.mouth_01, false);
                         } else {
                             llySolde.setVisibility(View.VISIBLE);
                             showDialog("مرحبا بك في مباراة جديدة", "", 800, 2000, R.drawable.mouth_01, false);
@@ -639,7 +654,7 @@ public class GameActivity extends AppCompatActivity {
                             if (modeOnline)
                                 showDialog("تتكون المباراة من 3 جولات\nكل جولة من 5 أسئلة", "Rules-1", 1000, -1, R.drawable.mouth_05, false);
                             else
-                                showDialog("أمامك 15 سؤال نحو المليون", "Rules1", 1000, -1, R.drawable.mouth_05, false);
+                                showDialog("القوانين بسيطة وسهلة", "Rules1", 1000, -1, R.drawable.mouth_05, false);
                             break;
                         case "Rules-1":
                             showDialog("كل إجابة صحيحة تربح قيمتها من النقاط\nوكل إجابة خاطئة تساوي صفر", "Rules0", 1000, -1, R.drawable.mouth_05, false);
@@ -908,7 +923,7 @@ public class GameActivity extends AppCompatActivity {
                 : campaignStageId.trim());
         boss.bot = true;
         boss.name = campaignBossBotName == null || campaignBossBotName.trim().isEmpty()
-                ? "Ø²Ø¹ÙŠÙ… Ø§Ù„Ù…Ø±Ø­Ù„Ø©"
+                ? "زعيم المرحلة"
                 : campaignBossBotName.trim();
         boss.intelligence = resolveCampaignBossIntelligence();
         boss.level = Math.max(1, Math.min(10, boss.intelligence / 10));
@@ -917,9 +932,10 @@ public class GameActivity extends AppCompatActivity {
         campaignBossOpponent = boss;
         opponents.add(boss);
 
-        if (labScore != null) labScore.setText("Ø§Ù„Ø¬ÙˆÙ„Ø©");
-        if (labSets != null) labSets.setText("Ø§Ù„ØµØ­ÙŠØ­");
-        if (labScoreGame != null) labScoreGame.setText("Ø§Ù„Ù†Ù‚Ø§Ø·");
+        if (labScore != null) labScore.setText("الجولة");
+        if (labSets != null) labSets.setText("الصحيح");
+        if (labScoreGame != null) labScoreGame.setText("النقاط");
+        if (txtMeName != null) txtMeName.setText("أنت");
         if (txtSetsMe != null) txtSetsMe.setText("0");
         if (txtScoreMe != null) txtScoreMe.setText("0");
         if (txtScoreGameMe != null) txtScoreGameMe.setText("0");
@@ -929,9 +945,11 @@ public class GameActivity extends AppCompatActivity {
         Data.setImageSource(this, imgAnswer3Player1, myPhoto);
         Data.setImageSource(this, imgAnswer4Player1, myPhoto);
         buildOpponentPanels();
+        if (rlyScore != null) {
+            rlyScore.setVisibility(View.GONE);
+        }
         syncPrimaryOpponentFields();
     }
-
     private void parseOpponentsFromIntent() {
         opponents.clear();
         String opponentsJson = getIntent().getStringExtra("opponentsJson");
@@ -1244,6 +1262,291 @@ public class GameActivity extends AppCompatActivity {
         params.width = dp(sizeDp);
         params.height = dp(sizeDp);
         view.setLayoutParams(params);
+    }
+
+    private void configureCampaignGameplayHud() {
+        if (!campaignMode) {
+            return;
+        }
+        hideCampaignMoneyBox();
+        createCampaignProgressHudIfNeeded();
+        showCampaignGameplayHud();
+        updateCampaignProgressHud(false);
+    }
+
+    private void hideCampaignMoneyBox() {
+        if (campaignMode && llySolde != null) {
+            llySolde.setVisibility(View.GONE);
+        }
+    }
+
+    private void showCampaignGameplayHud() {
+        if (!campaignMode || campaignHudPanel == null) {
+            return;
+        }
+        campaignHudPanel.setVisibility(View.VISIBLE);
+    }
+
+    private void createCampaignProgressHudIfNeeded() {
+        if (!campaignMode || campaignHudPanel != null) {
+            return;
+        }
+        View root = findViewById(android.R.id.content);
+        if (!(root instanceof FrameLayout)) {
+            return;
+        }
+
+        campaignHudPanel = new LinearLayout(this);
+        campaignHudPanel.setOrientation(LinearLayout.VERTICAL);
+        campaignHudPanel.setPadding(dp(12), dp(10), dp(12), dp(10));
+        campaignHudPanel.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        campaignHudPanel.setBackground(createRoundedDrawable(
+                Color.argb(218, 4, 16, 42),
+                Color.argb(185, 255, 216, 74),
+                1,
+                16
+        ));
+        campaignHudPanel.setVisibility(View.INVISIBLE);
+
+        FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
+                dp(campaignBossBattle ? 250 : 210),
+                FrameLayout.LayoutParams.WRAP_CONTENT
+        );
+        panelParams.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
+        panelParams.setMargins(dp(10), dp(16), dp(10), dp(10));
+
+        txtCampaignHudBattle = createCampaignHudText(14, Color.WHITE, true);
+        txtCampaignHudBattle.setGravity(android.view.Gravity.CENTER);
+        txtCampaignHudBattle.setVisibility(campaignBossBattle ? View.VISIBLE : View.GONE);
+        if (campaignBossBattle) {
+            txtCampaignHudBattle.setPadding(dp(8), dp(6), dp(8), dp(6));
+            txtCampaignHudBattle.setBackground(createRoundedDrawable(
+                    Color.argb(95, 255, 216, 74),
+                    Color.argb(175, 255, 216, 74),
+                    1,
+                    12
+            ));
+        }
+        campaignHudPanel.addView(txtCampaignHudBattle, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        txtCampaignHudQuestion = createCampaignHudText(14, Color.WHITE, true);
+        if (campaignBossBattle) {
+            txtCampaignHudQuestion.setGravity(android.view.Gravity.CENTER);
+        }
+        campaignHudPanel.addView(txtCampaignHudQuestion);
+
+        txtCampaignHudCorrect = createCampaignHudText(13, Color.argb(235, 189, 235, 255), true);
+        if (campaignBossBattle) {
+            txtCampaignHudCorrect.setGravity(android.view.Gravity.CENTER);
+        }
+        campaignHudPanel.addView(txtCampaignHudCorrect);
+
+        LinearLayout starsRow = new LinearLayout(this);
+        starsRow.setOrientation(LinearLayout.HORIZONTAL);
+        starsRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        starsRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        LinearLayout.LayoutParams starsParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        starsParams.setMargins(0, dp(5), 0, dp(5));
+        campaignHudPanel.addView(starsRow, starsParams);
+
+        campaignHudStars.clear();
+        for (int i = 0; i < 3; i++) {
+            TextView star = createCampaignHudText(campaignBossBattle ? 28 : 22, Color.argb(115, 255, 255, 255), true);
+            star.setText("★");
+            star.setGravity(android.view.Gravity.CENTER);
+            int starBox = campaignBossBattle ? 36 : 26;
+            LinearLayout.LayoutParams starParams = new LinearLayout.LayoutParams(dp(starBox), dp(starBox));
+            starParams.setMargins(dp(campaignBossBattle ? 4 : 2), 0, dp(campaignBossBattle ? 4 : 2), 0);
+            starsRow.addView(star, starParams);
+            campaignHudStars.add(star);
+        }
+
+        campaignHudProgressTrack = new FrameLayout(this);
+        campaignHudProgressTrack.setBackground(createRoundedDrawable(
+                Color.argb(85, 255, 255, 255),
+                Color.TRANSPARENT,
+                0,
+                6
+        ));
+        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(6)
+        );
+        campaignHudPanel.addView(campaignHudProgressTrack, trackParams);
+
+        campaignHudProgressFill = new View(this);
+        campaignHudProgressFill.setBackground(createRoundedDrawable(
+                Color.argb(255, 255, 216, 74),
+                Color.TRANSPARENT,
+                0,
+                6
+        ));
+        campaignHudProgressTrack.addView(campaignHudProgressFill, new FrameLayout.LayoutParams(0, dp(6)));
+
+        txtCampaignHudBadge = createCampaignHudText(12, Color.argb(255, 255, 235, 160), true);
+        txtCampaignHudBadge.setGravity(android.view.Gravity.CENTER);
+        txtCampaignHudBadge.setVisibility("noLifeline".equals(campaignStageType) ? View.VISIBLE : View.GONE);
+        txtCampaignHudBadge.setText("بدون مساعدات");
+        txtCampaignHudBadge.setBackground(createRoundedDrawable(
+                Color.argb(70, 255, 216, 74),
+                Color.argb(145, 255, 216, 74),
+                1,
+                11
+        ));
+        LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        badgeParams.setMargins(0, dp(7), 0, 0);
+        campaignHudPanel.addView(txtCampaignHudBadge, badgeParams);
+
+        ((FrameLayout) root).addView(campaignHudPanel, panelParams);
+    }
+
+    private TextView createCampaignHudText(int sizeSp, int color, boolean bold) {
+        TextView textView = new TextView(this);
+        textView.setTextColor(color);
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
+        textView.setIncludeFontPadding(false);
+        textView.setSingleLine(false);
+        textView.setTypeface(null, bold ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+        return textView;
+    }
+
+    private GradientDrawable createRoundedDrawable(int fillColor, int strokeColor, int strokeDp, int radiusDp) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(fillColor);
+        drawable.setCornerRadius(dp(radiusDp));
+        if (strokeDp > 0) {
+            drawable.setStroke(dp(strokeDp), strokeColor);
+        }
+        return drawable;
+    }
+
+    private void updateCampaignProgressHud(boolean animateStars) {
+        if (!campaignMode || campaignHudPanel == null) {
+            return;
+        }
+        int targetCount = Math.max(1, getCampaignTargetQuestionCount());
+        int shownQuestion = currentQuestion >= 0
+                ? Math.min(targetCount, currentQuestion + 1)
+                : Math.min(targetCount, campaignAnsweredQuestions + 1);
+        txtCampaignHudQuestion.setText("السؤال " + shownQuestion + "/" + targetCount);
+        txtCampaignHudCorrect.setText("الصحيح " + campaignCorrectAnswers);
+
+        if (campaignBossBattle && campaignBossOpponent != null) {
+            txtCampaignHudBattle.setVisibility(View.VISIBLE);
+            txtCampaignHudBattle.setText("مواجهة الزعيم\nأنت: " + gameScoreMe + " نقطة   VS   "
+                    + campaignBossOpponent.name + ": " + campaignBossOpponent.gameScore + " نقطة");
+        } else {
+            txtCampaignHudBattle.setVisibility(View.GONE);
+        }
+
+        int earnedStars = getCampaignEarnedStars();
+        for (int i = 0; i < campaignHudStars.size(); i++) {
+            TextView star = campaignHudStars.get(i);
+            boolean earned = i < earnedStars;
+            star.setTextColor(earned ? Color.rgb(255, 216, 74) : Color.argb(115, 255, 255, 255));
+            star.setShadowLayer(earned ? dp(5) : 0, 0, 0, earned ? Color.argb(210, 255, 197, 45) : Color.TRANSPARENT);
+            if (animateStars && earned && i >= campaignLastDisplayedStars) {
+                animateCampaignStar(star);
+            }
+        }
+        campaignLastDisplayedStars = earnedStars;
+        updateCampaignHudProgressBar();
+    }
+
+    private void updateCampaignHudProgressBar() {
+        if (campaignHudProgressTrack == null || campaignHudProgressFill == null) {
+            return;
+        }
+        campaignHudProgressTrack.post(new Runnable() {
+            @Override
+            public void run() {
+                int trackWidth = campaignHudProgressTrack.getWidth();
+                if (trackWidth <= 0) {
+                    return;
+                }
+                float ratio = Math.max(0f, Math.min(1f, campaignCorrectAnswers / 9f));
+                ViewGroup.LayoutParams params = campaignHudProgressFill.getLayoutParams();
+                params.width = Math.round(trackWidth * ratio);
+                campaignHudProgressFill.setLayoutParams(params);
+            }
+        });
+    }
+
+    private int getCampaignEarnedStars() {
+        if (campaignCorrectAnswers >= 9) return 3;
+        if (campaignCorrectAnswers >= 7) return 2;
+        if (campaignCorrectAnswers >= 5) return 1;
+        return 0;
+    }
+
+    private void animateCampaignStar(final TextView star) {
+        if (star == null) {
+            return;
+        }
+        star.setScaleX(0.65f);
+        star.setScaleY(0.65f);
+        star.setAlpha(0.65f);
+        star.animate()
+                .scaleX(1.35f)
+                .scaleY(1.35f)
+                .alpha(1f)
+                .setDuration(160)
+                .withEndAction(new Runnable() {
+                    @Override
+                    public void run() {
+                        star.animate()
+                                .scaleX(1f)
+                                .scaleY(1f)
+                                .setDuration(160)
+                                .start();
+                    }
+                })
+                .start();
+    }
+
+    private String getCampaignOpeningMessage() {
+        if (campaignBossBattle) {
+            return "أمامك الزعيم. اهزمه لفتح الطريق التالي!";
+        }
+        return "أمامك 10 أسئلة. اجمع أكبر عدد من النجوم!";
+    }
+
+    private String getCampaignAnswerMessage(boolean correct, int starsBefore) {
+        if (!correct) {
+            if (campaignBossBattle && campaignBossOpponent != null) {
+                if (gameScoreMe < campaignBossOpponent.gameScore) {
+                    return "الزعيم متقدم، لكن ما زالت لديك فرصة.";
+                }
+                if (gameScoreMe > campaignBossOpponent.gameScore) {
+                    return "أنت متقدم على الزعيم! حافظ على تركيزك.";
+                }
+            }
+            return "لا بأس، الخطأ لا ينهي المرحلة لكنه يؤثر على النجوم.";
+        }
+        int starsAfter = getCampaignEarnedStars();
+        if (starsAfter > starsBefore) {
+            if (starsAfter == 1) return "ممتاز! حصلت على النجمة الأولى.";
+            if (starsAfter == 2) return "رائع! نجمتان حتى الآن.";
+            return "مذهل! ثلاث نجوم!";
+        }
+        if (campaignBossBattle && campaignBossOpponent != null) {
+            if (gameScoreMe < campaignBossOpponent.gameScore) {
+                return "الزعيم متقدم، لكن ما زالت لديك فرصة.";
+            }
+            if (gameScoreMe > campaignBossOpponent.gameScore) {
+                return "أنت متقدم على الزعيم! حافظ على تركيزك.";
+            }
+        }
+        return "إجابة رائعة! اقتربت من النجمة التالية.";
     }
 
     private boolean isShortGameScreen() {
@@ -2770,7 +3073,7 @@ public class GameActivity extends AppCompatActivity {
                         || rightAnswer <= 0 || boss.submitted) {
                     return;
                 }
-                submitCampaignBossAnswer(boss, getBotDisplayedAnswer(boss), delayMillis);
+                submitCampaignBossAnswer(boss, getCampaignBossDisplayedAnswer(boss), delayMillis);
             }
         };
         pendingBotAnswerRunnables.put(boss.id, runnable);
@@ -2785,7 +3088,7 @@ public class GameActivity extends AppCompatActivity {
         int elapsedMs = (int) Math.max(900L, Math.min(QUESTION_TIMEOUT_MS, getCurrentAnswerElapsedMs() + 450L));
         submitCampaignBossAnswer(
                 campaignBossOpponent,
-                getBotDisplayedAnswer(campaignBossOpponent),
+                getCampaignBossDisplayedAnswer(campaignBossOpponent),
                 elapsedMs
         );
     }
@@ -2798,6 +3101,15 @@ public class GameActivity extends AppCompatActivity {
         boss.submittedAnswerKey = getAnswerKeyForDisplayedIndex(displayedAnswer);
         boss.submitted = true;
         boss.answerElapsedMs = Math.max(1L, Math.min(QUESTION_TIMEOUT_MS, elapsedMs));
+    }
+
+    private int getCampaignBossDisplayedAnswer(MatchOpponent boss) {
+        if (boss == null || rightAnswer <= 0) {
+            return 0;
+        }
+        return new Random().nextDouble() < getCampaignBossAccuracy(boss)
+                ? rightAnswer
+                : getWrongAnswer(rightAnswer);
     }
 
     private void submitBotRoundAnswer(final MatchOpponent opponent, final int displayedAnswer) {
@@ -3515,12 +3827,21 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private int resolveCampaignBossIntelligence() {
-        if (campaignBossBotIntelligence > 0) {
-            return Math.max(35, Math.min(95, campaignBossBotIntelligence));
-        }
         int order = getCampaignStageOrder();
-        int scaled = 50 + Math.max(0, order / 10) * 12;
-        return Math.max(50, Math.min(92, scaled));
+        int defaultValue = order >= 30 ? 85 : (order >= 20 ? 75 : 65);
+        int requested = campaignBossBotIntelligence > 0 ? campaignBossBotIntelligence : defaultValue;
+        int maxValue = order >= 30 ? 88 : (order >= 20 ? 78 : 68);
+        int minValue = order >= 30 ? 82 : (order >= 20 ? 72 : 60);
+        return Math.max(minValue, Math.min(maxValue, requested));
+    }
+
+    private double getCampaignBossAccuracy(MatchOpponent boss) {
+        int order = getCampaignStageOrder();
+        double maxAccuracy = order >= 30 ? 0.88d : (order >= 20 ? 0.78d : 0.68d);
+        double minAccuracy = order >= 30 ? 0.82d : (order >= 20 ? 0.72d : 0.60d);
+        double baseAccuracy = Math.max(0.0d, Math.min(1.0d, boss.intelligence / 100.0d));
+        double variation = (new Random().nextInt(7) - 3) / 100.0d;
+        return Math.max(minAccuracy, Math.min(maxAccuracy, baseAccuracy + variation));
     }
 
     private void applyCampaignStageTypeDefaults() {
@@ -3623,37 +3944,22 @@ public class GameActivity extends AppCompatActivity {
         }
         MatchOpponent boss = campaignBossOpponent;
         boolean bossCorrect = boss.submittedAnswerKey == ANSWER_KEY_RIGHT;
-        ArrayList<RoundRankEntry> rankedCorrectAnswers = new ArrayList<>();
         if (playerCorrect) {
-            rankedCorrectAnswers.add(new RoundRankEntry(myID, myAnswerElapsedMs));
             mySetCorrectAnswers++;
             myTotalCorrectAnswers++;
+            setScoreMe += 100;
+            gameScoreMe += 100;
         }
         if (bossCorrect) {
-            rankedCorrectAnswers.add(new RoundRankEntry(boss.id, boss.answerElapsedMs));
             boss.setCorrectAnswers++;
             boss.totalCorrectAnswers++;
+            boss.roundScore += 100;
+            boss.gameScore += 100;
         }
-        Collections.sort(rankedCorrectAnswers, new Comparator<RoundRankEntry>() {
-            @Override
-            public int compare(RoundRankEntry left, RoundRankEntry right) {
-                int byElapsed = Long.compare(left.elapsedMs, right.elapsedMs);
-                if (byElapsed != 0) {
-                    return byElapsed;
-                }
-                return Integer.compare(
-                        getQuestionTieBreaker(left.playerId, currentQuestion),
-                        getQuestionTieBreaker(right.playerId, currentQuestion)
-                );
-            }
-        });
-
-        myRoundPoints = getSpeedPoints(myID, rankedCorrectAnswers);
-        boss.roundPoints = getSpeedPoints(boss.id, rankedCorrectAnswers);
-        setScoreMe += myRoundPoints;
-        gameScoreMe += myRoundPoints;
-        boss.roundScore += boss.roundPoints;
-        boss.gameScore += boss.roundPoints;
+        myRoundPoints = playerCorrect ? 100 : 0;
+        boss.roundPoints = bossCorrect ? 100 : 0;
+        myTotalAnswerTimeMs += myAnswerElapsedMs;
+        boss.totalAnswerTimeMs += boss.answerElapsedMs;
         txtScoreMe.setText(setScoreMe + "");
         txtSetsMe.setText(myTotalCorrectAnswers + "");
         txtScoreGameMe.setText(gameScoreMe + "");
@@ -3673,6 +3979,7 @@ public class GameActivity extends AppCompatActivity {
         T_LIGHTS = 3;
         CAN_PLAY = false;
         final boolean correct = !timeout && myAnswer == rightAnswer;
+        final int starsBefore = getCampaignEarnedStars();
         myAnswerElapsedMs = timeout ? QUESTION_TIMEOUT_MS : getCurrentAnswerElapsedMs();
         if (campaignBossBattle) {
             ensureCampaignBossAnswered();
@@ -3684,14 +3991,16 @@ public class GameActivity extends AppCompatActivity {
             PlayerStats.recordCorrectAnswer(GameActivity.this);
             person.like(700);
             playSound(R.raw.correct_answer, false, false);
-            showDialog("الجواب صحيح", "", 700, 900, R.drawable.mouth_01, false);
+            updateCampaignProgressHud(true);
+            showDialog(getCampaignAnswerMessage(true, starsBefore), "", 700, 900, R.drawable.mouth_01, false);
         } else {
             recordCampaignWrongAnswer();
             PlayerStats.recordWrongAnswer(GameActivity.this);
             playSound(R.raw.wrong_answer, false, false);
             if (imgSelected != null && !timeout) imgSelected.setImageResource(R.drawable.frame_wrong);
             if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
-            showDialog(timeout ? "انتهى وقت السؤال" : "إجابة خاطئة، نتابع السؤال التالي", "", 700, 900, R.drawable.mouth_05, false);
+            updateCampaignProgressHud(false);
+            showDialog(getCampaignAnswerMessage(false, starsBefore), "", 700, 900, R.drawable.mouth_05, false);
         }
 
         if (campaignBossBattle && campaignBossOpponent != null
@@ -3722,11 +4031,27 @@ public class GameActivity extends AppCompatActivity {
 
     private void completeCampaignStage() {
         final int prize = getCampaignCurrentMoney();
-        PlayerStats.recordGameEnd(GameActivity.this, true, prize);
-        PlayerProgress.onGameFinished(GameActivity.this, true, prize,
+        final boolean completed = !campaignBossBattle || isCampaignBossDefeated();
+        PlayerStats.recordGameEnd(GameActivity.this, completed, prize);
+        PlayerProgress.onGameFinished(GameActivity.this, completed, completed ? prize : 0,
                 PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
-        persistPendingCampaignStageResult(true, prize, 0);
+        persistPendingCampaignStageResult(completed, completed ? prize : 0, 0);
         finishCampaignAndReturnToFlutter();
+    }
+
+    private boolean isCampaignBossDefeated() {
+        if (!campaignBossBattle || campaignBossOpponent == null) {
+            return true;
+        }
+        MatchOpponent boss = campaignBossOpponent;
+        if (gameScoreMe != boss.gameScore) {
+            return gameScoreMe > boss.gameScore;
+        }
+        if (myTotalCorrectAnswers != boss.totalCorrectAnswers) {
+            return myTotalCorrectAnswers > boss.totalCorrectAnswers;
+        }
+        return myTotalAnswerTimeMs > 0L
+                && (boss.totalAnswerTimeMs <= 0L || myTotalAnswerTimeMs < boss.totalAnswerTimeMs);
     }
 
     private int getCampaignCurrentMoney() {
@@ -3749,19 +4074,16 @@ public class GameActivity extends AppCompatActivity {
         }
         txtCampaignTimer = new TextView(this);
         txtCampaignTimer.setTextColor(Color.WHITE);
-        txtCampaignTimer.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        txtCampaignTimer.setPadding(dp(12), dp(6), dp(12), dp(6));
+        txtCampaignTimer.setTextSize(TypedValue.COMPLEX_UNIT_SP, "speed".equals(campaignStageType) ? 19 : 16);
+        txtCampaignTimer.setTypeface(null, android.graphics.Typeface.BOLD);
+        txtCampaignTimer.setPadding(dp(12), dp(7), dp(12), dp(7));
         txtCampaignTimer.setText(formatCampaignRemaining(campaignTimeLimitSeconds));
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.argb(190, 10, 28, 48));
-        background.setCornerRadius(dp(18));
-        background.setStroke(dp(1), Color.argb(210, 255, 215, 90));
-        txtCampaignTimer.setBackground(background);
+        updateCampaignTimerVisual(campaignTimeLimitSeconds);
         android.widget.FrameLayout.LayoutParams params = new android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
                 android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
-        params.gravity = android.view.Gravity.TOP | android.view.Gravity.END;
-        params.setMargins(dp(12), dp(16), dp(12), dp(12));
+        params.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
+        params.setMargins(dp(campaignBossBattle ? 270 : 230), dp(16), dp(12), dp(12));
         View root = findViewById(android.R.id.content);
         if (root instanceof android.widget.FrameLayout) {
             ((android.widget.FrameLayout) root).addView(txtCampaignTimer, params);
@@ -3777,7 +4099,9 @@ public class GameActivity extends AppCompatActivity {
             @Override
             public void onTick(long millisUntilFinished) {
                 if (txtCampaignTimer != null) {
-                    txtCampaignTimer.setText(formatCampaignRemaining((int) Math.ceil(millisUntilFinished / 1000.0)));
+                    int secondsLeft = (int) Math.ceil(millisUntilFinished / 1000.0);
+                    txtCampaignTimer.setText(formatCampaignRemaining(secondsLeft));
+                    updateCampaignTimerVisual(secondsLeft);
                 }
             }
 
@@ -3791,6 +4115,20 @@ public class GameActivity extends AppCompatActivity {
     private String formatCampaignRemaining(int totalSeconds) {
         int safeSeconds = Math.max(0, totalSeconds);
         return String.format(Locale.US, "%02d:%02d", safeSeconds / 60, safeSeconds % 60);
+    }
+
+    private void updateCampaignTimerVisual(int secondsLeft) {
+        if (txtCampaignTimer == null) {
+            return;
+        }
+        boolean urgent = secondsLeft <= 20 || ("speed".equals(campaignStageType) && secondsLeft <= 30);
+        txtCampaignTimer.setTextColor(urgent ? Color.rgb(255, 230, 230) : Color.WHITE);
+        txtCampaignTimer.setBackground(createRoundedDrawable(
+                urgent ? Color.argb(225, 150, 20, 34) : Color.argb(205, 10, 28, 48),
+                urgent ? Color.argb(240, 255, 112, 112) : Color.argb(220, 255, 216, 74),
+                "speed".equals(campaignStageType) ? 2 : 1,
+                18
+        ));
     }
 
     private void handleCampaignTimeExpired() {
@@ -3963,6 +4301,8 @@ public class GameActivity extends AppCompatActivity {
                         }
                         if (modeOnline)
                             showDialog("نبدأ الآن.. استعدوا للمباراة", "", 1000, 3000, R.drawable.mouth_01, false);
+                        else if (campaignMode)
+                            showDialog(getCampaignOpeningMessage(), "", 1000, 3000, R.drawable.mouth_01, false);
                         else
                             showDialog("نبدأ الآن.. استعد للحصول على المليون", "", 1000, 3000, R.drawable.mouth_01, false);
                         handler.postDelayed(this, 5000);
@@ -4383,6 +4723,7 @@ public class GameActivity extends AppCompatActivity {
     private void showQuestionNow(final int questionIndex) {
         if(!EXITING) {
             currentQuestion = questionIndex;
+            updateCampaignProgressHud(false);
             spectatorEliminationRound = eliminationMode && localPlayerEliminated;
             scheduledQuestionStartAt = 0L;
             pendingQuestionIndex = -1;
@@ -5075,8 +5416,11 @@ public class GameActivity extends AppCompatActivity {
             payload.put("campaignId", campaignId);
             payload.put("stageId", campaignStageId);
             payload.put("stageType", campaignStageType);
-            payload.put("completed", completed);
-            payload.put("score", 0);
+            boolean bossDefeated = !campaignBossBattle || isCampaignBossDefeated();
+            boolean effectiveCompleted = campaignBossBattle ? bossDefeated : completed;
+            int playerScore = campaignBossBattle ? Math.max(0, gameScoreMe) : 0;
+            payload.put("completed", effectiveCompleted);
+            payload.put("score", playerScore);
             payload.put("money", Math.max(0, money));
             payload.put("correctAnswers", answeredCorrect);
             payload.put("wrongAnswers", Math.max(campaignWrongAnswers, Math.max(0, wrongAnswers)));
@@ -5087,13 +5431,16 @@ public class GameActivity extends AppCompatActivity {
             if (campaignBossBattle && campaignBossOpponent != null) {
                 payload.put("bossName", campaignBossOpponent.name);
                 payload.put("bossIntelligence", campaignBossOpponent.intelligence);
+                payload.put("bossDefeated", bossDefeated);
+                payload.put("bossBattleWon", bossDefeated);
+                payload.put("playerScore", Math.max(0, gameScoreMe));
                 payload.put("bossScore", Math.max(0, campaignBossOpponent.gameScore));
                 payload.put("bossCorrectAnswers", Math.max(0, campaignBossOpponent.totalCorrectAnswers));
-                payload.put("bossBattleWon", gameScoreMe >= campaignBossOpponent.gameScore);
+                payload.put("bossWrongAnswers", Math.max(0, targetCount - campaignBossOpponent.totalCorrectAnswers));
             }
             AppPrefs.setPendingCampaignStageResult(this, payload.toString());
             Log.d("CampaignStage", "CAMP_RESULT_SAVED stageId=" + campaignStageId
-                    + " completed=" + completed
+                    + " completed=" + effectiveCompleted
                     + " correct=" + answeredCorrect
                     + " wrong=" + Math.max(campaignWrongAnswers, Math.max(0, wrongAnswers)));
         } catch (Exception ignored) {

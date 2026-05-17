@@ -354,7 +354,12 @@ class CampaignResultHandler {
     required Map<String, dynamic> payload,
     bool saveFailed = false,
   }) {
-    final completed = _readBool(payload['completed']);
+    final isBossStage = stage.type == CampaignStageType.boss ||
+        (payload['stageType']?.toString() == 'boss');
+    final bossDefeated = _readBool(payload['bossDefeated']) ||
+        _readBool(payload['bossBattleWon']);
+    final completed =
+        isBossStage ? bossDefeated : _readBool(payload['completed']);
     final money = _readInt(payload['money']);
     final correctAnswers = _readInt(payload['correctAnswers']);
     final wrongAnswers = _readInt(payload['wrongAnswers']);
@@ -363,15 +368,19 @@ class CampaignResultHandler {
     final usedAudience = _readInt(payload['usedAudience']);
     final usedCall = _readInt(payload['usedCall']);
     final usedLifelines = used5050 + usedAudience + usedCall;
-    final score = campaignService.calculateScore(
-      money: money,
-      correctAnswers: correctAnswers,
-      wrongAnswers: wrongAnswers,
-      timeMs: timeMs,
-      used5050: used5050,
-      usedAudience: usedAudience,
-      usedCall: usedCall,
-    );
+    final score = isBossStage
+        ? (_readInt(payload['playerScore']) > 0
+            ? _readInt(payload['playerScore'])
+            : correctAnswers * 100)
+        : campaignService.calculateScore(
+            money: money,
+            correctAnswers: correctAnswers,
+            wrongAnswers: wrongAnswers,
+            timeMs: timeMs,
+            used5050: used5050,
+            usedAudience: usedAudience,
+            usedCall: usedCall,
+          );
     final stars = campaignService.calculateStars(
       stage: stage,
       completed: completed,
@@ -398,6 +407,12 @@ class CampaignResultHandler {
       usedCall: usedCall,
       completed: completed,
       stars: stars,
+      bossDefeated: isBossStage && bossDefeated,
+      bossName: payload['bossName']?.toString(),
+      bossCorrectAnswers: _readInt(payload['bossCorrectAnswers']),
+      bossWrongAnswers: _readInt(payload['bossWrongAnswers']),
+      bossScore: _readInt(payload['bossScore']),
+      playerScore: score,
       createdAt: now,
     );
     final progress = StageProgress(

@@ -365,6 +365,12 @@ class StageIntroHeader extends StatelessWidget {
                             : 'زعيم المرحلة',
                         color: const Color(0xFFFFD66B),
                       ),
+                    if (boss)
+                      _MiniPill(
+                        icon: Icons.local_fire_department_rounded,
+                        label: _bossDifficultyLabel(stage.order),
+                        color: const Color(0xFFFFF0A7),
+                      ),
                     StarRatingView(stars: progress.stars, size: 19),
                   ],
                 ),
@@ -666,6 +672,14 @@ class _RulesPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
+          if (stage.type == CampaignStageType.boss) ...[
+            const _InfoChip(
+              icon: Icons.shield_rounded,
+              label: 'اهزم الزعيم لفتح الطريق التالي',
+              color: Color(0xFFFFD95A),
+            ),
+            const SizedBox(height: 8),
+          ],
           LifelineRulesRow(
             allow5050: stage.allow5050,
             allowAudience: stage.allowAudience,
@@ -1076,6 +1090,12 @@ class _CircleHudButton extends StatelessWidget {
       ),
     );
   }
+}
+
+String _bossDifficultyLabel(int order) {
+  if (order >= 30) return 'أسطوري';
+  if (order >= 20) return 'صعب';
+  return 'متوسط';
 }
 
 String stageTypeLabel(CampaignStageType type) {

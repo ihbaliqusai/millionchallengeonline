@@ -254,13 +254,17 @@ class CampaignService {
           savedProgress[stage.id] ?? savedProgress[_legacyStageId(stage.id)];
       final previousStageCompleted =
           index > 0 && completedStageIds.contains(sortedStages[index - 1].id);
+      final previousStageIsBoss =
+          index > 0 && sortedStages[index - 1].type == CampaignStageType.boss;
       final completed = saved != null && isStageCompleted(saved);
-      final unlocked = isStageUnlocked(
-        stage: stage,
-        isFirstStage: stage.order == 1 || index == 0,
-        previousStageCompleted: previousStageCompleted,
-        earnedStars: earnedStars,
-      );
+      final unlocked = previousStageIsBoss && !previousStageCompleted
+          ? false
+          : isStageUnlocked(
+              stage: stage,
+              isFirstStage: stage.order == 1 || index == 0,
+              previousStageCompleted: previousStageCompleted,
+              earnedStars: earnedStars,
+            );
       final status = completed
           ? StageProgressStatus.completed
           : unlocked
@@ -333,6 +337,13 @@ class CampaignService {
     final rules = stage.starRules;
     if (rules.completedRequired && !completed) return 0;
 
+    if (stage.type == CampaignStageType.boss) {
+      if (correctAnswers >= 9) return 3;
+      if (correctAnswers >= 7) return 2;
+      if (correctAnswers >= 5) return 1;
+      return 0;
+    }
+
     var stars = 0;
     if (correctAnswers >= rules.oneStarMinCorrectAnswers ||
         (rules.oneStarMinScore > 0 && score >= rules.oneStarMinScore)) {
@@ -376,7 +387,12 @@ class CampaignService {
       nativeResult['stageType'],
       defaultValue: stage.type.value,
     );
-    final completed = _readBool(nativeResult['completed']);
+    final isBossStage =
+        stage.type == CampaignStageType.boss || stageType == 'boss';
+    final bossDefeated = _readBool(nativeResult['bossDefeated'],
+        defaultValue: _readBool(nativeResult['bossBattleWon']));
+    final completed =
+        isBossStage ? bossDefeated : _readBool(nativeResult['completed']);
     final money = _readInt(nativeResult['money']);
     final correctAnswers = _readInt(nativeResult['correctAnswers']);
     final wrongAnswers = _readInt(nativeResult['wrongAnswers']);
@@ -385,15 +401,21 @@ class CampaignService {
     final usedAudience = _readInt(nativeResult['usedAudience']);
     final usedCall = _readInt(nativeResult['usedCall']);
     final usedLifelines = used5050 + usedAudience + usedCall;
-    final score = calculateScore(
-      money: money,
-      correctAnswers: correctAnswers,
-      wrongAnswers: wrongAnswers,
-      timeMs: timeMs,
-      used5050: used5050,
-      usedAudience: usedAudience,
-      usedCall: usedCall,
-    );
+    final playerScore = _readInt(nativeResult['playerScore']);
+    final bossScore = _readInt(nativeResult['bossScore']);
+    final bossCorrectAnswers = _readInt(nativeResult['bossCorrectAnswers']);
+    final bossWrongAnswers = _readInt(nativeResult['bossWrongAnswers']);
+    final score = isBossStage
+        ? (playerScore > 0 ? playerScore : correctAnswers * 100)
+        : calculateScore(
+            money: money,
+            correctAnswers: correctAnswers,
+            wrongAnswers: wrongAnswers,
+            timeMs: timeMs,
+            used5050: used5050,
+            usedAudience: usedAudience,
+            usedCall: usedCall,
+          );
     final stars = calculateStars(
       stage: stage,
       completed: completed,
@@ -422,6 +444,12 @@ class CampaignService {
       usedCall: usedCall,
       completed: completed,
       stars: stars,
+      bossDefeated: isBossStage && bossDefeated,
+      bossName: _cleanString(_readString(nativeResult['bossName'])),
+      bossCorrectAnswers: bossCorrectAnswers,
+      bossWrongAnswers: bossWrongAnswers,
+      bossScore: bossScore,
+      playerScore: score,
       createdAt: DateTime.now(),
     );
     final leaderboardEntry = StageLeaderboardEntry(
@@ -460,7 +488,8 @@ class CampaignService {
       final previousStars = previousProgress?.stars ?? 0;
       final previousCompleted =
           previousProgress != null && isStageCompleted(previousProgress);
-      final completedNow = completed || stars > 0 || previousCompleted;
+      final completedNow =
+          completed || (!isBossStage && stars > 0) || previousCompleted;
       final newStars = math.max(previousStars, stars);
       final improvedBestScore = score > (previousProgress?.bestScore ?? 0);
       final improvedStars = newStars > previousStars;
@@ -546,12 +575,14 @@ class CampaignService {
         ),
       );
     });
-    final leaderboardUpdated = await _tryUpdateStageLeaderboard(
-      campaignId: campaignId,
-      stageId: stageId,
-      uid: normalizedUid,
-      entry: leaderboardEntry,
-    );
+    final leaderboardUpdated = isBossStage && !completed
+        ? false
+        : await _tryUpdateStageLeaderboard(
+            campaignId: campaignId,
+            stageId: stageId,
+            uid: normalizedUid,
+            entry: leaderboardEntry,
+          );
     final rewardResult = await _tryCreateRewardClaim(
       uid: normalizedUid,
       campaignId: campaignId,

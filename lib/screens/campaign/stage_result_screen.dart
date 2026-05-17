@@ -46,6 +46,7 @@ class _StageResultScreenState extends State<StageResultScreen>
   StageSubmissionResult get submissionResult => widget.submissionResult;
   Map<String, dynamic>? get rawNativeResult => widget.rawNativeResult;
   bool get currencyRewardApplied => widget.currencyRewardApplied;
+  bool get _isBossStage => stage.type == CampaignStageType.boss;
 
   bool get _isUnsavedPreview {
     return submissionResult.attempt.uid.isEmpty && rawNativeResult != null;
@@ -104,6 +105,7 @@ class _StageResultScreenState extends State<StageResultScreen>
     final appState = context.watch<AppState>();
     final attempt = submissionResult.attempt;
     final completed = attempt.completed;
+    final bossDefeated = _isBossStage && attempt.bossDefeated;
     final usedLifelines =
         attempt.used5050 + attempt.usedAudience + attempt.usedCall;
     final hasCoins = appState.currentUser != null;
@@ -144,9 +146,12 @@ class _StageResultScreenState extends State<StageResultScreen>
                                     _ResultMessage(
                                       completed: completed,
                                       stage: stage,
+                                      bossDefeated: bossDefeated,
                                       message: _cleanMessage(
                                         submissionResult.motivationalMessage,
                                         completed: completed,
+                                        bossStage: _isBossStage,
+                                        bossDefeated: bossDefeated,
                                       ),
                                     ),
                                     const SizedBox(height: 10),
@@ -162,6 +167,18 @@ class _StageResultScreenState extends State<StageResultScreen>
                                       timeMs: attempt.timeMs,
                                       usedLifelines: usedLifelines,
                                     ),
+                                    if (_isBossStage) ...[
+                                      const SizedBox(height: 10),
+                                      _BossBattleResultPanel(
+                                        bossName: attempt.bossName,
+                                        playerCorrectAnswers:
+                                            attempt.correctAnswers,
+                                        bossCorrectAnswers:
+                                            attempt.bossCorrectAnswers,
+                                        playerScore: attempt.playerScore,
+                                        bossScore: attempt.bossScore,
+                                      ),
+                                    ],
                                     const SizedBox(height: 10),
                                     ResultRewardPanel(
                                       result: submissionResult,
@@ -231,9 +248,19 @@ class _StageResultScreenState extends State<StageResultScreen>
     );
   }
 
-  String _cleanMessage(String message, {required bool completed}) {
+  String _cleanMessage(
+    String message, {
+    required bool completed,
+    bool bossStage = false,
+    bool bossDefeated = false,
+  }) {
+    if (bossStage) {
+      return bossDefeated
+          ? 'مواجهة رائعة، لقد فتحت الطريق التالي.'
+          : 'لم تهزم الزعيم بعد. حاول مرة أخرى.';
+    }
     final trimmed = message.trim();
-    if (trimmed.isNotEmpty && !trimmed.contains('Ø')) return trimmed;
+    if (trimmed.isNotEmpty && !trimmed.contains('\u00D8')) return trimmed;
     return completed
         ? 'الأخطاء لا تنهي المرحلة، لكنها تقلل عدد النجوم.'
         : 'حاول مرة أخرى واجمع المزيد من النجوم.';
@@ -500,19 +527,24 @@ class _ResultMessage extends StatelessWidget {
   const _ResultMessage({
     required this.completed,
     required this.stage,
+    required this.bossDefeated,
     required this.message,
   });
 
   final bool completed;
   final CampaignStage stage;
+  final bool bossDefeated;
   final String message;
 
   @override
   Widget build(BuildContext context) {
+    final isBoss = stage.type == CampaignStageType.boss;
     return Column(
       children: [
         Text(
-          completed ? 'تم إنهاء المرحلة!' : 'انتهت المرحلة',
+          isBoss
+              ? (bossDefeated ? 'هزمت الزعيم!' : 'خسرت المواجهة')
+              : (completed ? 'تم إنهاء المرحلة!' : 'انتهت المرحلة'),
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: Colors.white,
@@ -551,6 +583,106 @@ class _ResultMessage extends StatelessWidget {
             fontSize: 15,
             fontWeight: FontWeight.w800,
             height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BossBattleResultPanel extends StatelessWidget {
+  const _BossBattleResultPanel({
+    required this.bossName,
+    required this.playerCorrectAnswers,
+    required this.bossCorrectAnswers,
+    required this.playerScore,
+    required this.bossScore,
+  });
+
+  final String? bossName;
+  final int playerCorrectAnswers;
+  final int bossCorrectAnswers;
+  final int playerScore;
+  final int bossScore;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF061642).withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(18),
+        border:
+            Border.all(color: const Color(0xFFFFD95A).withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _BossScoreSide(
+              name: 'أنت',
+              correctAnswers: playerCorrectAnswers,
+              score: playerScore,
+              color: const Color(0xFF54F088),
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 46,
+            color: Colors.white.withValues(alpha: 0.16),
+          ),
+          Expanded(
+            child: _BossScoreSide(
+              name: bossName?.trim().isNotEmpty == true
+                  ? bossName!.trim()
+                  : 'الزعيم',
+              correctAnswers: bossCorrectAnswers,
+              score: bossScore,
+              color: const Color(0xFFFFD95A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BossScoreSide extends StatelessWidget {
+  const _BossScoreSide({
+    required this.name,
+    required this.correctAnswers,
+    required this.score,
+    required this.color,
+  });
+
+  final String name;
+  final int correctAnswers;
+  final int score;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: color,
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '$correctAnswers صحيح | $score نقطة',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ],

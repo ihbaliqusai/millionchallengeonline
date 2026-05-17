@@ -15,6 +15,12 @@ class StageAttempt {
     required this.usedCall,
     required this.completed,
     required this.stars,
+    this.bossDefeated = false,
+    this.bossName,
+    this.bossCorrectAnswers = 0,
+    this.bossWrongAnswers = 0,
+    this.bossScore = 0,
+    this.playerScore = 0,
     this.createdAt,
   });
 
@@ -33,6 +39,12 @@ class StageAttempt {
   final int usedCall;
   final bool completed;
   final int stars;
+  final bool bossDefeated;
+  final String? bossName;
+  final int bossCorrectAnswers;
+  final int bossWrongAnswers;
+  final int bossScore;
+  final int playerScore;
   final DateTime? createdAt;
 
   factory StageAttempt.empty() => const StageAttempt(
@@ -51,6 +63,7 @@ class StageAttempt {
         usedCall: 0,
         completed: false,
         stars: 0,
+        bossDefeated: false,
       );
 
   factory StageAttempt.fromMap(Map<String, dynamic> map) => StageAttempt(
@@ -69,6 +82,12 @@ class StageAttempt {
         usedCall: _readInt(map['usedCall']),
         completed: _readBool(map['completed']),
         stars: _readInt(map['stars']),
+        bossDefeated: _readBool(map['bossDefeated']),
+        bossName: _readNullableString(map['bossName']),
+        bossCorrectAnswers: _readInt(map['bossCorrectAnswers']),
+        bossWrongAnswers: _readInt(map['bossWrongAnswers']),
+        bossScore: _readInt(map['bossScore']),
+        playerScore: _readInt(map['playerScore']),
         createdAt: _readDate(map['createdAt']),
       );
 
@@ -88,6 +107,12 @@ class StageAttempt {
         'usedCall': usedCall,
         'completed': completed,
         'stars': stars,
+        'bossDefeated': bossDefeated,
+        if (bossName != null) 'bossName': bossName,
+        'bossCorrectAnswers': bossCorrectAnswers,
+        'bossWrongAnswers': bossWrongAnswers,
+        'bossScore': bossScore,
+        'playerScore': playerScore,
         'createdAt': createdAt,
       };
 
@@ -107,6 +132,12 @@ class StageAttempt {
     int? usedCall,
     bool? completed,
     int? stars,
+    bool? bossDefeated,
+    String? bossName,
+    int? bossCorrectAnswers,
+    int? bossWrongAnswers,
+    int? bossScore,
+    int? playerScore,
     DateTime? createdAt,
   }) {
     return StageAttempt(
@@ -125,6 +156,12 @@ class StageAttempt {
       usedCall: usedCall ?? this.usedCall,
       completed: completed ?? this.completed,
       stars: stars ?? this.stars,
+      bossDefeated: bossDefeated ?? this.bossDefeated,
+      bossName: bossName ?? this.bossName,
+      bossCorrectAnswers: bossCorrectAnswers ?? this.bossCorrectAnswers,
+      bossWrongAnswers: bossWrongAnswers ?? this.bossWrongAnswers,
+      bossScore: bossScore ?? this.bossScore,
+      playerScore: playerScore ?? this.playerScore,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -166,4 +203,10 @@ int _readInt(dynamic value, {int defaultValue = 0}) {
 String _readString(dynamic value, {String defaultValue = ''}) {
   if (value == null) return defaultValue;
   return value.toString();
+}
+
+String? _readNullableString(dynamic value) {
+  final text = value?.toString().trim();
+  if (text == null || text.isEmpty) return null;
+  return text;
 }

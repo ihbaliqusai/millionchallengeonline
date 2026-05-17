@@ -20,7 +20,9 @@ class CampaignDefaults {
         campaignId: campaignId,
         order: order,
         title: _titleFor(order, type),
-        subtitle: '$world - أجب عن 10 أسئلة واجمع أكبر عدد من النجوم.',
+        subtitle: type == CampaignStageType.boss
+            ? '$world - اهزم الزعيم لفتح الطريق التالي.'
+            : '$world - أجب عن 10 أسئلة واجمع أكبر عدد من النجوم.',
         type: type,
         timeLimitSeconds: _timeLimitFor(type, order),
         categories: const <String>['general'],
@@ -149,8 +151,8 @@ class CampaignDefaults {
       threeStarsMinScore: 0,
       oneStarMinCorrectAnswers: 5,
       twoStarsMinCorrectAnswers: 7,
-      threeStarsMinCorrectAnswers: order == 20 || order == 30 ? 10 : 9,
-      maxWrongAnswersForThreeStars: order == 20 || order == 30 ? 0 : null,
+      threeStarsMinCorrectAnswers: 9,
+      maxWrongAnswersForThreeStars: null,
       twoStarsMaxTimeMs: type == CampaignStageType.speed ? 165000 : null,
       threeStarsMaxTimeMs: type == CampaignStageType.speed ? 125000 : null,
       threeStarsMaxLifelinesUsed: type == CampaignStageType.noLifeline
@@ -186,15 +188,15 @@ class CampaignDefaults {
   }
 
   static String _bossNameFor(int order) {
-    if (order == 10) return 'طارق';
-    if (order == 20) return 'ليلى';
+    if (order == 10) return 'طارق السريع';
+    if (order == 20) return 'ليلى الحاسمة';
     return 'حارس المليون';
   }
 
   static int _bossIntelligenceFor(int order) {
-    if (order >= 30) return 88;
-    if (order >= 20) return 76;
-    return 64;
+    if (order >= 30) return 85;
+    if (order >= 20) return 75;
+    return 65;
   }
 
   static int _minDifficultyFor(List<String> levels) {

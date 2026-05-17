@@ -728,7 +728,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                             if (modeOnline)
                                 showDialog(buildOnlineRulesIntroMessage(), "Rules-1", 1000, -1, R.drawable.mouth_05, false);
                             else
-                                showDialog("أمامك 15 سؤال نحو المليون", "Rules1", 1000, -1, R.drawable.mouth_05, false);
+                                showDialog("القوانين بسيطة وسهلة", "Rules1", 1000, -1, R.drawable.mouth_05, false);
                             break;
                         case "Rules-1":
                             if (isBlitzMode()) {
