@@ -874,6 +874,7 @@ class _CenterArena extends StatelessWidget {
                 glowCtrl: glowCtrl,
                 label: 'رحلة المليون',
                 green: true,
+                enabled: appState.isOnline,
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const CampaignMapScreen(),
@@ -888,6 +889,7 @@ class _CenterArena extends StatelessWidget {
                     glowCtrl: glowCtrl,
                     label: 'تحدي جماعي',
                     gold: true,
+                    textColor: Colors.white,
                     enabled: appState.isOnline,
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
@@ -932,6 +934,7 @@ class _BattleButton extends StatefulWidget {
     this.green = false,
     this.gold = true,
     this.enabled = true,
+    this.textColor,
   });
   final AnimationController glowCtrl;
   final String label;
@@ -939,6 +942,7 @@ class _BattleButton extends StatefulWidget {
   final bool green;
   final bool gold;
   final bool enabled;
+  final Color? textColor;
 
   @override
   State<_BattleButton> createState() => _BattleButtonState();
@@ -967,8 +971,8 @@ class _BattleButtonState extends State<_BattleButton> {
         : isGold
             ? const Color(0xFFF59E0B)
             : const Color(0xFF2563EB);
-    final textColor =
-        isGold && !isGreen ? const Color(0xFF1F2937) : Colors.white;
+    final textColor = widget.textColor ??
+        (isGold && !isGreen ? const Color(0xFF1F2937) : Colors.white);
 
     return AnimatedBuilder(
       animation: widget.glowCtrl,

@@ -215,6 +215,7 @@ void main() {
       final progress = service.resolveProgressForStages(
         stages: stages,
         savedProgress: saved,
+        debugUnlockAllCampaignStagesOverride: true,
       );
 
       expect(progress, hasLength(100));
@@ -248,6 +249,23 @@ void main() {
       expect(progress[49].status, StageProgressStatus.locked);
       expect(progress[99].stageId, 'stage_100');
       expect(progress[99].status, StageProgressStatus.locked);
+    });
+
+    test('next stage requires at least one star on the previous stage', () {
+      final saved = <String, StageProgress>{
+        byOrder[1]!.id: _completedProgress(byOrder[1]!, stars: 0),
+      };
+      final progress = service.resolveProgressForStages(
+        stages: stages,
+        savedProgress: saved,
+        debugUnlockAllCampaignStagesOverride: false,
+      );
+
+      expect(progress[0].stageId, 'stage_001');
+      expect(progress[0].status, StageProgressStatus.unlocked);
+      expect(progress[0].stars, 0);
+      expect(progress[1].stageId, 'stage_002');
+      expect(progress[1].status, StageProgressStatus.locked);
     });
 
     test('new-stage unlock chain stays reachable by previous completion', () {

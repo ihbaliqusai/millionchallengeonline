@@ -338,6 +338,8 @@ class _WorldMapPage extends StatelessWidget {
   final void Function(CampaignStage stage, StageProgress progress) onStageTap;
   final Future<void> Function() onRefresh;
 
+  static const Size _backgroundSourceSize = Size(1672, 941);
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -378,33 +380,9 @@ class _WorldMapPage extends StatelessWidget {
                     ),
                   ),
                   for (var index = 0; index < bundle.stages.length; index += 1)
-                    Positioned(
-                      left: width * bundle.world.nodePositions[index].dx -
-                          StageNode.hitWidth / 2,
-                      top: height * bundle.world.nodePositions[index].dy -
-                          StageNode.centerOffsetFor(bundle.stages[index]),
-                      child: StageNode(
-                        stage: bundle.stages[index],
-                        progress: bundle.progress[index],
-                        locked: bundle.progress[index].status ==
-                            StageProgressStatus.locked,
-                        completed: campaignService.isStageCompleted(
-                          bundle.progress[index],
-                        ),
-                        current:
-                            bundle.currentStageId == bundle.stages[index].id &&
-                                bundle.progress[index].status !=
-                                    StageProgressStatus.locked,
-                        animation: pulseAnimation,
-                        onTap: () {
-                          final progress = bundle.progress[index];
-                          if (progress.status == StageProgressStatus.locked) {
-                            onLockedTap(bundle.stages[index]);
-                          } else {
-                            onStageTap(bundle.stages[index], progress);
-                          }
-                        },
-                      ),
+                    _buildStageNode(
+                      size: Size(width, height),
+                      index: index,
                     ),
                 ],
               ),
@@ -412,6 +390,55 @@ class _WorldMapPage extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildStageNode({
+    required Size size,
+    required int index,
+  }) {
+    final stage = bundle.stages[index];
+    final progress = bundle.progress[index];
+    final position = _coverAlignedPosition(
+      bundle.world.nodePositions[index],
+      size,
+    );
+
+    return Positioned(
+      left: position.dx - StageNode.hitWidth / 2,
+      top: position.dy - StageNode.centerOffsetFor(stage),
+      child: StageNode(
+        stage: stage,
+        progress: progress,
+        locked: progress.status == StageProgressStatus.locked,
+        completed: campaignService.isStageCompleted(progress),
+        current: bundle.currentStageId == stage.id &&
+            progress.status != StageProgressStatus.locked,
+        animation: pulseAnimation,
+        onTap: () {
+          if (progress.status == StageProgressStatus.locked) {
+            onLockedTap(stage);
+          } else {
+            onStageTap(stage, progress);
+          }
+        },
+      ),
+    );
+  }
+
+  Offset _coverAlignedPosition(Offset imagePosition, Size outputSize) {
+    final scale = math.max(
+      outputSize.width / _backgroundSourceSize.width,
+      outputSize.height / _backgroundSourceSize.height,
+    );
+    final fittedSize = _backgroundSourceSize * scale;
+    final cropOffset = Offset(
+      (outputSize.width - fittedSize.width) / 2,
+      (outputSize.height - fittedSize.height) / 2,
+    );
+    return Offset(
+      cropOffset.dx + imagePosition.dx * fittedSize.width,
+      cropOffset.dy + imagePosition.dy * fittedSize.height,
     );
   }
 }
