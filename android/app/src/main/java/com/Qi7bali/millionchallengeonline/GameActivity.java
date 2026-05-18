@@ -12,6 +12,7 @@ import android.graphics.Color;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -1332,18 +1333,14 @@ public class GameActivity extends AppCompatActivity {
 
         campaignHudPanel = new LinearLayout(this);
         campaignHudPanel.setOrientation(LinearLayout.VERTICAL);
-        campaignHudPanel.setPadding(dp(12), dp(10), dp(12), dp(10));
+        campaignHudPanel.setPadding(dp(14), dp(12), dp(14), dp(12));
         campaignHudPanel.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        campaignHudPanel.setBackground(createRoundedDrawable(
-                Color.argb(218, 4, 16, 42),
-                Color.argb(185, 255, 216, 74),
-                1,
-                16
-        ));
+        campaignHudPanel.setBackground(createCampaignHudPanelBackground());
+        campaignHudPanel.setElevation(dp(10));
         campaignHudPanel.setVisibility(View.INVISIBLE);
 
         FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
-                dp(campaignBossBattle ? 250 : 210),
+                dp(campaignBossBattle ? 268 : 228),
                 FrameLayout.LayoutParams.WRAP_CONTENT
         );
         panelParams.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
@@ -1354,11 +1351,12 @@ public class GameActivity extends AppCompatActivity {
         txtCampaignHudBattle.setVisibility(campaignBossBattle ? View.VISIBLE : View.GONE);
         if (campaignBossBattle) {
             txtCampaignHudBattle.setPadding(dp(8), dp(6), dp(8), dp(6));
-            txtCampaignHudBattle.setBackground(createRoundedDrawable(
-                    Color.argb(95, 255, 216, 74),
-                    Color.argb(175, 255, 216, 74),
+            txtCampaignHudBattle.setBackground(createRoundedGradientDrawable(
+                    new int[]{Color.argb(140, 255, 216, 74), Color.argb(65, 20, 184, 166)},
+                    Color.argb(195, 255, 230, 130),
                     1,
-                    12
+                    12,
+                    GradientDrawable.Orientation.LEFT_RIGHT
             ));
         }
         campaignHudPanel.addView(txtCampaignHudBattle, new LinearLayout.LayoutParams(
@@ -1367,71 +1365,74 @@ public class GameActivity extends AppCompatActivity {
         ));
 
         txtCampaignHudQuestion = createCampaignHudText(14, Color.WHITE, true);
-        if (campaignBossBattle) {
-            txtCampaignHudQuestion.setGravity(android.view.Gravity.CENTER);
-        }
+        txtCampaignHudQuestion.setGravity(android.view.Gravity.CENTER);
+        txtCampaignHudQuestion.setShadowLayer(dp(3), 0, dp(1), Color.argb(190, 0, 0, 0));
         campaignHudPanel.addView(txtCampaignHudQuestion);
 
-        txtCampaignHudCorrect = createCampaignHudText(13, Color.argb(235, 189, 235, 255), true);
-        if (campaignBossBattle) {
-            txtCampaignHudCorrect.setGravity(android.view.Gravity.CENTER);
-        }
+        txtCampaignHudCorrect = createCampaignHudText(13, Color.argb(245, 190, 242, 255), true);
+        txtCampaignHudCorrect.setGravity(android.view.Gravity.CENTER);
+        txtCampaignHudCorrect.setPadding(0, dp(6), 0, 0);
+        txtCampaignHudCorrect.setShadowLayer(dp(3), 0, dp(1), Color.argb(180, 0, 0, 0));
         campaignHudPanel.addView(txtCampaignHudCorrect);
 
         LinearLayout starsRow = new LinearLayout(this);
         starsRow.setOrientation(LinearLayout.HORIZONTAL);
-        starsRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        starsRow.setGravity(android.view.Gravity.CENTER);
         starsRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         LinearLayout.LayoutParams starsParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );
-        starsParams.setMargins(0, dp(5), 0, dp(5));
+        starsParams.setMargins(0, dp(7), 0, dp(7));
         campaignHudPanel.addView(starsRow, starsParams);
 
         campaignHudStars.clear();
         for (int i = 0; i < 3; i++) {
-            TextView star = createCampaignHudText(campaignBossBattle ? 28 : 22, Color.argb(115, 255, 255, 255), true);
+            TextView star = createCampaignHudText(campaignBossBattle ? 30 : 25, Color.argb(135, 255, 255, 255), true);
             star.setText("★");
             star.setGravity(android.view.Gravity.CENTER);
-            int starBox = campaignBossBattle ? 36 : 26;
+            star.setShadowLayer(dp(3), 0, dp(1), Color.argb(150, 0, 0, 0));
+            int starBox = campaignBossBattle ? 38 : 30;
             LinearLayout.LayoutParams starParams = new LinearLayout.LayoutParams(dp(starBox), dp(starBox));
-            starParams.setMargins(dp(campaignBossBattle ? 4 : 2), 0, dp(campaignBossBattle ? 4 : 2), 0);
+            starParams.setMargins(dp(campaignBossBattle ? 4 : 3), 0, dp(campaignBossBattle ? 4 : 3), 0);
             starsRow.addView(star, starParams);
             campaignHudStars.add(star);
         }
 
         campaignHudProgressTrack = new FrameLayout(this);
         campaignHudProgressTrack.setBackground(createRoundedDrawable(
-                Color.argb(85, 255, 255, 255),
-                Color.TRANSPARENT,
-                0,
+                Color.argb(95, 255, 255, 255),
+                Color.argb(120, 255, 255, 255),
+                1,
                 6
         ));
         LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(6)
+                dp(7)
         );
         campaignHudPanel.addView(campaignHudProgressTrack, trackParams);
 
         campaignHudProgressFill = new View(this);
-        campaignHudProgressFill.setBackground(createRoundedDrawable(
-                Color.argb(255, 255, 216, 74),
+        campaignHudProgressFill.setBackground(createRoundedGradientDrawable(
+                new int[]{Color.rgb(255, 244, 170), Color.rgb(255, 193, 7)},
                 Color.TRANSPARENT,
                 0,
-                6
+                6,
+                GradientDrawable.Orientation.LEFT_RIGHT
         ));
-        campaignHudProgressTrack.addView(campaignHudProgressFill, new FrameLayout.LayoutParams(0, dp(6)));
+        campaignHudProgressTrack.addView(campaignHudProgressFill, new FrameLayout.LayoutParams(0, dp(7)));
 
         txtCampaignHudBadge = createCampaignHudText(12, Color.argb(255, 255, 235, 160), true);
         txtCampaignHudBadge.setGravity(android.view.Gravity.CENTER);
         txtCampaignHudBadge.setVisibility("noLifeline".equals(campaignStageType) ? View.VISIBLE : View.GONE);
         txtCampaignHudBadge.setText("بدون مساعدات");
-        txtCampaignHudBadge.setBackground(createRoundedDrawable(
-                Color.argb(70, 255, 216, 74),
-                Color.argb(145, 255, 216, 74),
+        txtCampaignHudBadge.setPadding(dp(8), dp(4), dp(8), dp(4));
+        txtCampaignHudBadge.setBackground(createRoundedGradientDrawable(
+                new int[]{Color.argb(105, 255, 216, 74), Color.argb(55, 56, 189, 248)},
+                Color.argb(165, 255, 216, 74),
                 1,
-                11
+                11,
+                GradientDrawable.Orientation.LEFT_RIGHT
         ));
         LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -1451,6 +1452,61 @@ public class GameActivity extends AppCompatActivity {
         textView.setSingleLine(false);
         textView.setTypeface(null, bold ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
         return textView;
+    }
+
+    private LayerDrawable createCampaignHudPanelBackground() {
+        GradientDrawable glow = createRoundedGradientDrawable(
+                new int[]{Color.argb(72, 56, 189, 248), Color.argb(38, 255, 216, 74)},
+                Color.TRANSPARENT,
+                0,
+                20,
+                GradientDrawable.Orientation.TL_BR
+        );
+        GradientDrawable glass = createRoundedGradientDrawable(
+                new int[]{Color.argb(232, 3, 10, 32), Color.argb(218, 9, 25, 58), Color.argb(232, 2, 8, 28)},
+                Color.argb(190, 255, 220, 115),
+                1,
+                18,
+                GradientDrawable.Orientation.TOP_BOTTOM
+        );
+        GradientDrawable innerStroke = createRoundedDrawable(
+                Color.TRANSPARENT,
+                Color.argb(125, 125, 231, 255),
+                1,
+                16
+        );
+        GradientDrawable topSheen = createRoundedGradientDrawable(
+                new int[]{Color.argb(155, 255, 255, 255), Color.argb(0, 255, 255, 255)},
+                Color.TRANSPARENT,
+                0,
+                14,
+                GradientDrawable.Orientation.LEFT_RIGHT
+        );
+        LayerDrawable layers = new LayerDrawable(new android.graphics.drawable.Drawable[]{
+                glow,
+                glass,
+                innerStroke,
+                topSheen
+        });
+        layers.setLayerInset(1, dp(1), dp(1), dp(1), dp(1));
+        layers.setLayerInset(2, dp(3), dp(3), dp(3), dp(3));
+        layers.setLayerInset(3, dp(16), dp(6), dp(16), dp(58));
+        return layers;
+    }
+
+    private GradientDrawable createRoundedGradientDrawable(
+            int[] colors,
+            int strokeColor,
+            int strokeDp,
+            int radiusDp,
+            GradientDrawable.Orientation orientation
+    ) {
+        GradientDrawable drawable = new GradientDrawable(orientation, colors);
+        drawable.setCornerRadius(dp(radiusDp));
+        if (strokeDp > 0) {
+            drawable.setStroke(dp(strokeDp), strokeColor);
+        }
+        return drawable;
     }
 
     private GradientDrawable createRoundedDrawable(int fillColor, int strokeColor, int strokeDp, int radiusDp) {
@@ -1486,8 +1542,13 @@ public class GameActivity extends AppCompatActivity {
         for (int i = 0; i < campaignHudStars.size(); i++) {
             TextView star = campaignHudStars.get(i);
             boolean earned = i < earnedStars;
-            star.setTextColor(earned ? Color.rgb(255, 216, 74) : Color.argb(115, 255, 255, 255));
-            star.setShadowLayer(earned ? dp(5) : 0, 0, 0, earned ? Color.argb(210, 255, 197, 45) : Color.TRANSPARENT);
+            star.setTextColor(earned ? Color.rgb(255, 216, 74) : Color.argb(135, 255, 255, 255));
+            star.setShadowLayer(
+                    earned ? dp(5) : dp(3),
+                    0,
+                    earned ? 0 : dp(1),
+                    earned ? Color.argb(210, 255, 197, 45) : Color.argb(150, 0, 0, 0)
+            );
             if (animateStars && earned && i >= campaignLastDisplayedStars) {
                 animateCampaignStar(star);
             }
@@ -4350,8 +4411,8 @@ public class GameActivity extends AppCompatActivity {
         android.widget.FrameLayout.LayoutParams params = new android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
                 android.widget.FrameLayout.LayoutParams.WRAP_CONTENT);
-        params.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
-        params.setMargins(dp(campaignBossBattle ? 270 : 230), dp(16), dp(12), dp(12));
+        params.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
+        params.setMargins(dp(12), dp(82), dp(12), dp(12));
         View root = findViewById(android.R.id.content);
         if (root instanceof android.widget.FrameLayout) {
             ((android.widget.FrameLayout) root).addView(txtCampaignTimer, params);
