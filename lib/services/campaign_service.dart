@@ -177,8 +177,7 @@ class CampaignService {
   CampaignService({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  // TODO: Disable debugUnlockAllCampaignStages before production release.
-  static const bool debugUnlockAllCampaignStages = true;
+  static const bool debugUnlockAllCampaignStages = false;
 
   final FirebaseFirestore _firestore;
 
@@ -719,8 +718,8 @@ class CampaignService {
       final previousStars = previousProgress?.stars ?? 0;
       final previousCompleted =
           previousProgress != null && isStageCompleted(previousProgress);
-      final completedNow = completed || previousCompleted;
       final newStars = math.max(previousStars, stars);
+      final completedNow = previousCompleted || (completed && newStars > 0);
       final improvedBestScore = score > (previousProgress?.bestScore ?? 0);
       final improvedStars = newStars > previousStars;
       final isFirstCompletion = !previousCompleted && completedNow;
@@ -832,8 +831,7 @@ class CampaignService {
   }
 
   bool isStageCompleted(StageProgress progress) {
-    return progress.status == StageProgressStatus.completed ||
-        progress.stars > 0;
+    return progress.stars > 0;
   }
 
   bool isStageUnlocked({
