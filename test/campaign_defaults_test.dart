@@ -112,20 +112,51 @@ void main() {
       expect(counts[CampaignMode.bossBattle], 2);
     });
 
-    test('stages 51 through 100 use valid high-level levels', () {
+    test('stage levels match requested world distribution', () {
       final stages = {
         for (final stage in CampaignDefaults.stages()) stage.order: stage,
       };
+      final expected = <int, List<String>>{
+        1: ['0'],
+        2: ['0'],
+        3: ['0'],
+        4: ['0'],
+        5: ['0', '1'],
+        6: ['0', '1'],
+        7: ['0', '1'],
+        8: ['1'],
+        9: ['1'],
+        10: ['1'],
+        11: ['1', '2'],
+        12: ['1', '2'],
+        13: ['1', '2'],
+        14: ['1', '2'],
+        for (var order = 15; order <= 18; order += 1) order: ['2'],
+        19: ['2', '4'],
+        20: ['2', '4'],
+        for (var order = 21; order <= 30; order += 1) order: ['2', '4'],
+        for (var order = 31; order <= 38; order += 1) order: ['2', '5'],
+        39: ['4', '5'],
+        40: ['5'],
+        for (var order = 41; order <= 48; order += 1) order: ['2', '6'],
+        49: ['6'],
+        50: ['6'],
+        for (var order = 51; order <= 56; order += 1) order: ['4', '5'],
+        57: ['5', '6'],
+        58: ['6'],
+        59: ['6', '7'],
+        60: ['6', '7'],
+        61: ['6'],
+        for (var order = 62; order <= 66; order += 1) order: ['6', '7'],
+        for (var order = 67; order <= 72; order += 1) order: ['7'],
+        73: ['7', '8'],
+        for (var order = 74; order <= 80; order += 1) order: ['8'],
+        for (var order = 81; order <= 90; order += 1) order: ['3', '8'],
+        for (var order = 91; order <= 100; order += 1) order: ['3'],
+      };
 
-      for (var order = 51; order <= 100; order += 1) {
-        final stage = stages[order]!;
-        expect(
-          stage.allowedLevels.every(
-            (level) => const <String>{'6', '7', '8'}.contains(level),
-          ),
-          isTrue,
-          reason: stage.id,
-        );
+      for (var order = 1; order <= 100; order += 1) {
+        expect(stages[order]!.allowedLevels, expected[order], reason: '$order');
       }
     });
   });
@@ -194,18 +225,18 @@ void main() {
     });
 
     test('key new stages have the requested allowed levels', () {
-      expect(byOrder[31]!.allowedLevels, <String>['5', '6']);
-      expect(byOrder[32]!.allowedLevels, <String>['6']);
-      expect(byOrder[36]!.allowedLevels, <String>['7']);
-      expect(byOrder[39]!.allowedLevels, <String>['7', '8']);
-      expect(byOrder[47]!.allowedLevels, <String>['8']);
-      expect(byOrder[50]!.allowedLevels, <String>['8']);
-      expect(byOrder[51]!.allowedLevels, <String>['6', '7']);
-      expect(byOrder[60]!.allowedLevels, <String>['8']);
-      expect(byOrder[70]!.allowedLevels, <String>['8']);
+      expect(byOrder[31]!.allowedLevels, <String>['2', '5']);
+      expect(byOrder[32]!.allowedLevels, <String>['2', '5']);
+      expect(byOrder[36]!.allowedLevels, <String>['2', '5']);
+      expect(byOrder[39]!.allowedLevels, <String>['4', '5']);
+      expect(byOrder[47]!.allowedLevels, <String>['2', '6']);
+      expect(byOrder[50]!.allowedLevels, <String>['6']);
+      expect(byOrder[51]!.allowedLevels, <String>['4', '5']);
+      expect(byOrder[60]!.allowedLevels, <String>['6', '7']);
+      expect(byOrder[70]!.allowedLevels, <String>['7']);
       expect(byOrder[80]!.allowedLevels, <String>['8']);
-      expect(byOrder[90]!.allowedLevels, <String>['8']);
-      expect(byOrder[100]!.allowedLevels, <String>['8']);
+      expect(byOrder[90]!.allowedLevels, <String>['3', '8']);
+      expect(byOrder[100]!.allowedLevels, <String>['3']);
     });
 
     test('debug unlock exposes stages without granting progress', () {
@@ -516,7 +547,7 @@ void main() {
         ))
             .keys
             .toSet()
-            .difference(<String>{'0', '1'}),
+            .difference(<String>{'0'}),
         isEmpty,
       );
       expect(
@@ -525,7 +556,7 @@ void main() {
             stages.firstWhere((stage) => stage.order == 3),
           ),
         ),
-        <String, int>{'1': 10},
+        <String, int>{'0': 10},
       );
       expect(
         await selector.selectQuestionIds(
