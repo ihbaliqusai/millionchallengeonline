@@ -843,73 +843,106 @@ class _CenterArena extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // ── Logo — slightly above centre ──────────────────────
-        Align(
-          alignment: const Alignment(0, -0.2),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 220, maxWidth: 340),
-            child: AnimatedBuilder(
-              animation: idleCtrl,
-              builder: (_, child) => Transform.translate(
-                offset: Offset(0, math.sin(idleCtrl.value * math.pi) * 6),
-                child: child,
-              ),
-              child: _CastleWidget(),
-            ),
-          ),
-        ),
+    final media = MediaQuery.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight;
+        final width = constraints.maxWidth;
+        final isCompactHeight = height < 600;
+        final logoMaxHeight =
+            (height * (isCompactHeight ? 0.34 : 0.27)).clamp(170.0, 220.0);
+        final logoMaxWidth =
+            (width * (isCompactHeight ? 0.24 : 0.22)).clamp(280.0, 330.0);
+        final buttonHeight = isCompactHeight ? 46.0 : 52.0;
+        final buttonGap = isCompactHeight ? 8.0 : 10.0;
+        final buttonGroupHeight = buttonHeight * 2 + buttonGap;
+        final buttonBottom = media.padding.bottom + 8;
+        final buttonTop = height - buttonBottom - buttonGroupHeight;
+        final minLogoCenterY = media.padding.top + 68 + logoMaxHeight / 2;
+        final maxLogoCenterY = buttonTop - 14 - logoMaxHeight / 2;
+        final preferredLogoCenterY = height * 0.5;
+        final logoCenterY = maxLogoCenterY < minLogoCenterY
+            ? preferredLogoCenterY
+            : preferredLogoCenterY.clamp(minLogoCenterY, maxLogoCenterY);
 
-        // ── Ranking + Battle buttons — pinned to bottom ───────
-        Positioned(
-          bottom: MediaQuery.of(context).padding.bottom + 8,
-          left: 0,
-          right: 0,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _BattleButton(
-                glowCtrl: glowCtrl,
-                label: 'رحلة المليون',
-                green: true,
-                enabled: appState.isOnline,
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const CampaignMapScreen(),
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // ── Logo — centered responsively ───────────────────
+            Positioned(
+              top: logoCenterY - logoMaxHeight / 2,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: SizedBox(
+                  width: logoMaxWidth,
+                  height: logoMaxHeight,
+                  child: AnimatedBuilder(
+                    animation: idleCtrl,
+                    builder: (_, child) => Transform.translate(
+                      offset: Offset(0, math.sin(idleCtrl.value * math.pi) * 6),
+                      child: child,
+                    ),
+                    child: _CastleWidget(),
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+            ),
+
+            // ── Ranking + Battle buttons — pinned to bottom ─────
+            Positioned(
+              bottom: buttonBottom,
+              left: 0,
+              right: 0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _BattleButton(
                     glowCtrl: glowCtrl,
-                    label: 'تحدي جماعي',
-                    gold: true,
-                    textColor: Colors.white,
+                    label: 'رحلة المليون',
+                    green: true,
+                    compact: isCompactHeight,
                     enabled: appState.isOnline,
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                          builder: (_) => const RoomsScreen()),
+                        builder: (_) => const CampaignMapScreen(),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  _BattleButton(
-                    glowCtrl: glowCtrl,
-                    label: 'تحدي السرعة',
-                    gold: false,
-                    enabled: appState.isOnline,
-                    onPressed: () => context.read<AppState>().openSpeedBattle(),
+                  SizedBox(height: buttonGap),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _BattleButton(
+                        glowCtrl: glowCtrl,
+                        label: 'تحدي جماعي',
+                        gold: true,
+                        compact: isCompactHeight,
+                        textColor: Colors.white,
+                        enabled: appState.isOnline,
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                              builder: (_) => const RoomsScreen()),
+                        ),
+                      ),
+                      SizedBox(width: isCompactHeight ? 10 : 12),
+                      _BattleButton(
+                        glowCtrl: glowCtrl,
+                        label: 'تحدي السرعة',
+                        gold: false,
+                        compact: isCompactHeight,
+                        enabled: appState.isOnline,
+                        onPressed: () =>
+                            context.read<AppState>().openSpeedBattle(),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -933,6 +966,7 @@ class _BattleButton extends StatefulWidget {
     required this.onPressed,
     this.green = false,
     this.gold = true,
+    this.compact = false,
     this.enabled = true,
     this.textColor,
   });
@@ -941,6 +975,7 @@ class _BattleButton extends StatefulWidget {
   final VoidCallback onPressed;
   final bool green;
   final bool gold;
+  final bool compact;
   final bool enabled;
   final Color? textColor;
 
@@ -953,6 +988,9 @@ class _BattleButtonState extends State<_BattleButton> {
 
   @override
   Widget build(BuildContext context) {
+    final width = widget.compact ? 148.0 : 160.0;
+    final height = widget.compact ? 46.0 : 52.0;
+    final fontSize = widget.compact ? 18.0 : 20.0;
     final isGreen = widget.green;
     final isGold = widget.gold;
     final enabled = widget.enabled;
@@ -997,8 +1035,8 @@ class _BattleButtonState extends State<_BattleButton> {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 160,
-                    height: 52,
+                    width: width,
+                    height: height,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
                       gradient: LinearGradient(colors: gradColors),
@@ -1015,7 +1053,7 @@ class _BattleButtonState extends State<_BattleButton> {
                       child: Text(
                         widget.label,
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: fontSize,
                           fontWeight: FontWeight.w900,
                           color: textColor,
                           letterSpacing: 0.3,
