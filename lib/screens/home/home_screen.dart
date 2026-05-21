@@ -860,7 +860,7 @@ class _CenterArena extends StatelessWidget {
         final buttonTop = height - buttonBottom - buttonGroupHeight;
         final minLogoCenterY = media.padding.top + 68 + logoMaxHeight / 2;
         final maxLogoCenterY = buttonTop - 14 - logoMaxHeight / 2;
-        final preferredLogoCenterY = height * 0.5;
+        final preferredLogoCenterY = height * 0.5 - 20;
         final logoCenterY = maxLogoCenterY < minLogoCenterY
             ? preferredLogoCenterY
             : preferredLogoCenterY.clamp(minLogoCenterY, maxLogoCenterY);

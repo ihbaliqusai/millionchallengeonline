@@ -321,7 +321,7 @@ class _CampaignMapContentState extends State<_CampaignMapContent> {
   }
 }
 
-class _WorldMapPage extends StatelessWidget {
+class _WorldMapPage extends StatefulWidget {
   const _WorldMapPage({
     required this.bundle,
     required this.campaignService,
@@ -341,27 +341,46 @@ class _WorldMapPage extends StatelessWidget {
   static const Size _backgroundSourceSize = Size(1672, 941);
 
   @override
+  State<_WorldMapPage> createState() => _WorldMapPageState();
+}
+
+class _WorldMapPageState extends State<_WorldMapPage> {
+  final ScrollController _scrollController = ScrollController();
+  double? _lastInitialScrollExtent;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: onRefresh,
+      onRefresh: widget.onRefresh,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final height = constraints.maxHeight;
+          final contentHeight = _mapContentHeight(Size(width, height));
+          final initialScrollExtent = math.max(0.0, contentHeight - height);
+          _jumpToBottomAfterLayout(initialScrollExtent);
           return SingleChildScrollView(
+            controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
             child: SizedBox(
               width: width,
-              height: height,
+              height: contentHeight,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
                   Positioned.fill(
                     child: Image.asset(
-                      bundle.world.backgroundAsset,
-                      fit: BoxFit.cover,
+                      widget.bundle.world.backgroundAsset,
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.high,
                     ),
                   ),
                   Positioned.fill(
@@ -379,9 +398,11 @@ class _WorldMapPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  for (var index = 0; index < bundle.stages.length; index += 1)
+                  for (var index = 0;
+                      index < widget.bundle.stages.length;
+                      index += 1)
                     _buildStageNode(
-                      size: Size(width, height),
+                      size: Size(width, contentHeight),
                       index: index,
                     ),
                 ],
@@ -393,14 +414,23 @@ class _WorldMapPage extends StatelessWidget {
     );
   }
 
+  void _jumpToBottomAfterLayout(double initialScrollExtent) {
+    if (_lastInitialScrollExtent == initialScrollExtent) return;
+    _lastInitialScrollExtent = initialScrollExtent;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(initialScrollExtent);
+    });
+  }
+
   Widget _buildStageNode({
     required Size size,
     required int index,
   }) {
-    final stage = bundle.stages[index];
-    final progress = bundle.progress[index];
-    final position = _coverAlignedPosition(
-      bundle.world.nodePositions[index],
+    final stage = widget.bundle.stages[index];
+    final progress = widget.bundle.progress[index];
+    final position = _mapPosition(
+      widget.bundle.world.nodePositions[index],
       size,
     );
 
@@ -411,34 +441,32 @@ class _WorldMapPage extends StatelessWidget {
         stage: stage,
         progress: progress,
         locked: progress.status == StageProgressStatus.locked,
-        completed: campaignService.isStageCompleted(progress),
-        current: bundle.currentStageId == stage.id &&
+        completed: widget.campaignService.isStageCompleted(progress),
+        current: widget.bundle.currentStageId == stage.id &&
             progress.status != StageProgressStatus.locked,
-        animation: pulseAnimation,
+        animation: widget.pulseAnimation,
         onTap: () {
           if (progress.status == StageProgressStatus.locked) {
-            onLockedTap(stage);
+            widget.onLockedTap(stage);
           } else {
-            onStageTap(stage, progress);
+            widget.onStageTap(stage, progress);
           }
         },
       ),
     );
   }
 
-  Offset _coverAlignedPosition(Offset imagePosition, Size outputSize) {
-    final scale = math.max(
-      outputSize.width / _backgroundSourceSize.width,
-      outputSize.height / _backgroundSourceSize.height,
-    );
-    final fittedSize = _backgroundSourceSize * scale;
-    final cropOffset = Offset(
-      (outputSize.width - fittedSize.width) / 2,
-      (outputSize.height - fittedSize.height) / 2,
-    );
+  double _mapContentHeight(Size viewportSize) {
+    final naturalHeight = viewportSize.width *
+        _WorldMapPage._backgroundSourceSize.height /
+        _WorldMapPage._backgroundSourceSize.width;
+    return math.max(viewportSize.height, naturalHeight);
+  }
+
+  Offset _mapPosition(Offset imagePosition, Size mapSize) {
     return Offset(
-      cropOffset.dx + imagePosition.dx * fittedSize.width,
-      cropOffset.dy + imagePosition.dy * fittedSize.height,
+      imagePosition.dx * mapSize.width,
+      imagePosition.dy * mapSize.height,
     );
   }
 }
