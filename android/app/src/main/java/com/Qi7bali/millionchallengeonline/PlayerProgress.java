@@ -102,6 +102,22 @@ public class PlayerProgress {
     public static final String ACH_TEAM_BATTLE_WIN_5 = "ACH_TEAM_BATTLE_WIN_5";
     public static final String ACH_TEAM_BATTLE_WIN_15 = "ACH_TEAM_BATTLE_WIN_15";
 
+    public static final String ACH_CAMPAIGN_STAGE_5 = "ACH_CAMPAIGN_STAGE_5";
+    public static final String ACH_CAMPAIGN_STAGE_20 = "ACH_CAMPAIGN_STAGE_20";
+    public static final String ACH_CAMPAIGN_STAGE_50 = "ACH_CAMPAIGN_STAGE_50";
+    public static final String ACH_CAMPAIGN_STARS_30 = "ACH_CAMPAIGN_STARS_30";
+    public static final String ACH_CAMPAIGN_STARS_100 = "ACH_CAMPAIGN_STARS_100";
+    public static final String ACH_CAMPAIGN_STARS_200 = "ACH_CAMPAIGN_STARS_200";
+    public static final String ACH_CAMPAIGN_BLITZ_3 = "ACH_CAMPAIGN_BLITZ_3";
+    public static final String ACH_CAMPAIGN_SURVIVAL_3 = "ACH_CAMPAIGN_SURVIVAL_3";
+    public static final String ACH_CAMPAIGN_RIVAL_3 = "ACH_CAMPAIGN_RIVAL_3";
+    public static final String ACH_CAMPAIGN_SERIES_3 = "ACH_CAMPAIGN_SERIES_3";
+    public static final String ACH_CAMPAIGN_TEAM_3 = "ACH_CAMPAIGN_TEAM_3";
+    public static final String ACH_CAMPAIGN_NO_HELP_5 = "ACH_CAMPAIGN_NO_HELP_5";
+    public static final String ACH_CAMPAIGN_BOSS_1 = "ACH_CAMPAIGN_BOSS_1";
+    public static final String ACH_CAMPAIGN_BOSS_5 = "ACH_CAMPAIGN_BOSS_5";
+    public static final String ACH_CAMPAIGN_PERFECT_10 = "ACH_CAMPAIGN_PERFECT_10";
+
     public static final String ACH_ALL_DONE = "ACH_ALL_DONE";
 
     private static final String[] ALL_ACHIEVEMENTS = {
@@ -125,7 +141,12 @@ public class PlayerProgress {
             ACH_ELIMINATION_WIN_3, ACH_ELIMINATION_WIN_10,
             ACH_SURVIVAL_WIN_3, ACH_SURVIVAL_WIN_10,
             ACH_SERIES_WIN_3, ACH_SERIES_WIN_10,
-            ACH_TEAM_BATTLE_WIN_5, ACH_TEAM_BATTLE_WIN_15
+            ACH_TEAM_BATTLE_WIN_5, ACH_TEAM_BATTLE_WIN_15,
+            ACH_CAMPAIGN_STAGE_5, ACH_CAMPAIGN_STAGE_20, ACH_CAMPAIGN_STAGE_50,
+            ACH_CAMPAIGN_STARS_30, ACH_CAMPAIGN_STARS_100, ACH_CAMPAIGN_STARS_200,
+            ACH_CAMPAIGN_BLITZ_3, ACH_CAMPAIGN_SURVIVAL_3, ACH_CAMPAIGN_RIVAL_3,
+            ACH_CAMPAIGN_SERIES_3, ACH_CAMPAIGN_TEAM_3, ACH_CAMPAIGN_NO_HELP_5,
+            ACH_CAMPAIGN_BOSS_1, ACH_CAMPAIGN_BOSS_5, ACH_CAMPAIGN_PERFECT_10
     };
 
     private static SharedPreferences prefs(Context c) {
@@ -152,6 +173,16 @@ public class PlayerProgress {
     public static int getSurvivalWins(Context c) { return prefs(c).getInt("survivalWins", 0); }
     public static int getSeriesWins(Context c) { return prefs(c).getInt("seriesWins", 0); }
     public static int getTeamBattleWins(Context c) { return prefs(c).getInt("teamBattleWins", 0); }
+    public static int getCampaignCompletedStages(Context c) { return prefs(c).getInt("campaignCompletedStages", 0); }
+    public static int getCampaignStars(Context c) { return prefs(c).getInt("campaignStars", 0); }
+    public static int getCampaignBlitzCompletions(Context c) { return prefs(c).getInt("campaignBlitzCompletions", 0); }
+    public static int getCampaignSurvivalCompletions(Context c) { return prefs(c).getInt("campaignSurvivalCompletions", 0); }
+    public static int getCampaignRivalCompletions(Context c) { return prefs(c).getInt("campaignRivalCompletions", 0); }
+    public static int getCampaignSeriesCompletions(Context c) { return prefs(c).getInt("campaignSeriesCompletions", 0); }
+    public static int getCampaignTeamCompletions(Context c) { return prefs(c).getInt("campaignTeamCompletions", 0); }
+    public static int getCampaignNoHelpCompletions(Context c) { return prefs(c).getInt("campaignNoHelpCompletions", 0); }
+    public static int getCampaignBossWins(Context c) { return prefs(c).getInt("campaignBossWins", 0); }
+    public static int getCampaignPerfectCompletions(Context c) { return prefs(c).getInt("campaignPerfectCompletions", 0); }
 
     public static void addXp(Context c, int amount) {
         if (amount <= 0) return;
@@ -408,7 +439,106 @@ public class PlayerProgress {
         if (teamBattleWins >= 5) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_5);
         if (teamBattleWins >= 15) unlockAchievement(c, ACH_TEAM_BATTLE_WIN_15);
 
+        checkCampaignAchievements(c);
         checkAllDone(c);
+    }
+
+    private static void checkCampaignAchievements(Context c) {
+        int completed = getCampaignCompletedStages(c);
+        if (completed >= 5) unlockAchievement(c, ACH_CAMPAIGN_STAGE_5);
+        if (completed >= 20) unlockAchievement(c, ACH_CAMPAIGN_STAGE_20);
+        if (completed >= 50) unlockAchievement(c, ACH_CAMPAIGN_STAGE_50);
+
+        int stars = getCampaignStars(c);
+        if (stars >= 30) unlockAchievement(c, ACH_CAMPAIGN_STARS_30);
+        if (stars >= 100) unlockAchievement(c, ACH_CAMPAIGN_STARS_100);
+        if (stars >= 200) unlockAchievement(c, ACH_CAMPAIGN_STARS_200);
+
+        if (getCampaignBlitzCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_BLITZ_3);
+        if (getCampaignSurvivalCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_SURVIVAL_3);
+        if (getCampaignRivalCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_RIVAL_3);
+        if (getCampaignSeriesCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_SERIES_3);
+        if (getCampaignTeamCompletions(c) >= 3) unlockAchievement(c, ACH_CAMPAIGN_TEAM_3);
+        if (getCampaignNoHelpCompletions(c) >= 5) unlockAchievement(c, ACH_CAMPAIGN_NO_HELP_5);
+
+        int bossWins = getCampaignBossWins(c);
+        if (bossWins >= 1) unlockAchievement(c, ACH_CAMPAIGN_BOSS_1);
+        if (bossWins >= 5) unlockAchievement(c, ACH_CAMPAIGN_BOSS_5);
+        if (getCampaignPerfectCompletions(c) >= 10) unlockAchievement(c, ACH_CAMPAIGN_PERFECT_10);
+    }
+
+    public static void onCampaignStageFinished(
+            Context c,
+            String campaignId,
+            String stageId,
+            String campaignMode,
+            boolean completed,
+            int stars,
+            boolean bossDefeated,
+            int usedLifelines
+    ) {
+        if (stageId == null || stageId.trim().isEmpty()) return;
+
+        SharedPreferences p = prefs(c);
+        String safeCampaignId = campaignId == null || campaignId.trim().isEmpty()
+                ? "main_campaign"
+                : campaignId.trim();
+        String safeStageId = stageId.trim();
+        String stageKey = safeCampaignId + ":" + safeStageId;
+        String completedKey = "campaignStageCompleted:" + stageKey;
+        String starsKey = "campaignStageStars:" + stageKey;
+
+        int safeStars = Math.max(0, Math.min(3, stars));
+        int previousStars = p.getInt(starsKey, 0);
+        SharedPreferences.Editor editor = p.edit();
+        if (safeStars > previousStars) {
+            editor.putInt(starsKey, safeStars);
+            editor.putInt("campaignStars", p.getInt("campaignStars", 0) + (safeStars - previousStars));
+        }
+
+        boolean firstCompletion = completed && !p.getBoolean(completedKey, false);
+        if (firstCompletion) {
+            editor.putBoolean(completedKey, true);
+            editor.putInt("campaignCompletedStages", p.getInt("campaignCompletedStages", 0) + 1);
+            String normalizedMode = normalizeCampaignMode(campaignMode);
+            if ("blitz".equals(normalizedMode)) {
+                editor.putInt("campaignBlitzCompletions", p.getInt("campaignBlitzCompletions", 0) + 1);
+            } else if ("survival".equals(normalizedMode)) {
+                editor.putInt("campaignSurvivalCompletions", p.getInt("campaignSurvivalCompletions", 0) + 1);
+            } else if ("rival".equals(normalizedMode) || "battle".equals(normalizedMode)) {
+                editor.putInt("campaignRivalCompletions", p.getInt("campaignRivalCompletions", 0) + 1);
+            } else if ("series".equals(normalizedMode)) {
+                editor.putInt("campaignSeriesCompletions", p.getInt("campaignSeriesCompletions", 0) + 1);
+            } else if ("teamBattle".equals(normalizedMode)) {
+                editor.putInt("campaignTeamCompletions", p.getInt("campaignTeamCompletions", 0) + 1);
+            } else if ("noLifeline".equals(normalizedMode)) {
+                editor.putInt("campaignNoHelpCompletions", p.getInt("campaignNoHelpCompletions", 0) + 1);
+            }
+
+            if ("bossBattle".equals(normalizedMode) || bossDefeated) {
+                editor.putInt("campaignBossWins", p.getInt("campaignBossWins", 0) + 1);
+            }
+            if (safeStars >= 3 && usedLifelines <= 0) {
+                editor.putInt("campaignPerfectCompletions", p.getInt("campaignPerfectCompletions", 0) + 1);
+            }
+        }
+        editor.apply();
+        checkCampaignAchievements(c);
+        checkAllDone(c);
+    }
+
+    private static String normalizeCampaignMode(String mode) {
+        if (mode == null) return "classic";
+        String normalized = mode.trim().replace("_", "").replace("-", "").toLowerCase(Locale.US);
+        if ("speed".equals(normalized) || "blitz".equals(normalized)) return "blitz";
+        if ("survival".equals(normalized)) return "survival";
+        if ("rival".equals(normalized)) return "rival";
+        if ("battle".equals(normalized)) return "battle";
+        if ("series".equals(normalized)) return "series";
+        if ("teambattle".equals(normalized)) return "teamBattle";
+        if ("nolifeline".equals(normalized)) return "noLifeline";
+        if ("bossbattle".equals(normalized) || "boss".equals(normalized)) return "bossBattle";
+        return "classic";
     }
 
     private static void checkLevelAchievements(Context c) {
@@ -746,6 +876,33 @@ public class PlayerProgress {
                 return new AchievementReward(900, 260);
             case ACH_TEAM_BATTLE_WIN_15:
                 return new AchievementReward(2200, 600);
+
+            case ACH_CAMPAIGN_STAGE_5:
+                return new AchievementReward(700, 180);
+            case ACH_CAMPAIGN_STAGE_20:
+                return new AchievementReward(2000, 520);
+            case ACH_CAMPAIGN_STAGE_50:
+                return new AchievementReward(4500, 1100);
+            case ACH_CAMPAIGN_STARS_30:
+                return new AchievementReward(1200, 320);
+            case ACH_CAMPAIGN_STARS_100:
+                return new AchievementReward(3200, 850);
+            case ACH_CAMPAIGN_STARS_200:
+                return new AchievementReward(6500, 1600);
+            case ACH_CAMPAIGN_BLITZ_3:
+            case ACH_CAMPAIGN_SURVIVAL_3:
+            case ACH_CAMPAIGN_RIVAL_3:
+            case ACH_CAMPAIGN_SERIES_3:
+            case ACH_CAMPAIGN_TEAM_3:
+                return new AchievementReward(900, 260);
+            case ACH_CAMPAIGN_NO_HELP_5:
+                return new AchievementReward(1800, 500);
+            case ACH_CAMPAIGN_BOSS_1:
+                return new AchievementReward(1500, 420);
+            case ACH_CAMPAIGN_BOSS_5:
+                return new AchievementReward(4000, 1000);
+            case ACH_CAMPAIGN_PERFECT_10:
+                return new AchievementReward(5000, 1300);
 
             case ACH_ALL_DONE:
                 return new AchievementReward(10000, 2500);

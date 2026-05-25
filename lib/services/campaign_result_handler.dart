@@ -66,15 +66,21 @@ class CampaignResultHandler {
       if (user == null || uid.isEmpty) {
         if (!context.mounted) return true;
         _showSnack(context, _loggedOutSaveMessage);
+        final preview = _buildLocalPreview(
+          campaignService: campaignService,
+          stage: stage,
+          payload: payload,
+        );
+        await _recordCampaignAchievementProgress(
+          nativeBridge: nativeBridge,
+          result: preview,
+        );
+        if (!context.mounted) return true;
         await Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
             builder: (_) => StageResultScreen(
               stage: stage,
-              submissionResult: _buildLocalPreview(
-                campaignService: campaignService,
-                stage: stage,
-                payload: payload,
-              ),
+              submissionResult: preview,
               rawNativeResult: payload,
             ),
           ),
@@ -103,16 +109,22 @@ class CampaignResultHandler {
         );
         if (!context.mounted) return true;
         _showSnack(context, _saveFailureMessage(error));
+        final preview = _buildLocalPreview(
+          campaignService: campaignService,
+          stage: stage,
+          payload: payload,
+          saveFailed: true,
+        );
+        await _recordCampaignAchievementProgress(
+          nativeBridge: nativeBridge,
+          result: preview,
+        );
+        if (!context.mounted) return true;
         await Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
             builder: (_) => StageResultScreen(
               stage: stage,
-              submissionResult: _buildLocalPreview(
-                campaignService: campaignService,
-                stage: stage,
-                payload: payload,
-                saveFailed: true,
-              ),
+              submissionResult: preview,
               rawNativeResult: payload,
             ),
           ),
@@ -132,6 +144,11 @@ class CampaignResultHandler {
           fallbackXp: result.rewardXpGranted,
         );
       }
+
+      await _recordCampaignAchievementProgress(
+        nativeBridge: nativeBridge,
+        result: result,
+      );
 
       if (!context.mounted) return true;
       await Navigator.of(context).pushReplacement(
@@ -191,6 +208,33 @@ class CampaignResultHandler {
       if (stage.id == stageId) return stage;
     }
     return null;
+  }
+
+  static Future<void> _recordCampaignAchievementProgress({
+    required NativeBridgeService nativeBridge,
+    required StageSubmissionResult result,
+  }) async {
+    try {
+      final attempt = result.attempt;
+      await nativeBridge.recordCampaignAchievementProgress(
+        campaignId: attempt.campaignId,
+        stageId: attempt.stageId,
+        campaignMode: attempt.campaignMode,
+        completed: attempt.completed,
+        stars: result.newStars,
+        bossDefeated: attempt.bossDefeated,
+        usedLifelines:
+            attempt.used5050 + attempt.usedAudience + attempt.usedCall,
+      );
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+          'CAMPAIGN_ACHIEVEMENT_RECORD_FAILED type=${error.runtimeType} '
+          'message=$error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
   }
 
   static bool _hasCompleteCampaignResult(Map<String, dynamic> payload) {

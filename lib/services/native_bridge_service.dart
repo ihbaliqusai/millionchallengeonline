@@ -282,6 +282,26 @@ class NativeBridgeService {
     return result ?? {};
   }
 
+  Future<void> recordCampaignAchievementProgress({
+    required String campaignId,
+    required String stageId,
+    required String campaignMode,
+    required bool completed,
+    required int stars,
+    required bool bossDefeated,
+    required int usedLifelines,
+  }) async {
+    await _channel.invokeMethod('recordCampaignAchievementProgress', {
+      'campaignId': campaignId,
+      'stageId': stageId,
+      'campaignMode': campaignMode,
+      'completed': completed,
+      'stars': stars,
+      'bossDefeated': bossDefeated,
+      'usedLifelines': usedLifelines,
+    });
+  }
+
   Future<Map<String, int>> claimAchievementReward(String key) async {
     final result = await _channel.invokeMapMethod<String, dynamic>(
       'claimAchievementReward',

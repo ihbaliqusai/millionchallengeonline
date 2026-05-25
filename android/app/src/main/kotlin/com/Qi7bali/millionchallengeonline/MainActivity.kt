@@ -376,6 +376,16 @@ class MainActivity : FlutterActivity() {
                         val survivalWins = PlayerProgress.getSurvivalWins(this)
                         val seriesWins = PlayerProgress.getSeriesWins(this)
                         val teamBattleWins = PlayerProgress.getTeamBattleWins(this)
+                        val campaignCompletedStages = PlayerProgress.getCampaignCompletedStages(this)
+                        val campaignStars = PlayerProgress.getCampaignStars(this)
+                        val campaignBlitzCompletions = PlayerProgress.getCampaignBlitzCompletions(this)
+                        val campaignSurvivalCompletions = PlayerProgress.getCampaignSurvivalCompletions(this)
+                        val campaignRivalCompletions = PlayerProgress.getCampaignRivalCompletions(this)
+                        val campaignSeriesCompletions = PlayerProgress.getCampaignSeriesCompletions(this)
+                        val campaignTeamCompletions = PlayerProgress.getCampaignTeamCompletions(this)
+                        val campaignNoHelpCompletions = PlayerProgress.getCampaignNoHelpCompletions(this)
+                        val campaignBossWins = PlayerProgress.getCampaignBossWins(this)
+                        val campaignPerfectCompletions = PlayerProgress.getCampaignPerfectCompletions(this)
                         val inventoryTotal =
                             PlayerProgress.getInventory5050(this) +
                             PlayerProgress.getInventoryAudience(this) +
@@ -409,8 +419,31 @@ class MainActivity : FlutterActivity() {
                         map["survivalWins"]   = survivalWins
                         map["seriesWins"]     = seriesWins
                         map["teamBattleWins"] = teamBattleWins
+                        map["campaignCompletedStages"] = campaignCompletedStages
+                        map["campaignStars"] = campaignStars
+                        map["campaignBlitzCompletions"] = campaignBlitzCompletions
+                        map["campaignSurvivalCompletions"] = campaignSurvivalCompletions
+                        map["campaignRivalCompletions"] = campaignRivalCompletions
+                        map["campaignSeriesCompletions"] = campaignSeriesCompletions
+                        map["campaignTeamCompletions"] = campaignTeamCompletions
+                        map["campaignNoHelpCompletions"] = campaignNoHelpCompletions
+                        map["campaignBossWins"] = campaignBossWins
+                        map["campaignPerfectCompletions"] = campaignPerfectCompletions
 
                         result.success(map)
+                    }
+                    "recordCampaignAchievementProgress" -> {
+                        PlayerProgress.onCampaignStageFinished(
+                            this,
+                            call.argument<String>("campaignId") ?: "main_campaign",
+                            call.argument<String>("stageId") ?: "",
+                            call.argument<String>("campaignMode") ?: "classic",
+                            call.argument<Boolean>("completed") ?: false,
+                            call.argument<Int>("stars") ?: 0,
+                            call.argument<Boolean>("bossDefeated") ?: false,
+                            call.argument<Int>("usedLifelines") ?: 0
+                        )
+                        result.success(true)
                     }
                     "claimAchievementReward" -> {
                         PlayerProgress.checkMilestoneAchievements(this)
