@@ -34,6 +34,7 @@ import de.hdodenhof.circleimageview.CircleImageView;
 
 public class ResultActivity extends AppCompatActivity {
     private InterstitialAd interstitialAd;
+    private boolean homeNavigationRequested = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -213,9 +214,13 @@ public class ResultActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 if (Data.isNetworkAvailable(ResultActivity.this)) {
-                    Intent intent = new Intent(ResultActivity.this, OpponentActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
+                    if (isOnlineRoomResult()) {
+                        navigateToOnlineRooms();
+                    } else {
+                        Intent intent = new Intent(ResultActivity.this, OpponentActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                    }
                 } else {
                     Toast.makeText(ResultActivity.this, "لا يوجد اتصال بالإنترنت", Toast.LENGTH_SHORT).show();
                 }
@@ -232,6 +237,7 @@ public class ResultActivity extends AppCompatActivity {
     }
 
     private void showInterstitialThenHome() {
+        homeNavigationRequested = true;
         AppPrefs.recordInterstitialOpportunity(this);
         if (interstitialAd != null && AppPrefs.canShowInterstitialNow(this)) {
             AppPrefs.markInterstitialShown(this);
@@ -244,6 +250,21 @@ public class ResultActivity extends AppCompatActivity {
     private void navigateToHome() {
         Intent intent = new Intent(ResultActivity.this, MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
+    private boolean isOnlineRoomResult() {
+        String roomId = getIntent().getStringExtra("roomId");
+        String matchMode = getIntent().getStringExtra("matchMode");
+        return (roomId != null && !roomId.trim().isEmpty())
+                || (matchMode != null && !matchMode.trim().isEmpty());
+    }
+
+    private void navigateToOnlineRooms() {
+        Intent intent = new Intent(ResultActivity.this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.putExtra("launchAction", "open_online_rooms");
         startActivity(intent);
         finish();
     }
@@ -266,13 +287,17 @@ public class ResultActivity extends AppCompatActivity {
                                 @Override
                                 public void onAdDismissedFullScreenContent() {
                                     interstitialAd = null;
-                                    navigateToHome();
+                                    if (homeNavigationRequested) {
+                                        navigateToHome();
+                                    }
                                 }
 
                                 @Override
                                 public void onAdFailedToShowFullScreenContent(com.google.android.gms.ads.AdError adError) {
                                     interstitialAd = null;
-                                    navigateToHome();
+                                    if (homeNavigationRequested) {
+                                        navigateToHome();
+                                    }
                                 }
                             });
                         }
@@ -529,7 +554,7 @@ public class ResultActivity extends AppCompatActivity {
             return "طور المعركة الجماعية";
         }
         if ("blitz".equals(matchMode)) {
-            return "طور بلتز";
+            return "طور سرعة البرق";
         }
         if ("elimination".equals(matchMode)) {
             return "طور الإقصاء";
@@ -576,7 +601,7 @@ public class ResultActivity extends AppCompatActivity {
             return "الفريق " + safeTeamLabel(winnerTeamId) + " حسم المواجهة";
         }
         if ("blitz".equals(matchMode)) {
-            return didWin ? "أنهيت بلتز في الصدارة" : "انتهت جولة بلتز";
+            return didWin ? "أنهيت سرعة البرق في الصدارة" : "انتهت جولة سرعة البرق";
         }
         if ("elimination".equals(matchMode)) {
             if (didWin) {

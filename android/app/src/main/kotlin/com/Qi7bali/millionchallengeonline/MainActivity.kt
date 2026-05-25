@@ -13,9 +13,18 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var pendingLaunchAction: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        pendingLaunchAction = intent.getStringExtra("launchAction")
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingLaunchAction = intent.getStringExtra("launchAction")
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -61,6 +70,11 @@ class MainActivity : FlutterActivity() {
                         val coins = AppPrefs.getCoins(this)
                         val gems  = AppPrefs.getGems(this)
                         result.success(mapOf("coins" to coins, "gems" to gems))
+                    }
+                    "consumeLaunchAction" -> {
+                        val action = pendingLaunchAction
+                        pendingLaunchAction = null
+                        result.success(action)
                     }
                     "grantCurrency" -> {
                         val coins = call.argument<Int>("coins") ?: 0
@@ -108,7 +122,6 @@ class MainActivity : FlutterActivity() {
                         }
                         startActivity(intent)
                         result.success(true)
-                        finish()
                     }
                     "launchCampaignStage" -> {
                         try {

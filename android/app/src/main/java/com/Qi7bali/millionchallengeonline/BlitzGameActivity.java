@@ -11,8 +11,7 @@ import android.widget.TextView;
  *
  * قواعد العداد الكلي:
  *   - يبدأ العد مع ظهور أول سؤال (ليس عند فتح الشاشة)
- *   - يتوقف مؤقتاً عند إرسال الإجابة
- *   - يستأنف مع ظهور السؤال التالي
+ *   - يستمر أثناء الانتقال السريع بين الأسئلة
  *   - تنتهي المباراة عند نفاد الوقت أو نفاد الأسئلة
  *
  * الفوز/الخسارة:
@@ -76,10 +75,11 @@ public class BlitzGameActivity extends BaseGameActivity {
         resumeGlobalTimer();
     }
 
-    /** يُستدعى عند إرسال اللاعب إجابته — نوقف الوقت الكلي مؤقتاً */
+    /** يُستدعى عند إرسال اللاعب إجابته. */
     @Override
     protected void onLocalAnswerSubmitted() {
-        pauseGlobalTimer();
+        // Blitz is a race against the clock: keep the global timer running
+        // through the short answer feedback and into the next question.
     }
 
     /** يُستدعى عند نفاد الأسئلة — ننهي المباراة فوراً */

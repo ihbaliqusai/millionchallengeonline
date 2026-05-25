@@ -2153,7 +2153,8 @@ class RoomService {
     final profile = Room.botProfile(botId);
     // ~1 answer per 5 s at 100 % intelligence; scaled by actual intelligence.
     final maxAnswers = math.max(1, (durationSeconds / 5.0).round());
-    final expected = (maxAnswers * profile.intelligence / 100).round();
+    final effectiveIntelligence = math.min(80, profile.intelligence);
+    final expected = (maxAnswers * effectiveIntelligence / 100).round();
     final minScore = math.max(0, expected - 3);
     final hash = _stableHash('blitz|$roomId|$botId');
     return math.min(maxAnswers, minScore + (hash % 7));

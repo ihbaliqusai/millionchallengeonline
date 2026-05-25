@@ -37,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final AnimationController _glowCtrl;
   late final AnimationController _bgCtrl;
   bool _syncingPendingRoomMatchResult = false;
+  bool _handlingNativeLaunchAction = false;
 
   @override
   void initState() {
@@ -53,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen>
       CampaignResultHandler.consumeAndHandlePendingCampaignResult(
         context: context,
       );
+      _consumeNativeLaunchAction();
     });
     _idleCtrl = AnimationController(
       vsync: this,
@@ -79,6 +81,23 @@ class _HomeScreenState extends State<HomeScreen>
       CampaignResultHandler.consumeAndHandlePendingCampaignResult(
         context: context,
       );
+      _consumeNativeLaunchAction();
+    }
+  }
+
+  Future<void> _consumeNativeLaunchAction() async {
+    if (_handlingNativeLaunchAction || !mounted) return;
+    _handlingNativeLaunchAction = true;
+    try {
+      final action =
+          await context.read<NativeBridgeService>().consumeLaunchAction();
+      if (!mounted || action != 'open_online_rooms') return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const RoomsScreen()),
+        (route) => route.isFirst,
+      );
+    } finally {
+      _handlingNativeLaunchAction = false;
     }
   }
 

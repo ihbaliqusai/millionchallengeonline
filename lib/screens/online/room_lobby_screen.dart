@@ -259,14 +259,17 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
       if (Room.isBotUserId(opponentId)) {
         final roomPlayer = room.players[opponentId];
         final botProfile = Room.botProfile(opponentId);
+        final botIntelligence = matchMode == Room.modeBlitz
+            ? botProfile.intelligence.clamp(0, 80).toInt()
+            : botProfile.intelligence;
         opponents.add(<String, dynamic>{
           'id': opponentId,
           'seatId': opponentId,
           'userId': opponentId,
           'name': botProfile.displayName,
           'photo': botProfile.nativePhoto,
-          'level': (botProfile.intelligence / 10).ceil(),
-          'intelligence': botProfile.intelligence,
+          'level': (botIntelligence / 10).ceil(),
+          'intelligence': botIntelligence,
           'score': roomPlayer?.score ?? 0,
           'bot': true,
           'teamId': roomPlayer?.teamId ?? '',
@@ -747,7 +750,7 @@ String _roomModeLabel(String mode) => switch (mode) {
       Room.modeSurvival => 'نجاة',
       Room.modeSeries => 'سلسلة',
       Room.modeTeamBattle => 'مواجهة الفرق',
-      Room.modeBlitz => 'بلتز',
+      Room.modeBlitz => 'سرعة البرق',
       _ => 'تنافس',
     };
 
@@ -1248,6 +1251,11 @@ class _PlayersPanel extends StatelessWidget {
     final isBot = Room.isBotUserId(id);
     final botProfile = isBot ? Room.botProfile(id) : null;
     final isMe = id == currentUserId;
+    final botIntelligence = isBot && botProfile != null
+        ? (room.mode == Room.modeBlitz
+            ? botProfile.intelligence.clamp(0, 80).toInt()
+            : botProfile.intelligence)
+        : null;
     final canSwitchTeam = room.mode == Room.modeTeamBattle &&
         !room.started &&
         !isBot &&
@@ -1264,7 +1272,7 @@ class _PlayersPanel extends StatelessWidget {
             : profile?.username ?? _RoomLobbyScreenState._fallbackName(id),
         photoUrl: profile?.photoUrl,
         botSeed: botProfile?.avatarSeed ?? 0,
-        botIntelligence: botProfile?.intelligence,
+        botIntelligence: botIntelligence,
         ready: player.ready,
         roomStarted: room.started,
         mode: room.mode,
@@ -2657,7 +2665,7 @@ class _ControlsPanelBody extends StatelessWidget {
                     Room.modeTeamBattle =>
                       'مواجهة الفرق: يحتفظ كل لاعب بنقاطه الفردية، ومجموع الفريقين يحدد الفائز، والتعادل ينهي المواجهة بلا فريق منتصر. تبديل الفرق متاح فقط قبل البداية.',
                     Room.modeBlitz =>
-                      'طور بلتز: أجب عن أكبر عدد ممكن من الأسئلة قبل انتهاء الوقت.',
+                      'طور سرعة البرق: أجب عن أكبر عدد ممكن من الأسئلة قبل انتهاء الوقت.',
                     _ =>
                       'يمكن للمضيف البدء مبكرًا، وأي مقاعد شاغرة سيملؤها خصوم آليون.',
                   },

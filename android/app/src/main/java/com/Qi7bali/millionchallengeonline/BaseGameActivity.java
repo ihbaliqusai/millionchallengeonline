@@ -101,7 +101,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     protected int getQuestionsPerRound() { return 5; }
 
     /** هل عمود المنتصف في لوحة النقاط يعرض حالة/أرواح بدل عدد الجولات. */
-    protected boolean usesStatusScoreCells() { return usesEliminationRoundFlow(); }
+    protected boolean usesStatusScoreCells() { return usesEliminationRoundFlow() || isBlitzMode(); }
 
     /** يُعيد قائمة الخصوم للقراءة (للاستخدام في الأطوار الفرعية) */
     protected java.util.List<MatchOpponent> getOpponentsList() { return opponents; }
@@ -314,6 +314,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     private long questionStartTimeMs = 0L;
     private boolean localPlayerRemoved = false;
     private boolean localPlayerEliminated = false;
+    private boolean onlineResultScreenOpened = false;
     private boolean resumeExistingRoomGame = false;
     private boolean resumeRoomStateRequested = false;
     private String matchPlayerId = "";
@@ -1041,6 +1042,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 opponent.photo = safeString(item.optString("photo"));
                 opponent.level = Math.max(1, item.optInt("level", 1));
                 opponent.intelligence = Math.max(0, item.optInt("intelligence", 0));
+                if (isBlitzMode()) {
+                    opponent.intelligence = Math.min(80, opponent.intelligence);
+                }
                 opponent.score = Math.max(0, item.optInt("score", 0));
                 opponent.bot = item.optBoolean("bot", false) || "fictitious".equals(opponent.id);
                 opponent.teamId = safeString(item.optString("teamId"));
@@ -1964,7 +1968,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         opponent.userId = opponent.id;
         opponent.name = profile.name;
         opponent.photo = profile.photo;
-        opponent.intelligence = profile.intelligence;
+        opponent.intelligence = isBlitzMode()
+                ? Math.min(80, profile.intelligence)
+                : profile.intelligence;
         opponent.level = Math.max(1, opponent.intelligence / 10);
         if (replacingHuman) {
             Toast.makeText(
@@ -2104,6 +2110,12 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     private void checkAnswer(final boolean timeout) {
         final int amount = modeOnline ? 0 : Integer.parseInt(getCurrentStepAmount().replace("$", ""));
+        if (modeOnline && isBlitzMode()) {
+            stopTimer(false);
+            CAN_HOME = true;
+            handleBlitzAnswerFast(timeout);
+            return;
+        }
         if (!timeout) {
             stopTimer(false);
             playSound(R.raw.drum1, false, true);
@@ -2270,6 +2282,49 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         handler.postDelayed(runnable, delayDrum);
     }
 
+    private void handleBlitzAnswerFast(final boolean timeout) {
+        FAST_LIGHTS = false;
+        T_LIGHTS = 3;
+        CAN_PLAY = false;
+
+        applyOnlineRoundMetrics();
+        if (handleLocalTimeoutRemovalIfNeeded()) {
+            return;
+        }
+
+        final boolean correct = !timeout && mySubmittedAnswerKey == ANSWER_KEY_RIGHT;
+        if (correct) {
+            if (imgSelected != null) imgSelected.setImageResource(R.drawable.frame_right);
+            PlayerStats.recordCorrectAnswer(BaseGameActivity.this);
+            person.like(700);
+            playSound(R.raw.correct_answer, false, false);
+            showDialog("\u0627\u0644\u062c\u0648\u0627\u0628 \u0635\u062d\u064a\u062d", "", 700, 700, R.drawable.mouth_01, false);
+        } else {
+            PlayerStats.recordWrongAnswer(BaseGameActivity.this);
+            playSound(R.raw.wrong_answer, false, false);
+            if (imgSelected != null && !timeout) imgSelected.setImageResource(R.drawable.frame_wrong);
+            if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
+            showDialog(timeout
+                            ? "\u0627\u0646\u062a\u0647\u0649 \u0627\u0644\u0648\u0642\u062a \u0644\u0644\u0623\u0633\u0641"
+                            : "\u0625\u062c\u0627\u0628\u0629 \u062e\u0627\u0637\u0626\u0629 \u0644\u0644\u0623\u0633\u0641",
+                    "", 700, 700, R.drawable.mouth_05, false);
+        }
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (EXITING) {
+                    return;
+                }
+                initQuestion();
+                if (currentStep < steps.size() - 1) {
+                    nextStep();
+                }
+                showQuestionNow(currentQuestion + 1);
+            }
+        }, correct ? 900 : 1100);
+    }
+
     private void applyOnlineRoundMetrics() {
         if (eliminationMode) {
             if (!spectatorEliminationRound && mySubmittedAnswerKey == ANSWER_KEY_RIGHT) {
@@ -2337,7 +2392,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             }
         }
 
-        txtScoreMe.setText(setScoreMe + "");
+        txtScoreMe.setText((isBlitzMode() ? myTotalCorrectAnswers : setScoreMe) + "");
         txtScoreGameMe.setText(gameScoreMe + "");
         refreshOpponentPanels();
         syncLocalSeatState("game_state_updated");
@@ -3206,7 +3261,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     private void applyRecoveredRoomStateToUi() {
         if (txtScoreMe != null) {
-            txtScoreMe.setText(String.valueOf(setScoreMe));
+            txtScoreMe.setText(String.valueOf(isBlitzMode() ? myTotalCorrectAnswers : setScoreMe));
         }
         if (txtScoreGameMe != null) {
             txtScoreGameMe.setText(String.valueOf(gameScoreMe));
@@ -3510,7 +3565,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         opponent.photo = incomingPhoto;
                     }
                     opponent.level = Math.max(1, incomingLevel);
-                    opponent.intelligence = Math.max(0, incomingIntelligence);
+                    opponent.intelligence = Math.max(0, isBlitzMode()
+                            ? Math.min(80, incomingIntelligence)
+                            : incomingIntelligence);
                     if (!incomingTeamId.isEmpty()) {
                         opponent.teamId = incomingTeamId;
                     }
@@ -3637,9 +3694,11 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     protected void openOnlineResultScreen(boolean opponentLeft) {
-        if (!modeOnline) {
+        if (!modeOnline || onlineResultScreenOpened) {
             return;
         }
+        onlineResultScreenOpened = true;
+        stopTimer(false);
         cancelBlitzBotSimulation();
         if (!opponentLeft) {
             markMyGameState("finished");
@@ -3649,7 +3708,6 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         detachQuestionSyncListener();
         OnlineResultState resultState = buildOnlineResultState();
         Intent intent = new Intent(BaseGameActivity.this, ResultActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         intent.putExtra("myScore", gameScoreMe);
         intent.putExtra("myNewScore", myScore);
         intent.putExtra("mySets", setMe);
@@ -3789,21 +3847,19 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     }
 
     private void scheduleBlitzBotAnswers(final MatchOpponent bot) {
-        int[] schedule = getBlitzBotScheduleMs(bot.intelligence);
-        final int scheduleLen = schedule.length;
-        Random rng = new Random();
-        for (int baseMs : schedule) {
-            int jitter = rng.nextInt(1001) - 500; // ±500ms طابع بشري
-            final int delayMs = Math.max(400, baseMs + jitter);
+        int[] schedule = getBlitzBotScheduleMs(bot);
+        for (int i = 0; i < schedule.length; i++) {
+            final int delayMs = schedule[i];
             Runnable r = new Runnable() {
                 @Override
                 public void run() {
                     if (EXITING) return;
-                    bot.gameScore        += ONLINE_SPEED_POINTS[0];
-                    bot.roundScore       += 1;
+                    bot.gameScore += ONLINE_SPEED_POINTS[0];
+                    bot.roundScore += 1;
                     bot.setCorrectAnswers++;
                     bot.totalCorrectAnswers++;
-                    bot.totalAnswerTimeMs += delayMs / Math.max(1, scheduleLen);
+                    bot.setAnswerTimeMs += delayMs;
+                    bot.totalAnswerTimeMs += delayMs;
                     runOnUiThread(BaseGameActivity.this::refreshOpponentPanels);
                 }
             };
@@ -3812,30 +3868,30 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         }
     }
 
-    private int[] getBlitzBotScheduleMs(int intel) {
-        // عدد الإجابات وفترة التكرار ثابتان بغض النظر عن مدة الجولة.
-        // المؤقت الكلي يلغي ما لم يُطلق منها عند نهاية الوقت.
-        if (intel >= 88) {
-            // ذكي جداً: 14 إجابة كل ~15 ث، أولها بعد 7 ث
-            return new int[]{
-                 7000,  22000,  37000,  52000,  67000,
-                82000,  97000, 112000, 127000, 142000,
-               157000, 172000, 187000, 202000
-            };
-        } else if (intel >= 65) {
-            // ذكي: 11 إجابة كل ~20 ث، أولها بعد 7 ث
-            return new int[]{
-                 7000,  27000,  47000,  67000,  87000,
-               107000, 127000, 147000, 167000, 187000,
-               207000
-            };
-        } else {
-            // عادي: 6 إجابات كل ~25 ث، أولها بعد 7 ث
-            return new int[]{
-                 7000,  32000,  57000,
-                82000, 107000, 132000
-            };
+    private int[] getBlitzBotScheduleMs(MatchOpponent bot) {
+        int intel = bot == null ? 60 : bot.intelligence;
+        String botId = bot == null ? "" : safeString(bot.id);
+        int durationMs = Math.max(10_000, getBlitzRoundDurationSeconds() * 1000);
+        int maxAnswers = Math.max(1, Math.round(getBlitzRoundDurationSeconds() / 5f));
+        int clampedIntel = Math.max(25, Math.min(80, intel));
+        int targetAnswers = Math.round(maxAnswers * (clampedIntel / 100f));
+        int variance = (stableHash((gameID == null ? "" : gameID) + "|blitz-bot|" + botId) % 3) - 1;
+        targetAnswers = Math.max(1, Math.min(maxAnswers, targetAnswers + variance));
+        if (questions != null && !questions.isEmpty()) {
+            targetAnswers = Math.min(targetAnswers, questions.size());
         }
+
+        int[] schedule = new int[targetAnswers];
+        int firstMs = clampedIntel >= 88 ? 3200 : (clampedIntel >= 65 ? 4200 : 5800);
+        int lastMs = Math.max(firstMs, durationMs - 1800);
+        for (int i = 0; i < targetAnswers; i++) {
+            float ratio = targetAnswers == 1 ? 0f : (float) i / (float) (targetAnswers - 1);
+            int baseMs = Math.round(firstMs + ((lastMs - firstMs) * ratio));
+            int jitterSeed = stableHash((gameID == null ? "" : gameID) + "|" + botId + "|" + i);
+            int jitter = (jitterSeed % 1201) - 600;
+            schedule[i] = Math.max(800, Math.min(durationMs - 300, baseMs + jitter));
+        }
+        return schedule;
     }
 
     protected int getBlitzRoundDurationSeconds() { return 60; }
@@ -3951,7 +4007,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
         try {
             JSONObject payload = new JSONObject();
-            int answeredCount = ("series".equals(roomMatchMode) || usesEliminationRoundFlow())
+            int answeredCount = ("series".equals(roomMatchMode)
+                    || usesEliminationRoundFlow()
+                    || "blitz".equals(roomMatchMode))
                     ? myTotalCorrectAnswers
                     : Math.max(myTotalCorrectAnswers, gameScoreMe);
             payload.put("roomId", roomId);
@@ -6098,8 +6156,3 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
 
 }
-
-
-
-
-

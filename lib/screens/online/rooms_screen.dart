@@ -429,7 +429,7 @@ class _CreateJoinPanel extends StatelessWidget {
               Row(
                 children: [
                   _ModeChip(
-                    label: 'بلتز',
+                    label: 'سرعة البرق',
                     icon: Icons.timer_rounded,
                     description: 'سباق ضد الوقت',
                     selected: mode == 'blitz',
@@ -1036,7 +1036,7 @@ class _RoomCard extends StatelessWidget {
       Room.modeSurvival => 'نجاة',
       Room.modeSeries => 'سلسلة',
       Room.modeTeamBattle => 'فرق',
-      Room.modeBlitz => 'بلتز',
+      Room.modeBlitz => 'سرعة البرق',
       _ => 'تنافس',
     };
     final modeColor = switch (room.mode) {

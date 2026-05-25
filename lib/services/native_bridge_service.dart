@@ -9,6 +9,11 @@ class NativeBridgeService {
     await _channel.invokeMethod('launchOriginal');
   }
 
+  Future<String?> consumeLaunchAction() async {
+    final action = await _channel.invokeMethod<String>('consumeLaunchAction');
+    return action?.trim().isEmpty ?? true ? null : action;
+  }
+
   Future<void> launchLegacyRoomMatch({
     required List<Map<String, dynamic>> opponents,
     required bool meOwner,
