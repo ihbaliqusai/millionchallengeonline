@@ -151,11 +151,10 @@ class RoomService {
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,
     });
-    // Fire-and-forget: offline persistence writes to local cache instantly so
-    // watchRoom() emits the room before the server round-trip completes.
-    // Any server-side failure (e.g. permission-denied) will be surfaced via
-    // the watchRoom stream (room disappears → lobby auto-closes).
-    unawaited(doc.set(<String, dynamic>{
+    // Wait for the create write to reach Firestore before entering the lobby.
+    // startRoom() runs in a transaction and may read from the server; returning
+    // early can make a fast tap on "start" race the initial document write.
+    await doc.set(<String, dynamic>{
       'hostId': hostId,
       'maxPlayers': maxPlayers,
       'mode': mode,
@@ -174,7 +173,7 @@ class RoomService {
         'roomName': roomName.trim(),
       if (mode == Room.modeBlitz) 'roundDurationSeconds': roundDurationSeconds,
       if (mode == Room.modeSeries) 'seriesTarget': seriesTarget,
-    }).catchError((_) {}));
+    });
     return doc.id;
   }
 
