@@ -2461,10 +2461,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 .setPositiveButton("حسنًا", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                        Intent intent = new Intent(BaseGameActivity.this, MainActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
+                        showInterstitialAd();
                     }
                 })
                 .show();
@@ -2617,10 +2614,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         detachQuestionSyncListener();
         EXITING = true;
 
-        Intent intent = new Intent(BaseGameActivity.this, MainActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
+        showInterstitialAd();
     }
 
     private int getAlivePlayersCount() {

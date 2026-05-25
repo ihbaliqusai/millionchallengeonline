@@ -20,12 +20,20 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.FullScreenContentCallback;
+import com.google.android.gms.ads.LoadAdError;
+import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.interstitial.InterstitialAd;
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class ResultActivity extends AppCompatActivity {
+    private InterstitialAd interstitialAd;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +47,7 @@ public class ResultActivity extends AppCompatActivity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         setContentView(R.layout.activity_result);
         if (getSupportActionBar() != null) getSupportActionBar().hide();
+        initAdsIfNeeded();
 
         String myName = getIntent().getStringExtra("myName");
         String myPhoto = getIntent().getStringExtra("myPhoto");
@@ -215,13 +224,68 @@ public class ResultActivity extends AppCompatActivity {
         findViewById(R.id.btnHome).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(ResultActivity.this, MainActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
+                showInterstitialThenHome();
             }
         });
 
         runEntranceMotion(cardMe, cardOpponent, resultPanel, resultActions, resultAura);
+    }
+
+    private void showInterstitialThenHome() {
+        AppPrefs.recordInterstitialOpportunity(this);
+        if (interstitialAd != null && AppPrefs.canShowInterstitialNow(this)) {
+            AppPrefs.markInterstitialShown(this);
+            interstitialAd.show(this);
+        } else {
+            navigateToHome();
+        }
+    }
+
+    private void navigateToHome() {
+        Intent intent = new Intent(ResultActivity.this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
+    private void initAdsIfNeeded() {
+        try {
+            if (interstitialAd != null) {
+                return;
+            }
+            MobileAds.initialize(this, initializationStatus -> {});
+            InterstitialAd.load(
+                    this,
+                    getResources().getString(R.string.interstitial_ad_id),
+                    new AdRequest.Builder().build(),
+                    new InterstitialAdLoadCallback() {
+                        @Override
+                        public void onAdLoaded(InterstitialAd ad) {
+                            interstitialAd = ad;
+                            interstitialAd.setFullScreenContentCallback(new FullScreenContentCallback() {
+                                @Override
+                                public void onAdDismissedFullScreenContent() {
+                                    interstitialAd = null;
+                                    navigateToHome();
+                                }
+
+                                @Override
+                                public void onAdFailedToShowFullScreenContent(com.google.android.gms.ads.AdError adError) {
+                                    interstitialAd = null;
+                                    navigateToHome();
+                                }
+                            });
+                        }
+
+                        @Override
+                        public void onAdFailedToLoad(LoadAdError error) {
+                            interstitialAd = null;
+                        }
+                    }
+            );
+        } catch (Exception ignored) {
+            interstitialAd = null;
+        }
     }
 
     private JSONArray parseOpponents(String opponentsJson) {
