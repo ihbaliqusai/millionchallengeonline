@@ -200,6 +200,14 @@ public class PlayerProgress {
         checkCurrencyAchievements(c);
     }
 
+    public static void setCurrency(Context c, int coins, int gems) {
+        prefs(c).edit()
+                .putInt("coins", Math.max(0, coins))
+                .putInt("gems", Math.max(0, gems))
+                .apply();
+        checkCurrencyAchievements(c);
+    }
+
     public static boolean spendCoins(Context c, int amount) {
         if (amount <= 0 || getCoins(c) < amount) return false;
         addCoins(c, -amount);

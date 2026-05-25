@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
+import '../../services/campaign_result_handler.dart';
 import '../../widgets/game_shell.dart';
+import 'first_run_challenge_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,7 +13,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _usernameController = TextEditingController();
@@ -28,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // card entrance
     _cardCtrl = AnimationController(
@@ -55,10 +59,14 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumePendingGuestCampaignResult();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _emailController.dispose();
     _passwordController.dispose();
     _usernameController.dispose();
@@ -66,6 +74,20 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     _particlesCtrl.dispose();
     _iconPulseCtrl.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _consumePendingGuestCampaignResult();
+    }
+  }
+
+  Future<void> _consumePendingGuestCampaignResult() async {
+    if (!mounted) return;
+    await CampaignResultHandler.consumeAndHandlePendingCampaignResult(
+      context: context,
+    );
   }
 
   String? _validate() {
@@ -85,16 +107,31 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   static String _arabicFirebaseError(String raw) {
     final lower = raw.toLowerCase();
-    if (lower.contains('wrong-password') || lower.contains('invalid-credential')) {
+    if (lower.contains('wrong-password') ||
+        lower.contains('invalid-credential')) {
       return 'كلمة المرور أو البريد الإلكتروني غير صحيح';
     }
-    if (lower.contains('user-not-found')) return 'لا يوجد حساب بهذا البريد الإلكتروني';
-    if (lower.contains('email-already-in-use')) return 'هذا البريد الإلكتروني مستخدم بالفعل';
-    if (lower.contains('invalid-email')) return 'صيغة البريد الإلكتروني غير صحيحة';
-    if (lower.contains('weak-password')) return 'كلمة المرور ضعيفة جداً';
-    if (lower.contains('too-many-requests')) return 'تم تجاوز عدد المحاولات، حاول لاحقاً';
-    if (lower.contains('network-request-failed')) return 'تحقق من اتصالك بالإنترنت';
-    if (lower.contains('operation-not-allowed')) return 'طريقة تسجيل الدخول هذه غير مفعّلة';
+    if (lower.contains('user-not-found')) {
+      return 'لا يوجد حساب بهذا البريد الإلكتروني';
+    }
+    if (lower.contains('email-already-in-use')) {
+      return 'هذا البريد الإلكتروني مستخدم بالفعل';
+    }
+    if (lower.contains('invalid-email')) {
+      return 'صيغة البريد الإلكتروني غير صحيحة';
+    }
+    if (lower.contains('weak-password')) {
+      return 'كلمة المرور ضعيفة جداً';
+    }
+    if (lower.contains('too-many-requests')) {
+      return 'تم تجاوز عدد المحاولات، حاول لاحقاً';
+    }
+    if (lower.contains('network-request-failed')) {
+      return 'تحقق من اتصالك بالإنترنت';
+    }
+    if (lower.contains('operation-not-allowed')) {
+      return 'طريقة تسجيل الدخول هذه غير مفعّلة';
+    }
     return 'حدث خطأ، حاول مرة أخرى';
   }
 
@@ -207,6 +244,12 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                               iconPulseCtrl: _iconPulseCtrl,
                               onSubmit: () => _submit(state),
                               onToggle: _toggleMode,
+                              onGuestStart: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const FirstRunChallengeScreen(),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -253,7 +296,8 @@ class _ParticlesPainter extends CustomPainter {
       canvas.drawCircle(
         Offset(p.x * size.width, size.height * (1 - progress)),
         p.size / 2,
-        Paint()..color = const Color(0xFFFACC15).withValues(alpha: opacity * 0.35),
+        Paint()
+          ..color = const Color(0xFFFACC15).withValues(alpha: opacity * 0.35),
       );
     }
   }
@@ -275,6 +319,7 @@ class _LoginForm extends StatelessWidget {
     required this.iconPulseCtrl,
     required this.onSubmit,
     required this.onToggle,
+    required this.onGuestStart,
   });
 
   final bool register;
@@ -285,6 +330,7 @@ class _LoginForm extends StatelessWidget {
   final AnimationController iconPulseCtrl;
   final VoidCallback onSubmit;
   final VoidCallback onToggle;
+  final VoidCallback onGuestStart;
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +359,8 @@ class _LoginForm extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFACC15).withValues(alpha: iconPulseCtrl.value * 0.3),
+                        color: const Color(0xFFFACC15)
+                            .withValues(alpha: iconPulseCtrl.value * 0.3),
                         blurRadius: 16,
                         spreadRadius: 2,
                       ),
@@ -350,7 +397,9 @@ class _LoginForm extends StatelessWidget {
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: Text(
-                register ? 'قم بإنشاء حساب للمتابعة' : 'أدخل بياناتك للوصول إلى حسابك',
+                register
+                    ? 'قم بإنشاء حساب للمتابعة'
+                    : 'أدخل بياناتك للوصول إلى حسابك',
                 key: ValueKey('sub_$register'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -361,6 +410,27 @@ class _LoginForm extends StatelessWidget {
             ),
 
             const SizedBox(height: 24),
+
+            NeonButton(
+              label: 'ابدأ التحدي الآن',
+              icon: Icons.sports_esports_rounded,
+              gold: true,
+              onPressed: state.isBusy ? null : onGuestStart,
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              'بدون تسجيل. احفظ تقدمك بعد أول فوز.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.62),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+
+            const SizedBox(height: 18),
 
             // ── fields ──────────────────────────────────────
             AnimatedSize(
@@ -401,7 +471,9 @@ class _LoginForm extends StatelessWidget {
             // ── main button ─────────────────────────────────
             NeonButton(
               label: register ? 'إنشاء الحساب' : 'دخول',
-              icon: register ? Icons.person_add_alt_1_rounded : Icons.login_rounded,
+              icon: register
+                  ? Icons.person_add_alt_1_rounded
+                  : Icons.login_rounded,
               gold: true,
               onPressed: state.isBusy ? null : onSubmit,
             ),
@@ -419,7 +491,9 @@ class _LoginForm extends StatelessWidget {
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 250),
                 child: Text(
-                  register ? 'لديك حساب بالفعل؟ تسجيل الدخول' : 'ليس لديك حساب؟ إنشاء حساب',
+                  register
+                      ? 'لديك حساب بالفعل؟ تسجيل الدخول'
+                      : 'ليس لديك حساب؟ إنشاء حساب',
                   key: ValueKey('toggle_$register'),
                   style: const TextStyle(
                     fontSize: 15,
@@ -459,7 +533,8 @@ class _AnimatedField extends StatefulWidget {
   State<_AnimatedField> createState() => _AnimatedFieldState();
 }
 
-class _AnimatedFieldState extends State<_AnimatedField> with SingleTickerProviderStateMixin {
+class _AnimatedFieldState extends State<_AnimatedField>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
   late final Animation<Offset> _slide;

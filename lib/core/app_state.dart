@@ -123,6 +123,7 @@ class AppState extends ChangeNotifier {
 
       coins = balances['coins'] ?? (coins + rewardCoins);
       gems = balances['gems'] ?? (gems + rewardGems);
+      unawaited(_saveCurrencySnapshot(uid));
       claimedToday = true;
       streakDay = day;
     } catch (_) {
@@ -261,12 +262,18 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _onAuthChanged(User? nextUser) async {
+    final previousUser = user;
+    if (nextUser == null && previousUser != null) {
+      await _saveCurrencySnapshot(previousUser.uid);
+    }
+
     user = nextUser;
 
     if (nextUser != null) {
       unawaited(_syncPublicProfile());
-      unawaited(_syncLegacyUser());
-      unawaited(loadCurrency());
+      unawaited(
+        _syncLegacyUser().then((_) => _restoreCurrencyForUser(nextUser.uid)),
+      );
       unawaited(loadLevelData());
     } else {
       _resetSessionState();
@@ -301,6 +308,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final uid = currentUser?.uid;
+    if (uid != null) {
+      await _saveCurrencySnapshot(uid);
+    }
     await _runBusy(_authService.signOut);
     await _nativeBridgeService.resetLegacyUser();
   }
@@ -359,6 +370,10 @@ class AppState extends ChangeNotifier {
       final data = await _nativeBridgeService.getUserCurrency();
       coins = data['coins'] ?? 0;
       gems = data['gems'] ?? 0;
+      final uid = currentUser?.uid;
+      if (uid != null) {
+        unawaited(_saveCurrencySnapshot(uid));
+      }
       notifyListeners();
     } catch (_) {}
   }
@@ -380,7 +395,8 @@ class AppState extends ChangeNotifier {
     required int coinsReward,
     required int gemsReward,
   }) async {
-    if (currentUser == null) return false;
+    final uid = currentUser?.uid;
+    if (uid == null) return false;
     if (coinsReward <= 0 && gemsReward <= 0) return true;
     try {
       final balances = await _nativeBridgeService.grantCurrency(
@@ -389,6 +405,7 @@ class AppState extends ChangeNotifier {
       );
       coins = balances['coins'] ?? (coins + coinsReward);
       gems = balances['gems'] ?? (gems + gemsReward);
+      unawaited(_saveCurrencySnapshot(uid));
       notifyListeners();
       return true;
     } catch (_) {
@@ -430,6 +447,51 @@ class AppState extends ChangeNotifier {
       username: _resolvedUsername(currentUser),
       photoUrl: _resolvedPhotoUrl(currentUser),
     );
+  }
+
+  Future<void> _restoreCurrencyForUser(String uid) async {
+    try {
+      final local = await _nativeBridgeService.getUserCurrency();
+      final localCoins = local['coins'] ?? 0;
+      final localGems = local['gems'] ?? 0;
+
+      final doc = await _firestore.collection('users').doc(uid).get();
+      final data = doc.data() ?? const <String, dynamic>{};
+      final remoteCoins = (data['coins'] as num?)?.toInt() ?? 0;
+      final remoteGems = (data['gems'] as num?)?.toInt() ?? 0;
+
+      final nextCoins = localCoins > remoteCoins ? localCoins : remoteCoins;
+      final nextGems = localGems > remoteGems ? localGems : remoteGems;
+      final synced = await _nativeBridgeService.setUserCurrency(
+        coins: nextCoins,
+        gems: nextGems,
+      );
+
+      coins = synced['coins'] ?? nextCoins;
+      gems = synced['gems'] ?? nextGems;
+      notifyListeners();
+      await _saveCurrencySnapshot(uid);
+    } catch (_) {
+      await loadCurrency();
+    }
+  }
+
+  Future<void> _saveCurrencySnapshot(String uid) async {
+    try {
+      final data = await _nativeBridgeService.getUserCurrency();
+      final nextCoins = data['coins'] ?? coins;
+      final nextGems = data['gems'] ?? gems;
+      coins = nextCoins;
+      gems = nextGems;
+      await _firestore.collection('users').doc(uid).set(
+        <String, dynamic>{
+          'coins': nextCoins,
+          'gems': nextGems,
+          'currencyUpdatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {}
   }
 
   Future<void> _syncPublicProfile({

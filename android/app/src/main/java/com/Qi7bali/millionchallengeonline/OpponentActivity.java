@@ -22,6 +22,8 @@ import java.util.Random;
 
 public class OpponentActivity extends AppCompatActivity {
 
+    private static final int BOT_FALLBACK_DELAY_MS = 8000;
+
     boolean browsingOpponents = false;
     boolean requestAccepted = false;
     boolean ownRequestInserted = false;
@@ -42,6 +44,8 @@ public class OpponentActivity extends AppCompatActivity {
     private Runnable matchmakingRunnable;
     private final Handler cancelButtonHandler = new Handler();
     private Runnable cancelButtonRunnable;
+    private final Handler botFallbackHandler = new Handler();
+    private Runnable botFallbackRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -137,6 +141,20 @@ public class OpponentActivity extends AppCompatActivity {
         setStatus("جاري البحث عن منافس عبر الإنترنت...");
         waitForAcceptedRequest();
         tryClaimAvailableOpponent();
+        scheduleBotFallback();
+    }
+
+    private void scheduleBotFallback() {
+        botFallbackHandler.removeCallbacksAndMessages(null);
+        botFallbackRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!requestAccepted && !launchingGame && !"friend".equals(matchMode)) {
+                    launchBotMatch();
+                }
+            }
+        };
+        botFallbackHandler.postDelayed(botFallbackRunnable, BOT_FALLBACK_DELAY_MS);
     }
 
     private void tryClaimAvailableOpponent() {
@@ -273,6 +291,7 @@ public class OpponentActivity extends AppCompatActivity {
         launchingGame = true;
         requestAccepted = true;
         browsingOpponents = false;
+        botFallbackHandler.removeCallbacksAndMessages(null);
         cancelButtonHandler.removeCallbacks(cancelButtonRunnable);
         if (btnCancel != null) btnCancel.setVisibility(View.GONE);
         matchmakingHandler.removeCallbacksAndMessages(null);
@@ -318,6 +337,58 @@ public class OpponentActivity extends AppCompatActivity {
         handler.postDelayed(runnable, 1000);
     }
 
+    private void launchBotMatch() {
+        launchingGame = true;
+        requestAccepted = true;
+        browsingOpponents = false;
+        botFallbackHandler.removeCallbacksAndMessages(null);
+        cancelButtonHandler.removeCallbacks(cancelButtonRunnable);
+        matchmakingHandler.removeCallbacksAndMessages(null);
+        if (btnCancel != null) btnCancel.setVisibility(View.GONE);
+        if (ownRequestInserted) {
+            Data.cancelRequest(userID);
+            ownRequestInserted = false;
+        }
+
+        imgPhoto22.clearAnimation();
+        imgPhoto21.clearAnimation();
+        imgPhoto21.setVisibility(View.INVISIBLE);
+        imgPhoto22.setVisibility(View.INVISIBLE);
+        imgPhoto2.setVisibility(View.VISIBLE);
+        setRandomOpponentImage(imgPhoto2, 14);
+        txtOpponent2.setText("الكمبيوتر");
+        txtLevel2.setText("6");
+        setStatus("لم نجد لاعباً متاحاً الآن. سنبدأ ضد خصم آلي...");
+
+        Handler handler = new Handler();
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                Intent intent = new Intent(OpponentActivity.this, GameActivity.class);
+                intent.putExtra("mode", "online");
+                intent.putExtra("meOwner", true);
+                try {
+                    JSONObject opponentJson = new JSONObject();
+                    opponentJson.put("id", "fictitious");
+                    opponentJson.put("name", "الكمبيوتر");
+                    opponentJson.put("photo", "");
+                    opponentJson.put("level", 6);
+                    opponentJson.put("score", 0);
+                    opponentJson.put("intelligence", 65);
+                    opponentJson.put("bot", true);
+                    JSONArray opponentsArray = new JSONArray();
+                    opponentsArray.put(opponentJson);
+                    intent.putExtra("opponentsJson", opponentsArray.toString());
+                } catch (Exception e) {
+                    intent.putExtra("opponentsJson", "[]");
+                }
+                startActivity(intent);
+                finish();
+            }
+        };
+        handler.postDelayed(runnable, 800);
+    }
+
     private void setRandomOpponentImage(ImageView img, int maxNumber) {
         int rnd = (new Random()).nextInt(maxNumber) + 1;
         int idImage = this.getResources().getIdentifier("opponent" + String.format("%02d", rnd), "drawable", this.getPackageName());
@@ -333,6 +404,7 @@ public class OpponentActivity extends AppCompatActivity {
     private void cleanupPendingRequest() {
         cancelButtonHandler.removeCallbacks(cancelButtonRunnable);
         matchmakingHandler.removeCallbacksAndMessages(null);
+        botFallbackHandler.removeCallbacksAndMessages(null);
         if (ownRequestInserted && !launchingGame) {
             Data.cancelRequest(userID);
             ownRequestInserted = false;

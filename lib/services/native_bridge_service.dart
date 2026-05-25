@@ -351,6 +351,21 @@ class NativeBridgeService {
     return result.map((k, v) => MapEntry(k, (v as num).toInt()));
   }
 
+  Future<Map<String, int>> setUserCurrency({
+    required int coins,
+    required int gems,
+  }) async {
+    final result = await _channel.invokeMapMethod<String, dynamic>(
+      'setUserCurrency',
+      <String, dynamic>{
+        'coins': coins,
+        'gems': gems,
+      },
+    );
+    if (result == null) return {'coins': 0, 'gems': 0};
+    return result.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
   /// يُعيد قيم الإعدادات المحفوظة من Android SharedPreferences
   Future<Map<String, dynamic>> getSettings() async {
     final result =

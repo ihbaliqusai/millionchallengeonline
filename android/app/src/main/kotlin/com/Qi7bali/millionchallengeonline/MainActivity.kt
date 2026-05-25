@@ -92,6 +92,17 @@ class MainActivity : FlutterActivity() {
                             )
                         )
                     }
+                    "setUserCurrency" -> {
+                        val coins = call.argument<Int>("coins") ?: 0
+                        val gems = call.argument<Int>("gems") ?: 0
+                        PlayerProgress.setCurrency(this, coins, gems)
+                        result.success(
+                            mapOf(
+                                "coins" to PlayerProgress.getCoins(this),
+                                "gems" to PlayerProgress.getGems(this)
+                            )
+                        )
+                    }
                     "launchRoomMatch" -> {
                         val matchMode = call.argument<String>("matchMode") ?: "battle"
                         val activityClass = when (matchMode) {

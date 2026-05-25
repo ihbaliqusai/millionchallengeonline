@@ -12,7 +12,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  static const _splashDuration = Duration(milliseconds: 3000);
+  static const _splashDuration = Duration(milliseconds: 1200);
   Timer? _timer;
 
   @override
