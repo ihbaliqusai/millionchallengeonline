@@ -12,6 +12,7 @@ import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
@@ -33,6 +34,7 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.VideoView;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.FullScreenContentCallback;
@@ -244,6 +246,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     Typewriter txtDialog, txtCallAnswer;
     Button btnDialogYes, btnDialogNo, btnGetMoney;
     RingProgressBar pbTime;
+    VideoView gameBackgroundVideo;
     CountDownTimer cdtProgress;
     MediaPlayer mpSound, mpBeep, mpBeep1;
     CircleImageView imgPlayer1, imgPlayer2, imgMe, imgOpponent;
@@ -359,6 +362,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         setContentView(getLayoutResId());
         if (getSupportActionBar() != null) getSupportActionBar().hide();
+        setupGameBackgroundVideo();
 
         AppPrefs.ensureGuestUser(this);
         myID = AppPrefs.getUserId(this);
@@ -966,9 +970,49 @@ public abstract class BaseGameActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        startGameBackgroundVideo();
         SOUND_ON = AppPrefs.isSoundEnabled(this);
         MUSIC_ON = AppPrefs.isMusicEnabled(this);
         applyVolumeUi();
+    }
+
+    private void setupGameBackgroundVideo() {
+        gameBackgroundVideo = findViewById(R.id.gameBackgroundVideo);
+        if (gameBackgroundVideo == null) return;
+
+        Uri videoUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.bkgame);
+        gameBackgroundVideo.setVideoURI(videoUri);
+        gameBackgroundVideo.setOnPreparedListener(player -> {
+            player.setLooping(true);
+            player.setVolume(0f, 0f);
+            scaleGameBackgroundVideo(player);
+            gameBackgroundVideo.start();
+        });
+        gameBackgroundVideo.setOnErrorListener((player, what, extra) -> true);
+    }
+
+    private void scaleGameBackgroundVideo(MediaPlayer player) {
+        gameBackgroundVideo.post(() -> {
+            int videoWidth = player.getVideoWidth();
+            int videoHeight = player.getVideoHeight();
+            int viewWidth = gameBackgroundVideo.getWidth();
+            int viewHeight = gameBackgroundVideo.getHeight();
+            if (videoWidth <= 0 || videoHeight <= 0 || viewWidth <= 0 || viewHeight <= 0) return;
+
+            float scale = Math.max((float) viewWidth / videoWidth, (float) viewHeight / videoHeight);
+            gameBackgroundVideo.setScaleX((videoWidth * scale) / viewWidth);
+            gameBackgroundVideo.setScaleY((videoHeight * scale) / viewHeight);
+        });
+    }
+
+    private void startGameBackgroundVideo() {
+        if (gameBackgroundVideo == null) return;
+        try {
+            if (!gameBackgroundVideo.isPlaying()) {
+                gameBackgroundVideo.start();
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void parseOpponentsFromIntent() {
@@ -5892,6 +5936,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     @Override
     protected void onPause() {
+        if (gameBackgroundVideo != null && gameBackgroundVideo.isPlaying()) {
+            gameBackgroundVideo.pause();
+        }
         if(cdtProgress != null) cdtProgress.cancel();
         releasePlayer(mpSound);
         mpSound = null;
@@ -5919,6 +5966,10 @@ public abstract class BaseGameActivity extends AppCompatActivity {
         mpBeep = null;
         releasePlayer(mpBeep1);
         mpBeep1 = null;
+        if (gameBackgroundVideo != null) {
+            gameBackgroundVideo.stopPlayback();
+            gameBackgroundVideo = null;
+        }
         super.onDestroy();
     }
 

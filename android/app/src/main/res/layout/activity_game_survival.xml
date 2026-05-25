@@ -15,12 +15,10 @@
         android:layout_weight="1"
         >
 
-        <ImageView
+        <net.androidgaming.millionaire2024.CenterCropVideoView
+            android:id="@+id/gameBackgroundVideo"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:src="@drawable/bg_game2"
-            android:contentDescription="@string/todo5" />
+            android:layout_height="match_parent" />
 
         <!-- LIGHTS -->
         <ImageView
@@ -1158,3 +1156,4 @@
 
     </RelativeLayout>
 </LinearLayout>
+
