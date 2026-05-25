@@ -465,6 +465,8 @@ void main() {
       );
       expect(oneStar.rewardGranted, isTrue);
       expect(oneStar.newStars, 1);
+      expect(oneStar.rewardCoinsGranted, stage.rewardCoins ~/ 3);
+      expect(oneStar.rewardGemsGranted, stage.rewardGems ~/ 3);
 
       final repeatedOneStar = await campaignService.submitStageResult(
         uid: 'qa_user',
@@ -482,7 +484,14 @@ void main() {
       expect(improved.rewardGranted, isTrue);
       expect(improved.previousStars, 1);
       expect(improved.newStars, 3);
-      expect(improved.rewardCoinsGranted, stage.rewardCoins * 2 ~/ 3);
+      expect(
+        improved.rewardCoinsGranted,
+        stage.rewardCoins - oneStar.rewardCoinsGranted,
+      );
+      expect(
+        improved.rewardGemsGranted,
+        stage.rewardGems - oneStar.rewardGemsGranted,
+      );
     });
   });
 

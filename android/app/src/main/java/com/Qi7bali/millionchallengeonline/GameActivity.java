@@ -1563,7 +1563,9 @@ public class GameActivity extends AppCompatActivity {
         try {
             int prize = Integer.parseInt(amount.replace("$", "").trim());
             PlayerStats.recordGameEnd(GameActivity.this, true, prize);
-            PlayerProgress.onGameFinished(GameActivity.this, true, prize, PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+            if (!campaignMode) {
+                PlayerProgress.onGameFinished(GameActivity.this, true, prize, PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+            }
             persistPendingCampaignStageResult(true, prize, 0);
         } catch (Exception ignored) {}
         Intent intent = new Intent(GameActivity.this, WinnerActivity.class);
@@ -3115,8 +3117,6 @@ public class GameActivity extends AppCompatActivity {
         }
         campaignFailureReason = reason == null ? "" : reason;
         PlayerStats.recordGameEnd(GameActivity.this, false, 0);
-        PlayerProgress.onGameFinished(GameActivity.this, false, 0,
-                PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
         persistPendingCampaignStageResult(false, 0, campaignWrongAnswers);
         new Handler().postDelayed(new Runnable() {
             @Override
@@ -3186,7 +3186,7 @@ public class GameActivity extends AppCompatActivity {
         if (correct) {
             recordCampaignCorrectAnswer();
             if (imgSelected != null) imgSelected.setImageResource(R.drawable.frame_right);
-            PlayerStats.recordCorrectAnswer(GameActivity.this);
+            PlayerStats.recordCorrectAnswer(GameActivity.this, false);
             person.like(700);
             playSound(R.raw.correct_answer, false, false);
             campaignHudController.updateProgressHud(true);
@@ -3195,7 +3195,7 @@ public class GameActivity extends AppCompatActivity {
             showDialog(campaignAnswerMessage, "", CAMPAIGN_FEEDBACK_TALK_MS, campaignAnswerDialogMs, R.drawable.mouth_01, false);
         } else {
             recordCampaignWrongAnswer();
-            PlayerStats.recordWrongAnswer(GameActivity.this);
+            PlayerStats.recordWrongAnswer(GameActivity.this, false);
             playSound(R.raw.wrong_answer, false, false);
             if (imgSelected != null && !timeout) imgSelected.setImageResource(R.drawable.frame_wrong);
             if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
@@ -3242,8 +3242,6 @@ public class GameActivity extends AppCompatActivity {
         final int prize = getCampaignCurrentMoney();
         final boolean completed = isCampaignStageCompleteByMode();
         PlayerStats.recordGameEnd(GameActivity.this, completed, prize);
-        PlayerProgress.onGameFinished(GameActivity.this, completed, completed ? prize : 0,
-                PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
         persistPendingCampaignStageResult(completed, completed ? prize : 0, 0);
         finishCampaignAndReturnToFlutter();
     }
@@ -3614,7 +3612,9 @@ public class GameActivity extends AppCompatActivity {
                 try {
                     int prize = Integer.parseInt(txtAmount.getText().toString().replace("$", "").trim());
                     PlayerStats.recordGameEnd(GameActivity.this, false, prize);
-                    PlayerProgress.onGameFinished(GameActivity.this, false, prize, PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+                    if (!campaignMode) {
+                        PlayerProgress.onGameFinished(GameActivity.this, false, prize, PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+                    }
                     persistPendingCampaignStageResult(false, prize, 0);
                 } catch (Exception ignored) {}
                 stopCurrentSound();
@@ -3825,8 +3825,10 @@ public class GameActivity extends AppCompatActivity {
                                     int safeHavenPrize = Integer.parseInt(
                                         txtAmount.getText().toString().replace("$", "").trim());
                                     PlayerStats.recordGameEnd(GameActivity.this, false, safeHavenPrize);
-                                    PlayerProgress.onGameFinished(GameActivity.this, false, safeHavenPrize,
-                                        PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+                                    if (!campaignMode) {
+                                        PlayerProgress.onGameFinished(GameActivity.this, false, safeHavenPrize,
+                                            PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
+                                    }
                                     persistPendingCampaignStageResult(false, safeHavenPrize, 1);
                                 } catch (Exception ignored) {}
                             }

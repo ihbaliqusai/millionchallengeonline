@@ -25,6 +25,10 @@ public class PlayerStats {
     }
 
     public static void recordCorrectAnswer(Context c) {
+        recordCorrectAnswer(c, true);
+    }
+
+    public static void recordCorrectAnswer(Context c, boolean grantEconomyReward) {
         SharedPreferences p = prefs(c);
         int current = p.getInt("currentStreak", 0) + 1;
         int best = Math.max(current, p.getInt("bestStreak", 0));
@@ -34,19 +38,27 @@ public class PlayerStats {
                 .putInt("currentStreak", current)
                 .putInt("bestStreak", best)
                 .apply();
-        PlayerProgress.addXp(c, 10);
-        PlayerProgress.addCoins(c, 20);
+        if (grantEconomyReward) {
+            PlayerProgress.addXp(c, 10);
+            PlayerProgress.addCoins(c, 20);
+        }
 
         PlayerProgress.checkMilestoneAchievements(c);
     }
 
     public static void recordWrongAnswer(Context c) {
+        recordWrongAnswer(c, true);
+    }
+
+    public static void recordWrongAnswer(Context c, boolean grantEconomyReward) {
         SharedPreferences p = prefs(c);
         p.edit()
                 .putInt("wrongAnswers", p.getInt("wrongAnswers", 0) + 1)
                 .putInt("currentStreak", 0)
                 .apply();
-        PlayerProgress.addXp(c, 3);
+        if (grantEconomyReward) {
+            PlayerProgress.addXp(c, 3);
+        }
         PlayerProgress.checkMilestoneAchievements(c);
     }
 

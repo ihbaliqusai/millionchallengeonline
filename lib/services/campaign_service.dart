@@ -1189,21 +1189,22 @@ class CampaignService {
     required int previousStars,
     required int newStars,
   }) {
-    if (isFirstCompletion) {
-      return _RewardGrant(
-        coins: stage.rewardCoins,
-        gems: stage.rewardGems,
-        xp: stage.rewardXp,
-      );
-    }
-    if (newStars <= previousStars) return const _RewardGrant.none();
+    final paidStars = isFirstCompletion ? 0 : previousStars;
+    if (newStars <= paidStars) return const _RewardGrant.none();
 
-    final gainedStars = newStars - previousStars;
     return _RewardGrant(
-      coins: stage.rewardCoins * gainedStars ~/ 3,
-      gems: stage.rewardGems * gainedStars ~/ 3,
-      xp: stage.rewardXp * gainedStars ~/ 3,
+      coins: _starScaledReward(stage.rewardCoins, newStars) -
+          _starScaledReward(stage.rewardCoins, paidStars),
+      gems: _starScaledReward(stage.rewardGems, newStars) -
+          _starScaledReward(stage.rewardGems, paidStars),
+      xp: _starScaledReward(stage.rewardXp, newStars) -
+          _starScaledReward(stage.rewardXp, paidStars),
     );
+  }
+
+  int _starScaledReward(int totalReward, int stars) {
+    final safeStars = math.max(0, math.min(3, stars));
+    return totalReward * safeStars ~/ 3;
   }
 
   String _rewardClaimId({

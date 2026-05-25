@@ -494,6 +494,7 @@ public class PlayerProgress {
         String safeStageId = stageId.trim();
         String stageKey = safeCampaignId + ":" + safeStageId;
         String completedKey = "campaignStageCompleted:" + stageKey;
+        String perfectKey = "campaignStagePerfect:" + stageKey;
         String starsKey = "campaignStageStars:" + stageKey;
 
         int safeStars = Math.max(0, Math.min(3, stars));
@@ -526,9 +527,14 @@ public class PlayerProgress {
             if ("bossBattle".equals(normalizedMode) || bossDefeated) {
                 editor.putInt("campaignBossWins", p.getInt("campaignBossWins", 0) + 1);
             }
-            if (safeStars >= 3 && usedLifelines <= 0) {
-                editor.putInt("campaignPerfectCompletions", p.getInt("campaignPerfectCompletions", 0) + 1);
-            }
+        }
+        boolean firstPerfectCompletion = completed
+                && safeStars >= 3
+                && usedLifelines <= 0
+                && !p.getBoolean(perfectKey, false);
+        if (firstPerfectCompletion) {
+            editor.putBoolean(perfectKey, true);
+            editor.putInt("campaignPerfectCompletions", p.getInt("campaignPerfectCompletions", 0) + 1);
         }
         editor.apply();
         checkCampaignAchievements(c);
