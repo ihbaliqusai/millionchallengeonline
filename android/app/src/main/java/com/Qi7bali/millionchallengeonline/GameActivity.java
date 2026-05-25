@@ -4,17 +4,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.widget.TextViewCompat;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
-import android.graphics.ColorMatrix;
-import android.graphics.ColorMatrixColorFilter;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.LayerDrawable;
 import android.media.MediaPlayer;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
@@ -26,7 +20,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.animation.TranslateAnimation;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -34,12 +27,6 @@ import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.VideoView;
-import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.ads.LoadAdError;
-import com.google.android.gms.ads.FullScreenContentCallback;
-import com.google.android.gms.ads.interstitial.InterstitialAd;
-import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -53,9 +40,6 @@ import java.util.Random;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 import io.netopen.hotbitmapgg.library.view.RingProgressBar;
-import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.initialization.InitializationStatus;
-import com.google.android.gms.ads.initialization.OnInitializationCompleteListener;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.MutableData;
 import com.google.firebase.database.Query;
@@ -64,92 +48,19 @@ import com.google.firebase.database.Transaction;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.Iterator;
 import java.util.Locale;
 
+import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_RIGHT;
+import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_WRONG_1;
+import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_WRONG_2;
+import static net.androidgaming.millionaire2024.GameRules.ANSWER_KEY_WRONG_3;
+import static net.androidgaming.millionaire2024.GameRules.FIRST_QUESTION_SYNC_BUFFER_MS;
+import static net.androidgaming.millionaire2024.GameRules.MAX_TIMEOUT_STREAK;
+import static net.androidgaming.millionaire2024.GameRules.NEXT_QUESTION_SYNC_BUFFER_MS;
+import static net.androidgaming.millionaire2024.GameRules.ONLINE_SPEED_POINTS;
+import static net.androidgaming.millionaire2024.GameRules.QUESTION_TIMEOUT_MS;
+
 public class GameActivity extends AppCompatActivity {
-    private static final int ANSWER_KEY_RIGHT = 1;
-    private static final int ANSWER_KEY_WRONG_1 = 2;
-    private static final int ANSWER_KEY_WRONG_2 = 3;
-    private static final int ANSWER_KEY_WRONG_3 = 4;
-    private static final int[] ONLINE_SPEED_POINTS = new int[]{10, 7, 5, 3};
-    private static final long QUESTION_TIMEOUT_MS = 30_000L;
-    private static final long FIRST_QUESTION_SYNC_BUFFER_MS = 4_500L;
-    private static final long NEXT_QUESTION_SYNC_BUFFER_MS = 2_500L;
-    private static final int MAX_TIMEOUT_STREAK = 3;
-
-    private static class BotProfile {
-        final String name;
-        final String photo;
-        final int intelligence;
-
-        BotProfile(String name, String photo, int intelligence) {
-            this.name = name;
-            this.photo = photo;
-            this.intelligence = intelligence;
-        }
-    }
-
-    private static class RoundRankEntry {
-        final String playerId;
-        final long elapsedMs;
-
-        RoundRankEntry(String playerId, long elapsedMs) {
-            this.playerId = playerId;
-            this.elapsedMs = elapsedMs;
-        }
-    }
-
-    private static final BotProfile[] BOT_PROFILES = new BotProfile[]{
-            new BotProfile("طارق",   "drawable:avatar1",  95),
-            new BotProfile("ليلى",   "drawable:avatar2",  70),
-            new BotProfile("هدى",    "drawable:avatar3",  65),
-            new BotProfile("عمر",    "drawable:avatar4",  85),
-            new BotProfile("منى",    "drawable:avatar5",  50),
-            new BotProfile("سارة",   "drawable:avatar6",  80),
-            new BotProfile("علي",    "drawable:avatar7",  60),
-            new BotProfile("فيصل",   "drawable:avatar8",  90),
-            new BotProfile("يوسف",   "drawable:avatar9",  40),
-            new BotProfile("رنا",    "drawable:avatar10", 75),
-            new BotProfile("خالد",   "drawable:avatar11", 92),
-            new BotProfile("سالم",   "drawable:avatar12", 78)
-    };
-
-    private static class MatchOpponent {
-        String id = "";
-        String name = "خصم آلي";
-        String photo = "";
-        int level = 1;
-        int intelligence = 60;
-        int score = 0;
-        boolean bot = false;
-        boolean left = false;
-        int sets = 0;
-        int roundScore = 0;
-        int gameScore = 0;
-        int totalCorrectAnswers = 0;
-        int setCorrectAnswers = 0;
-        int timeoutStreak = 0;
-        int submittedAnswerKey = 0;
-        int displayedAnswer = 0;
-        int roundPoints = 0;
-        boolean submitted = false;
-        boolean eliminated = false;
-        long answerElapsedMs = QUESTION_TIMEOUT_MS;
-        long totalAnswerTimeMs = 0L;
-        long setAnswerTimeMs = 0L;
-        CircleImageView topImageView;
-        TextView topNameView;
-        CircleImageView scoreImageView;
-        TextView scoreNameView;
-        TextView roundScoreView;
-        TextView setsView;
-        TextView gameScoreView;
-        final ArrayList<CircleImageView> answerThumbViews = new ArrayList<>();
-        DatabaseReference statusRef;
-        ValueEventListener statusListener;
-    }
-
     ArrayList<Question> questions = new ArrayList<>();
     ArrayList<TextView> listAnswerViews = new ArrayList<>();
     ArrayList<LinearLayout> steps = new ArrayList<>();
@@ -168,9 +79,16 @@ public class GameActivity extends AppCompatActivity {
     Typewriter txtDialog, txtCallAnswer;
     Button btnDialogYes, btnDialogNo, btnGetMoney;
     RingProgressBar pbTime;
-    VideoView gameBackgroundVideo;
+    GameBackgroundVideoController backgroundVideoController;
+    GameSoundController soundController;
+    GameInterstitialAdController interstitialAdController;
+    GameLifelineController lifelineController;
+    GameLayoutController layoutController;
+    GameOpponentHudController opponentHudController;
+    GameCampaignHudController campaignHudController;
+    GameCampaignResultStore campaignResultStore;
     CountDownTimer cdtProgress;
-    MediaPlayer mpSound, mpBeep, mpBeep1;
+    MediaPlayer mpBeep, mpBeep1;
     CircleImageView imgPlayer1, imgPlayer2, imgMe, imgOpponent;
     boolean FAST_LIGHTS,
             CAN_PLAY = false,
@@ -179,7 +97,6 @@ public class GameActivity extends AppCompatActivity {
             EXITING = false,
             SOUND_ON = true,
             MUSIC_ON = true,
-            currentSoundIsMusic = false,
             campaignMode = false,
             campaignResultPersisted = false,
             modeOnline = false,
@@ -187,7 +104,6 @@ public class GameActivity extends AppCompatActivity {
             meOwner;
     Person person;
     Data dataAnswer;
-    InterstitialAd mInterstitialAd;
     String myID, opponentID, myName, opponentName, myPhoto, opponentPhoto,
             currentDialog, gameID;
     int myLevel = 1, opponentLevel = 1, myScore = 0, opponentScore = 0,
@@ -197,62 +113,61 @@ public class GameActivity extends AppCompatActivity {
             gameScoreMe = 0, gameScoreOpponent = 0,
             rightAnswer, myAnswer, opponentAnswer, myResult;
     boolean usedHelp5050 = false, usedHelpAudience = false, usedHelpCall = false;
-    private String campaignId = "main_campaign";
-    private String campaignStageId = "";
-    private String campaignStageType = "classic";
-    private String campaignStageMode = "classic";
-    private String campaignWinCondition = "completeQuestions";
-    private int campaignQuestionCount = 15;
-    private int campaignTimeLimitSeconds = 0;
-    private boolean campaignAllow5050 = true;
-    private boolean campaignAllowAudience = true;
-    private boolean campaignAllowCall = true;
-    private int campaignLives = 0;
-    private int campaignLivesRemaining = 0;
-    private int campaignMaxWrongAnswers = 0;
-    private int campaignTargetScore = 0;
-    private String campaignOpponentName = "";
-    private int campaignOpponentAccuracy = 0;
-    private int campaignOpponentStartScore = 0;
-    private int campaignOpponentScore = 0;
-    private int campaignOpponentCorrectAnswers = 0;
-    private int campaignOpponentWrongAnswers = 0;
-    private int campaignSeriesRounds = 0;
-    private int campaignSeriesWinsRequired = 0;
-    private int campaignPlayerSeriesWins = 0;
-    private int campaignOpponentSeriesWins = 0;
-    private String campaignTeamAllyName = "";
-    private String campaignTeamEnemyName = "";
-    private int campaignAllyScore = 0;
-    private int campaignTeamScore = 0;
-    private int campaignEnemyTeamScore = 0;
-    private String campaignFailureReason = "";
-    private String campaignBossBotName = "";
-    private int campaignBossBotIntelligence = 0;
-    private long campaignStartedAtMs = 0L;
-    private final ArrayList<Integer> campaignQuestionIds = new ArrayList<>();
-    private final ArrayList<String> campaignAllowedLevels = new ArrayList<>();
-    private CountDownTimer campaignStageTimer;
-    private TextView txtCampaignTimer;
-    private LinearLayout campaignHudPanel;
-    private TextView txtCampaignHudQuestion;
-    private TextView txtCampaignHudCorrect;
-    private TextView txtCampaignHudBattle;
-    private TextView txtCampaignHudBadge;
-    private FrameLayout campaignHudProgressTrack;
-    private View campaignHudProgressFill;
-    private final ArrayList<TextView> campaignHudStars = new ArrayList<>();
-    private int campaignCorrectAnswers = 0;
-    private int campaignWrongAnswers = 0;
-    private int campaignAnsweredQuestions = 0;
-    private int campaignUsed5050 = 0;
-    private int campaignUsedAudience = 0;
-    private int campaignUsedCall = 0;
-    private int campaignLastCorrectQuestion = -1;
-    private int campaignLastWrongQuestion = -1;
-    private int campaignLastDisplayedStars = 0;
+    String campaignId = "main_campaign";
+    String campaignStageId = "";
+    String campaignStageType = "classic";
+    String campaignStageMode = "classic";
+    String campaignWinCondition = "completeQuestions";
+    int campaignQuestionCount = 15;
+    int campaignTimeLimitSeconds = 0;
+    boolean campaignAllow5050 = true;
+    boolean campaignAllowAudience = true;
+    boolean campaignAllowCall = true;
+    int campaignLives = 0;
+    int campaignLivesRemaining = 0;
+    int campaignMaxWrongAnswers = 0;
+    int campaignTargetScore = 0;
+    String campaignOpponentName = "";
+    int campaignOpponentAccuracy = 0;
+    int campaignOpponentStartScore = 0;
+    int campaignOpponentScore = 0;
+    int campaignOpponentCorrectAnswers = 0;
+    int campaignOpponentWrongAnswers = 0;
+    int campaignSeriesRounds = 0;
+    int campaignSeriesWinsRequired = 0;
+    int campaignPlayerSeriesWins = 0;
+    int campaignOpponentSeriesWins = 0;
+    String campaignTeamAllyName = "";
+    String campaignTeamEnemyName = "";
+    int campaignAllyScore = 0;
+    int campaignTeamScore = 0;
+    int campaignEnemyTeamScore = 0;
+    String campaignFailureReason = "";
+    String campaignBossBotName = "";
+    int campaignBossBotIntelligence = 0;
+    long campaignStartedAtMs = 0L;
+    final ArrayList<Integer> campaignQuestionIds = new ArrayList<>();
+    final ArrayList<String> campaignAllowedLevels = new ArrayList<>();
+    CountDownTimer campaignStageTimer;
+    TextView txtCampaignTimer;
+    LinearLayout campaignHudPanel;
+    TextView txtCampaignHudQuestion;
+    TextView txtCampaignHudCorrect;
+    TextView txtCampaignHudBattle;
+    TextView txtCampaignHudBadge;
+    FrameLayout campaignHudProgressTrack;
+    View campaignHudProgressFill;
+    final ArrayList<TextView> campaignHudStars = new ArrayList<>();
+    int campaignCorrectAnswers = 0;
+    int campaignWrongAnswers = 0;
+    int campaignAnsweredQuestions = 0;
+    int campaignUsed5050 = 0;
+    int campaignUsedAudience = 0;
+    int campaignUsedCall = 0;
+    int campaignLastCorrectQuestion = -1;
+    int campaignLastWrongQuestion = -1;
+    int campaignLastDisplayedStars = 0;
 
-    private boolean adsInitialized = false;
     private boolean questionsReady = false;
     private boolean startPending = false;
     private boolean questionsLoadFailed = false;
@@ -289,34 +204,34 @@ public class GameActivity extends AppCompatActivity {
     private long mySetAnswerTimeMs = 0L;
     private long serverTimeOffsetMs = 0L;
     private long questionStartTimeMs = 0L;
-    private boolean localPlayerRemoved = false;
-    private boolean localPlayerEliminated = false;
-    private boolean spectatorEliminationRound = false;
-    private boolean campaignBossBattle = false;
-    private MatchOpponent campaignBossOpponent;
+    boolean localPlayerRemoved = false;
+    boolean localPlayerEliminated = false;
+    boolean spectatorEliminationRound = false;
+    boolean campaignBossBattle = false;
+    MatchOpponent campaignBossOpponent;
     private int pendingQuestionIndex = -1;
     private long scheduledQuestionStartAt = 0L;
-    private final ArrayList<MatchOpponent> opponents = new ArrayList<>();
-    private final ArrayList<LinearLayout> opponentAnswerContainers = new ArrayList<>();
+    final ArrayList<MatchOpponent> opponents = new ArrayList<>();
+    final ArrayList<LinearLayout> opponentAnswerContainers = new ArrayList<>();
     private final HashMap<String, Runnable> pendingBotAnswerRunnables = new HashMap<>();
-    private LinearLayout llyOpponents;
-    private LinearLayout llyOpponentScores;
-    private LinearLayout scoreHeaderRow;
-    private LinearLayout scoreMeRow;
-    private TextView txtMeName;
-    private TextView labScore;
-    private TextView labSets;
-    private TextView labScoreGame;
-    private int scoreboardPanelWidthDp = 270;
-    private int scoreboardHeaderHeightDp = 28;
-    private int scoreboardRowHeightDp = 48;
-    private int scoreboardAvatarColumnWidthDp = 44;
-    private int scoreboardAvatarSizeDp = 28;
-    private int scoreboardAvatarBorderDp = 2;
-    private int scoreboardHorizontalPaddingDp = 6;
-    private float scoreboardHeaderTextSp = 11f;
-    private float scoreboardNameTextSp = 8f;
-    private float scoreboardValueTextSp = 14f;
+    LinearLayout llyOpponents;
+    LinearLayout llyOpponentScores;
+    LinearLayout scoreHeaderRow;
+    LinearLayout scoreMeRow;
+    TextView txtMeName;
+    TextView labScore;
+    TextView labSets;
+    TextView labScoreGame;
+    int scoreboardPanelWidthDp = 270;
+    int scoreboardHeaderHeightDp = 28;
+    int scoreboardRowHeightDp = 48;
+    int scoreboardAvatarColumnWidthDp = 44;
+    int scoreboardAvatarSizeDp = 28;
+    int scoreboardAvatarBorderDp = 2;
+    int scoreboardHorizontalPaddingDp = 6;
+    float scoreboardHeaderTextSp = 11f;
+    float scoreboardNameTextSp = 8f;
+    float scoreboardValueTextSp = 14f;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -328,7 +243,15 @@ public class GameActivity extends AppCompatActivity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
         setContentView(R.layout.activity_game);
         if (getSupportActionBar() != null) getSupportActionBar().hide();
-        setupGameBackgroundVideo();
+        backgroundVideoController = new GameBackgroundVideoController(this, R.id.gameBackgroundVideo, R.raw.bkgame);
+        backgroundVideoController.setup();
+        soundController = new GameSoundController(this);
+        interstitialAdController = new GameInterstitialAdController(this);
+        lifelineController = new GameLifelineController(this);
+        layoutController = new GameLayoutController(this);
+        opponentHudController = new GameOpponentHudController(this);
+        campaignHudController = new GameCampaignHudController(this);
+        campaignResultStore = new GameCampaignResultStore(this);
 
         AppPrefs.ensureGuestUser(this);
         myID = AppPrefs.getUserId(this);
@@ -341,52 +264,7 @@ public class GameActivity extends AppCompatActivity {
 
         String modeExtra = getIntent().getStringExtra("mode");
         String matchModeExtra = getIntent().getStringExtra("matchMode");
-        campaignMode = "campaign".equals(modeExtra);
-        campaignStartedAtMs = System.currentTimeMillis();
-        campaignId = safeIntentString("campaignId", "main_campaign");
-        campaignStageId = safeIntentString("stageId", "");
-        campaignStageType = safeIntentString("stageType", "classic");
-        campaignStageMode = normalizeCampaignMode(safeIntentString("campaignMode", campaignStageType));
-        campaignWinCondition = safeIntentString("winCondition", defaultCampaignWinCondition(campaignStageMode));
-        campaignQuestionCount = Math.max(0, getIntent().getIntExtra("questionCount", 10));
-        campaignTimeLimitSeconds = Math.max(0, getIntent().getIntExtra("timeLimitSeconds", 0));
-        campaignAllow5050 = getIntent().getBooleanExtra("allow5050", true);
-        campaignAllowAudience = getIntent().getBooleanExtra("allowAudience", true);
-        campaignAllowCall = getIntent().getBooleanExtra("allowCall", true);
-        campaignLives = Math.max(0, getIntent().getIntExtra("lives", 0));
-        campaignMaxWrongAnswers = Math.max(0, getIntent().getIntExtra("maxWrongAnswers", 0));
-        campaignTargetScore = Math.max(0, getIntent().getIntExtra("targetScore", 0));
-        campaignOpponentName = safeIntentString("opponentName", "");
-        campaignOpponentAccuracy = Math.max(0, getIntent().getIntExtra("opponentAccuracy", 0));
-        campaignOpponentStartScore = Math.max(0, getIntent().getIntExtra("opponentStartScore", 0));
-        campaignSeriesRounds = Math.max(0, getIntent().getIntExtra("seriesRounds", 0));
-        campaignSeriesWinsRequired = Math.max(0, getIntent().getIntExtra("seriesWinsRequired", 0));
-        campaignTeamAllyName = safeIntentString("teamAllyName", "");
-        campaignTeamEnemyName = safeIntentString("teamEnemyName", "");
-        campaignBossBotName = safeIntentString("bossBotName", "");
-        campaignBossBotIntelligence = Math.max(0, getIntent().getIntExtra("bossBotIntelligence", 0));
-        ArrayList<Integer> stageQuestionIds = getIntent().getIntegerArrayListExtra("questionIds");
-        if (stageQuestionIds != null) {
-            campaignQuestionIds.addAll(stageQuestionIds);
-        }
-        ArrayList<String> stageAllowedLevels = getIntent().getStringArrayListExtra("allowedLevels");
-        if (stageAllowedLevels != null) {
-            for (String level : stageAllowedLevels) {
-                if (level != null && !level.trim().isEmpty()) {
-                    campaignAllowedLevels.add(level.trim());
-                }
-            }
-        }
-        if (campaignMode && isDebuggableBuild()) {
-            Log.d("CampaignStage", "launch stageId=" + campaignStageId
-                    + " questionIds=" + campaignQuestionIds.size()
-                    + " allowedLevels=" + campaignAllowedLevels);
-        }
-        applyCampaignStageTypeDefaults();
-        modeOnline = "online".equals(modeExtra);
-        eliminationMode = "elimination".equals(matchModeExtra);
-        meOwner = getIntent().getBooleanExtra("meOwner", true);
-        campaignBossBattle = campaignMode && isCampaignBossMode();
+        GameCampaignLaunchConfig.load(this, modeExtra, matchModeExtra);
 
 
         findViewById(android.R.id.content).post(new Runnable() {
@@ -400,7 +278,7 @@ public class GameActivity extends AppCompatActivity {
         playSound(R.raw.main_theme_4, false, false);
 
         if (modeOnline || campaignBossBattle) {
-            initCompetitiveHudViews();
+            opponentHudController.initCompetitiveHudViews();
         }
 
         if (modeOnline) {
@@ -420,8 +298,8 @@ public class GameActivity extends AppCompatActivity {
                 Data.setImageSource(this, imgAnswer2Player1, myPhoto);
                 Data.setImageSource(this, imgAnswer3Player1, myPhoto);
                 Data.setImageSource(this, imgAnswer4Player1, myPhoto);
-                configureScoreboardLayout();
-                buildOpponentPanels();
+                opponentHudController.configureScoreboardLayout();
+                opponentHudController.buildOpponentPanels();
                 syncPrimaryOpponentFields();
 
                 if (meOwner) {
@@ -502,8 +380,8 @@ public class GameActivity extends AppCompatActivity {
         txtA2 = findViewById(R.id.txtA2);
         txtA3 = findViewById(R.id.txtA3);
         txtA4 = findViewById(R.id.txtA4);
-        configureAnswerTextSizing();
-        configureGameSurfaceLayout();
+        layoutController.configureAnswerTextSizing();
+        layoutController.configureGameSurfaceLayout();
         imgA1 = findViewById(R.id.imgA1);
         imgA2 = findViewById(R.id.imgA2);
         imgA3 = findViewById(R.id.imgA3);
@@ -515,7 +393,7 @@ public class GameActivity extends AppCompatActivity {
         llySolde = findViewById(R.id.llySolde);
         txtAmount = findViewById(R.id.txtAmount);
         btnGetMoney = findViewById(R.id.btnGetMoney);
-        configureCampaignGameplayHud();
+        campaignHudController.configureGameplayHud();
 
         FAST_LIGHTS = false;
         animLights();
@@ -551,8 +429,8 @@ public class GameActivity extends AppCompatActivity {
                             Animations.move(rlyScore, 500, -300, 0, 0, 0);
                             showDialog("مرحبا بكما في مباراة جديدة", "", 800, 2000, R.drawable.mouth_01, false);
                         } else if (campaignMode) {
-                            hideCampaignMoneyBox();
-                            showCampaignGameplayHud();
+                            campaignHudController.hideMoneyBox();
+                            campaignHudController.showGameplayHud();
                             showDialog(getCampaignOpeningMessage(), "", 800, 2200, R.drawable.mouth_01, false);
                         } else {
                             llySolde.setVisibility(View.VISIBLE);
@@ -626,7 +504,7 @@ public class GameActivity extends AppCompatActivity {
                         case "ConfirmHelp5050":
                             usedHelp5050 = true;
                             recordCampaignLifelineUse("5050");
-                            help_hideTwoAnswers();
+                            lifelineController.hideTwoAnswers();
                             startTimer(false);
                             imgHelp5050.setTag("0");
                             imgHelp5050.setImageResource(R.drawable.help_5050_0);
@@ -635,7 +513,7 @@ public class GameActivity extends AppCompatActivity {
                             usedHelpAudience = true;
                             recordCampaignLifelineUse("audience");
                             stopTimer(true);
-                            help_getVoteAudience();
+                            lifelineController.showAudienceVote();
                             imgHelpAudience.setTag("0");
                             imgHelpAudience.setImageResource(R.drawable.help_audience_0);
                             break;
@@ -643,7 +521,7 @@ public class GameActivity extends AppCompatActivity {
                             usedHelpCall = true;
                             recordCampaignLifelineUse("call");
                             stopTimer(true);
-                            help_call();
+                            lifelineController.callFriend();
                             imgHelpCall.setTag("0");
                             imgHelpCall.setImageResource(R.drawable.help_call_0);
                             break;
@@ -651,7 +529,7 @@ public class GameActivity extends AppCompatActivity {
                             if (PlayerProgress.consumeInventory(GameActivity.this, "5050")) {
                                 usedHelp5050 = true;
                                 recordCampaignLifelineUse("5050");
-                                help_hideTwoAnswers();
+                                lifelineController.hideTwoAnswers();
                                 startTimer(false);
                                 updateInventoryBadges();
                                 Toast.makeText(GameActivity.this, "تم استخدام 50:50 إضافية", Toast.LENGTH_SHORT).show();
@@ -662,7 +540,7 @@ public class GameActivity extends AppCompatActivity {
                                 usedHelpAudience = true;
                                 recordCampaignLifelineUse("audience");
                                 stopTimer(true);
-                                help_getVoteAudience();
+                                lifelineController.showAudienceVote();
                                 updateInventoryBadges();
                                 Toast.makeText(GameActivity.this, "تم استخدام مساعدة جمهور إضافية", Toast.LENGTH_SHORT).show();
                             }
@@ -672,7 +550,7 @@ public class GameActivity extends AppCompatActivity {
                                 usedHelpCall = true;
                                 recordCampaignLifelineUse("call");
                                 stopTimer(true);
-                                help_call();
+                                lifelineController.callFriend();
                                 updateInventoryBadges();
                                 Toast.makeText(GameActivity.this, "تم استخدام اتصال إضافي", Toast.LENGTH_SHORT).show();
                             }
@@ -864,13 +742,12 @@ public class GameActivity extends AppCompatActivity {
             public void onClick(View view) {
                 gameHaptic(view);
                 if (SOUND_ON) {
-                    //mpSound.stop();
-                    if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(0, 0);
+                    if (soundController != null) soundController.setCurrentEffectVolume(0f);
                     SOUND_ON = false;
                     AppPrefs.setSoundEnabled(GameActivity.this, false);
                     imgVolume.setImageResource(R.drawable.muted);
                 } else {
-                    if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(1f, 1f);
+                    if (soundController != null) soundController.setCurrentEffectVolume(1f);
                     SOUND_ON = true;
                     AppPrefs.setSoundEnabled(GameActivity.this, true);
                     imgVolume.setImageResource(R.drawable.volume);
@@ -897,15 +774,12 @@ public class GameActivity extends AppCompatActivity {
         if (imgVolume == null) return;
         if (SOUND_ON) {
             imgVolume.setImageResource(R.drawable.volume);
-            if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(1f, 1f);
+            if (soundController != null) soundController.setCurrentEffectVolume(1f);
         } else {
             imgVolume.setImageResource(R.drawable.muted);
-            if (mpSound != null && !currentSoundIsMusic) mpSound.setVolume(0f, 0f);
+            if (soundController != null) soundController.setCurrentEffectVolume(0f);
         }
-        if (mpSound != null && currentSoundIsMusic && !MUSIC_ON) {
-            stopSound(mpSound);
-            mpSound = null;
-        }
+        if (soundController != null) soundController.stopCurrentMusicIfDisabled(MUSIC_ON);
     }
 
     private void gameHaptic(View view) {
@@ -918,82 +792,11 @@ public class GameActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        startGameBackgroundVideo();
+        if (backgroundVideoController != null) backgroundVideoController.start();
         SOUND_ON = AppPrefs.isSoundEnabled(this);
         MUSIC_ON = AppPrefs.isMusicEnabled(this);
         applyVolumeUi();
     }
-
-    private void setupGameBackgroundVideo() {
-        gameBackgroundVideo = findViewById(R.id.gameBackgroundVideo);
-        if (gameBackgroundVideo == null) return;
-
-        Uri videoUri = Uri.parse("android.resource://" + getPackageName() + "/" + R.raw.bkgame);
-        gameBackgroundVideo.setVideoURI(videoUri);
-        gameBackgroundVideo.setOnPreparedListener(player -> {
-            player.setLooping(true);
-            player.setVolume(0f, 0f);
-            scaleGameBackgroundVideo(player);
-            gameBackgroundVideo.start();
-        });
-        gameBackgroundVideo.setOnErrorListener((player, what, extra) -> true);
-    }
-
-    private void scaleGameBackgroundVideo(MediaPlayer player) {
-        gameBackgroundVideo.post(() -> {
-            int videoWidth = player.getVideoWidth();
-            int videoHeight = player.getVideoHeight();
-            int viewWidth = gameBackgroundVideo.getWidth();
-            int viewHeight = gameBackgroundVideo.getHeight();
-            if (videoWidth <= 0 || videoHeight <= 0 || viewWidth <= 0 || viewHeight <= 0) return;
-
-            float scale = Math.max((float) viewWidth / videoWidth, (float) viewHeight / videoHeight);
-            gameBackgroundVideo.setScaleX((videoWidth * scale) / viewWidth);
-            gameBackgroundVideo.setScaleY((videoHeight * scale) / viewHeight);
-        });
-    }
-
-    private void startGameBackgroundVideo() {
-        if (gameBackgroundVideo == null) return;
-        try {
-            if (!gameBackgroundVideo.isPlaying()) {
-                gameBackgroundVideo.start();
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void initCompetitiveHudViews() {
-        llyPlayer1 = findViewById(R.id.llyPlayer1);
-        imgPlayer1 = findViewById(R.id.imgPlayer1);
-        txtPlayer1 = findViewById(R.id.txtPlayer1);
-        llyOpponents = findViewById(R.id.llyOpponents);
-        llyOpponentScores = findViewById(R.id.llyOpponentScores);
-        scoreHeaderRow = findViewById(R.id.llyScoreHeader);
-        scoreMeRow = findViewById(R.id.llyScoreMe);
-
-        rlyScore = findViewById(R.id.rlyScore);
-        labScore = findViewById(R.id.labScore);
-        labSets = findViewById(R.id.labSets);
-        labScoreGame = findViewById(R.id.labScoreGame);
-        imgMe = findViewById(R.id.imgMe);
-        txtMeName = findViewById(R.id.txtMeName);
-        txtScoreMe = findViewById(R.id.txtScoreMe);
-        txtScoreGameMe = findViewById(R.id.txtScoreGameMe);
-        txtSetsMe = findViewById(R.id.txtSetsMe);
-        if (txtMeName != null) txtMeName.setText(myName);
-
-        imgAnswer1Player1 = findViewById(R.id.imgAnswer1Player1);
-        imgAnswer2Player1 = findViewById(R.id.imgAnswer2Player1);
-        imgAnswer3Player1 = findViewById(R.id.imgAnswer3Player1);
-        imgAnswer4Player1 = findViewById(R.id.imgAnswer4Player1);
-        opponentAnswerContainers.clear();
-        opponentAnswerContainers.add(findViewById(R.id.llyAnswer1Opponents));
-        opponentAnswerContainers.add(findViewById(R.id.llyAnswer2Opponents));
-        opponentAnswerContainers.add(findViewById(R.id.llyAnswer3Opponents));
-        opponentAnswerContainers.add(findViewById(R.id.llyAnswer4Opponents));
-    }
-
     private void setupCampaignBossBattle() {
         opponents.clear();
         MatchOpponent boss = new MatchOpponent();
@@ -1006,7 +809,7 @@ public class GameActivity extends AppCompatActivity {
                 : campaignBossBotName.trim();
         boss.intelligence = resolveCampaignBossIntelligence();
         boss.level = Math.max(1, Math.min(10, boss.intelligence / 10));
-        BotProfile profile = BOT_PROFILES[Math.abs(stableHash(boss.id)) % BOT_PROFILES.length];
+        BotProfile profile = BotProfiles.PROFILES[Math.abs(stableHash(boss.id)) % BotProfiles.PROFILES.length];
         boss.photo = profile.photo;
         campaignBossOpponent = boss;
         opponents.add(boss);
@@ -1023,7 +826,7 @@ public class GameActivity extends AppCompatActivity {
         Data.setImageSource(this, imgAnswer2Player1, myPhoto);
         Data.setImageSource(this, imgAnswer3Player1, myPhoto);
         Data.setImageSource(this, imgAnswer4Player1, myPhoto);
-        buildOpponentPanels();
+        opponentHudController.buildOpponentPanels();
         if (rlyScore != null) {
             rlyScore.setVisibility(View.GONE);
         }
@@ -1105,454 +908,6 @@ public class GameActivity extends AppCompatActivity {
         }
         return ids;
     }
-
-    private void buildOpponentPanels() {
-        if (!modeOnline && !campaignBossBattle) {
-            return;
-        }
-        configureScoreboardLayout();
-        txtPlayer1.setText(myName);
-        Data.setImageSource(this, imgPlayer1, myPhoto);
-        llyPlayer1.setVisibility(View.GONE);
-        View scrollOpponents = findViewById(R.id.scrollOpponents);
-        if (scrollOpponents != null) {
-            scrollOpponents.setVisibility(View.GONE);
-        }
-        if (llyOpponents != null) {
-            llyOpponents.removeAllViews();
-        }
-        if (llyOpponentScores != null) {
-            llyOpponentScores.removeAllViews();
-        }
-        clearOpponentAnswerThumbs();
-
-        for (MatchOpponent opponent : opponents) {
-            if (llyOpponents != null) {
-                llyOpponents.addView(createOpponentTopCard(opponent));
-            }
-            if (llyOpponentScores != null) {
-                llyOpponentScores.addView(createOpponentScoreRow(opponent));
-            }
-            for (LinearLayout container : opponentAnswerContainers) {
-                CircleImageView thumbView = createAnswerThumbView(container.getChildCount() > 0);
-                container.addView(thumbView);
-                opponent.answerThumbViews.add(thumbView);
-            }
-        }
-
-        rlyScore.setVisibility(View.VISIBLE);
-        refreshOpponentPanels();
-    }
-
-    private void configureScoreboardLayout() {
-        if ((!modeOnline && !campaignBossBattle) || rlyScore == null) {
-            return;
-        }
-
-        final int totalPlayers = 1 + opponents.size();
-        final DisplayMetrics metrics = getResources().getDisplayMetrics();
-        final float screenHeightDp = metrics.heightPixels / metrics.density;
-        final int scoreboardBudgetDp = Math.max(220, Math.round(screenHeightDp * 0.54f));
-        final boolean compact = totalPlayers >= 6;
-        final boolean ultraCompact = totalPlayers >= 9;
-
-        scoreboardPanelWidthDp = ultraCompact ? 228 : (compact ? 242 : 270);
-        scoreboardHeaderHeightDp = ultraCompact ? 22 : (compact ? 24 : 28);
-        final int calculatedRowHeight = (scoreboardBudgetDp - scoreboardHeaderHeightDp - 10) / Math.max(1, totalPlayers);
-        scoreboardRowHeightDp = Math.max(22, Math.min(48, calculatedRowHeight));
-        scoreboardAvatarColumnWidthDp = scoreboardRowHeightDp <= 26 ? 30 : (scoreboardRowHeightDp <= 32 ? 34 : (ultraCompact ? 36 : (compact ? 40 : 44)));
-        scoreboardAvatarSizeDp = Math.max(18, Math.min(28, scoreboardRowHeightDp - 12));
-        scoreboardAvatarBorderDp = ultraCompact ? 1 : 2;
-        scoreboardHorizontalPaddingDp = scoreboardRowHeightDp <= 26 ? 3 : (ultraCompact ? 4 : 6);
-        scoreboardHeaderTextSp = scoreboardRowHeightDp <= 26 ? 8.5f : (ultraCompact ? 9f : (compact ? 10f : 11f));
-        scoreboardNameTextSp = scoreboardRowHeightDp <= 26 ? 6.2f : (scoreboardRowHeightDp <= 30 ? 6.8f : (ultraCompact ? 7f : (compact ? 7.5f : 8f)));
-        scoreboardValueTextSp = scoreboardRowHeightDp <= 26 ? 10f : (scoreboardRowHeightDp <= 30 ? 11f : (ultraCompact ? 11.5f : (compact ? 12.5f : 14f)));
-
-        ViewGroup.LayoutParams panelParams = rlyScore.getLayoutParams();
-        panelParams.width = dp(scoreboardPanelWidthDp);
-        rlyScore.setLayoutParams(panelParams);
-
-        if (scoreHeaderRow != null) {
-            LinearLayout.LayoutParams headerParams =
-                    (LinearLayout.LayoutParams) scoreHeaderRow.getLayoutParams();
-            headerParams.height = dp(scoreboardHeaderHeightDp);
-            scoreHeaderRow.setLayoutParams(headerParams);
-            scoreHeaderRow.setPadding(
-                    dp(scoreboardHorizontalPaddingDp),
-                    0,
-                    dp(scoreboardHorizontalPaddingDp),
-                    0
-            );
-
-            for (int i = 0; i < scoreHeaderRow.getChildCount(); i++) {
-                View child = scoreHeaderRow.getChildAt(i);
-                if (child instanceof TextView) {
-                    ((TextView) child).setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardHeaderTextSp);
-                }
-            }
-            View starCell = scoreHeaderRow.getChildAt(0);
-            LinearLayout.LayoutParams starParams = (LinearLayout.LayoutParams) starCell.getLayoutParams();
-            starParams.width = dp(scoreboardAvatarColumnWidthDp);
-            starCell.setLayoutParams(starParams);
-        }
-
-        if (scoreMeRow != null) {
-            LinearLayout.LayoutParams myRowParams =
-                    (LinearLayout.LayoutParams) scoreMeRow.getLayoutParams();
-            myRowParams.height = dp(scoreboardRowHeightDp);
-            scoreMeRow.setLayoutParams(myRowParams);
-            scoreMeRow.setPadding(
-                    dp(scoreboardHorizontalPaddingDp),
-                    dp(2),
-                    dp(scoreboardHorizontalPaddingDp),
-                    dp(2)
-            );
-
-            View identityCol = scoreMeRow.getChildAt(0);
-            if (identityCol instanceof LinearLayout) {
-                LinearLayout identityLayout = (LinearLayout) identityCol;
-                LinearLayout.LayoutParams identityParams =
-                        (LinearLayout.LayoutParams) identityLayout.getLayoutParams();
-                identityParams.width = dp(scoreboardAvatarColumnWidthDp);
-                identityLayout.setLayoutParams(identityParams);
-
-                View avatarView = identityLayout.getChildAt(0);
-                if (avatarView instanceof CircleImageView) {
-                    CircleImageView avatar = (CircleImageView) avatarView;
-                    LinearLayout.LayoutParams avatarParams =
-                            (LinearLayout.LayoutParams) avatar.getLayoutParams();
-                    avatarParams.width = dp(scoreboardAvatarSizeDp);
-                    avatarParams.height = dp(scoreboardAvatarSizeDp);
-                    avatar.setLayoutParams(avatarParams);
-                    avatar.setBorderWidth(dp(scoreboardAvatarBorderDp));
-                }
-
-                View nameView = identityLayout.getChildAt(1);
-                if (nameView instanceof TextView) {
-                    TextView nameText = (TextView) nameView;
-                    LinearLayout.LayoutParams nameParams =
-                            (LinearLayout.LayoutParams) nameText.getLayoutParams();
-                    nameParams.width = dp(scoreboardAvatarColumnWidthDp);
-                    nameText.setLayoutParams(nameParams);
-                    nameText.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardNameTextSp);
-                }
-            }
-
-            styleScoreValueCell(txtScoreMe, getResources().getColor(android.R.color.white));
-            styleScoreValueCell(txtScoreGameMe, getResources().getColor(R.color.lightBlueApp));
-            if (txtSetsMe != null) {
-                styleStateCell(txtSetsMe, localPlayerEliminated);
-            }
-        }
-
-        if (labScore != null) {
-            labScore.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardHeaderTextSp);
-        }
-        if (labSets != null) {
-            labSets.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardHeaderTextSp);
-        }
-        if (labScoreGame != null) {
-            labScoreGame.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardHeaderTextSp);
-        }
-
-        if (llyOpponentScores != null) {
-            ViewGroup.LayoutParams rowsParams = llyOpponentScores.getLayoutParams();
-            rowsParams.height = ViewGroup.LayoutParams.WRAP_CONTENT;
-            llyOpponentScores.setLayoutParams(rowsParams);
-        }
-    }
-
-    private void styleScoreValueCell(TextView textView, int color) {
-        if (textView == null) {
-            return;
-        }
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) textView.getLayoutParams();
-        params.height = ViewGroup.LayoutParams.MATCH_PARENT;
-        textView.setLayoutParams(params);
-        textView.setTextColor(color);
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, scoreboardValueTextSp);
-    }
-
-    private void configureAnswerTextSizing() {
-        for (TextView answerView : new TextView[]{txtA1, txtA2, txtA3, txtA4}) {
-            if (answerView == null) {
-                continue;
-            }
-            answerView.setHorizontallyScrolling(false);
-            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                    answerView,
-                    8,
-                    14,
-                    1,
-                    TypedValue.COMPLEX_UNIT_SP
-            );
-        }
-    }
-
-    private void configureGameSurfaceLayout() {
-        final DisplayMetrics metrics = getResources().getDisplayMetrics();
-        final float screenWidthDp = metrics.widthPixels / metrics.density;
-        final float screenHeightDp = metrics.heightPixels / metrics.density;
-        final boolean shortScreen = screenHeightDp < 390f;
-        final boolean narrowScreen = screenWidthDp < 760f;
-
-        if (llyQA != null) {
-            int targetWidthDp = modeOnline
-                    ? Math.round(screenWidthDp * (shortScreen ? 0.46f : 0.48f))
-                    : Math.round(screenWidthDp * (shortScreen ? 0.50f : 0.54f));
-            targetWidthDp = Math.max(shortScreen ? 360 : 390, Math.min(450, targetWidthDp));
-            ViewGroup.LayoutParams params = llyQA.getLayoutParams();
-            params.width = dp(targetWidthDp);
-            llyQA.setLayoutParams(params);
-        }
-
-        if (txtQ != null) {
-            txtQ.setSingleLine(false);
-            txtQ.setMaxLines(2);
-            txtQ.setIncludeFontPadding(false);
-            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                    txtQ,
-                    10,
-                    shortScreen ? 16 : 18,
-                    1,
-                    TypedValue.COMPLEX_UNIT_SP
-            );
-        }
-
-        final int toolSizeDp = shortScreen || narrowScreen ? 42 : 50;
-        resizeSquareView(imgHelp5050, toolSizeDp);
-        resizeSquareView(imgHelpCall, toolSizeDp);
-        resizeSquareView(imgHelpAudience, toolSizeDp);
-        resizeSquareView(imgVolume, toolSizeDp);
-        resizeSquareView(imgHome, toolSizeDp);
-        resizeSquareView(rlyProgress, shortScreen ? 44 : 50);
-
-        if (txtProgress != null) {
-            txtProgress.setTextSize(TypedValue.COMPLEX_UNIT_SP, shortScreen ? 17 : 20);
-            txtProgress.setIncludeFontPadding(false);
-        }
-    }
-
-    private void resizeSquareView(View view, int sizeDp) {
-        if (view == null) {
-            return;
-        }
-        ViewGroup.LayoutParams params = view.getLayoutParams();
-        params.width = dp(sizeDp);
-        params.height = dp(sizeDp);
-        view.setLayoutParams(params);
-    }
-
-    private void configureCampaignGameplayHud() {
-        if (!campaignMode) {
-            return;
-        }
-        hideCampaignMoneyBox();
-        createCampaignProgressHudIfNeeded();
-        showCampaignGameplayHud();
-        updateCampaignProgressHud(false);
-    }
-
-    private void hideCampaignMoneyBox() {
-        if (campaignMode && llySolde != null) {
-            llySolde.setVisibility(View.GONE);
-        }
-    }
-
-    private void showCampaignGameplayHud() {
-        if (!campaignMode || campaignHudPanel == null) {
-            return;
-        }
-        campaignHudPanel.setVisibility(View.VISIBLE);
-    }
-
-    private void createCampaignProgressHudIfNeeded() {
-        if (!campaignMode || campaignHudPanel != null) {
-            return;
-        }
-        View root = findViewById(android.R.id.content);
-        if (!(root instanceof FrameLayout)) {
-            return;
-        }
-
-        campaignHudPanel = new LinearLayout(this);
-        campaignHudPanel.setOrientation(LinearLayout.VERTICAL);
-        campaignHudPanel.setPadding(dp(14), dp(12), dp(14), dp(12));
-        campaignHudPanel.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        campaignHudPanel.setBackground(createCampaignHudPanelBackground());
-        campaignHudPanel.setElevation(dp(10));
-        campaignHudPanel.setVisibility(View.INVISIBLE);
-
-        FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
-                dp(campaignBossBattle ? 268 : 228),
-                FrameLayout.LayoutParams.WRAP_CONTENT
-        );
-        panelParams.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
-        panelParams.setMargins(dp(10), dp(16), dp(10), dp(10));
-
-        txtCampaignHudBattle = createCampaignHudText(14, Color.WHITE, true);
-        txtCampaignHudBattle.setGravity(android.view.Gravity.CENTER);
-        txtCampaignHudBattle.setVisibility(campaignBossBattle ? View.VISIBLE : View.GONE);
-        if (campaignBossBattle) {
-            txtCampaignHudBattle.setPadding(dp(8), dp(6), dp(8), dp(6));
-            txtCampaignHudBattle.setBackground(createRoundedGradientDrawable(
-                    new int[]{Color.argb(140, 255, 216, 74), Color.argb(65, 20, 184, 166)},
-                    Color.argb(195, 255, 230, 130),
-                    1,
-                    12,
-                    GradientDrawable.Orientation.LEFT_RIGHT
-            ));
-        }
-        campaignHudPanel.addView(txtCampaignHudBattle, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-
-        txtCampaignHudQuestion = createCampaignHudText(14, Color.WHITE, true);
-        txtCampaignHudQuestion.setGravity(android.view.Gravity.CENTER);
-        txtCampaignHudQuestion.setShadowLayer(dp(3), 0, dp(1), Color.argb(190, 0, 0, 0));
-        campaignHudPanel.addView(txtCampaignHudQuestion);
-
-        txtCampaignHudCorrect = createCampaignHudText(13, Color.argb(245, 190, 242, 255), true);
-        txtCampaignHudCorrect.setGravity(android.view.Gravity.CENTER);
-        txtCampaignHudCorrect.setPadding(0, dp(6), 0, 0);
-        txtCampaignHudCorrect.setShadowLayer(dp(3), 0, dp(1), Color.argb(180, 0, 0, 0));
-        campaignHudPanel.addView(txtCampaignHudCorrect);
-
-        LinearLayout starsRow = new LinearLayout(this);
-        starsRow.setOrientation(LinearLayout.HORIZONTAL);
-        starsRow.setGravity(android.view.Gravity.CENTER);
-        starsRow.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        LinearLayout.LayoutParams starsParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        starsParams.setMargins(0, dp(7), 0, dp(7));
-        campaignHudPanel.addView(starsRow, starsParams);
-
-        campaignHudStars.clear();
-        for (int i = 0; i < 3; i++) {
-            TextView star = createCampaignHudText(campaignBossBattle ? 30 : 25, Color.argb(135, 255, 255, 255), true);
-            star.setText("★");
-            star.setGravity(android.view.Gravity.CENTER);
-            star.setShadowLayer(dp(3), 0, dp(1), Color.argb(150, 0, 0, 0));
-            int starBox = campaignBossBattle ? 38 : 30;
-            LinearLayout.LayoutParams starParams = new LinearLayout.LayoutParams(dp(starBox), dp(starBox));
-            starParams.setMargins(dp(campaignBossBattle ? 4 : 3), 0, dp(campaignBossBattle ? 4 : 3), 0);
-            starsRow.addView(star, starParams);
-            campaignHudStars.add(star);
-        }
-
-        campaignHudProgressTrack = new FrameLayout(this);
-        campaignHudProgressTrack.setBackground(createRoundedDrawable(
-                Color.argb(95, 255, 255, 255),
-                Color.argb(120, 255, 255, 255),
-                1,
-                6
-        ));
-        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(7)
-        );
-        campaignHudPanel.addView(campaignHudProgressTrack, trackParams);
-
-        campaignHudProgressFill = new View(this);
-        campaignHudProgressFill.setBackground(createRoundedGradientDrawable(
-                new int[]{Color.rgb(255, 244, 170), Color.rgb(255, 193, 7)},
-                Color.TRANSPARENT,
-                0,
-                6,
-                GradientDrawable.Orientation.LEFT_RIGHT
-        ));
-        campaignHudProgressTrack.addView(campaignHudProgressFill, new FrameLayout.LayoutParams(0, dp(7)));
-
-        txtCampaignHudBadge = createCampaignHudText(12, Color.argb(255, 255, 235, 160), true);
-        txtCampaignHudBadge.setGravity(android.view.Gravity.CENTER);
-        txtCampaignHudBadge.setVisibility("noLifeline".equals(campaignStageType) ? View.VISIBLE : View.GONE);
-        txtCampaignHudBadge.setText("بدون مساعدات");
-        txtCampaignHudBadge.setPadding(dp(8), dp(4), dp(8), dp(4));
-        txtCampaignHudBadge.setBackground(createRoundedGradientDrawable(
-                new int[]{Color.argb(105, 255, 216, 74), Color.argb(55, 56, 189, 248)},
-                Color.argb(165, 255, 216, 74),
-                1,
-                11,
-                GradientDrawable.Orientation.LEFT_RIGHT
-        ));
-        LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        badgeParams.setMargins(0, dp(7), 0, 0);
-        campaignHudPanel.addView(txtCampaignHudBadge, badgeParams);
-
-        ((FrameLayout) root).addView(campaignHudPanel, panelParams);
-    }
-
-    private TextView createCampaignHudText(int sizeSp, int color, boolean bold) {
-        TextView textView = new TextView(this);
-        textView.setTextColor(color);
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
-        textView.setIncludeFontPadding(false);
-        textView.setSingleLine(false);
-        textView.setTypeface(null, bold ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
-        return textView;
-    }
-
-    private LayerDrawable createCampaignHudPanelBackground() {
-        GradientDrawable glow = createRoundedGradientDrawable(
-                new int[]{Color.argb(72, 56, 189, 248), Color.argb(38, 255, 216, 74)},
-                Color.TRANSPARENT,
-                0,
-                20,
-                GradientDrawable.Orientation.TL_BR
-        );
-        GradientDrawable glass = createRoundedGradientDrawable(
-                new int[]{Color.argb(232, 3, 10, 32), Color.argb(218, 9, 25, 58), Color.argb(232, 2, 8, 28)},
-                Color.argb(190, 255, 220, 115),
-                1,
-                18,
-                GradientDrawable.Orientation.TOP_BOTTOM
-        );
-        GradientDrawable innerStroke = createRoundedDrawable(
-                Color.TRANSPARENT,
-                Color.argb(125, 125, 231, 255),
-                1,
-                16
-        );
-        GradientDrawable topSheen = createRoundedGradientDrawable(
-                new int[]{Color.argb(155, 255, 255, 255), Color.argb(0, 255, 255, 255)},
-                Color.TRANSPARENT,
-                0,
-                14,
-                GradientDrawable.Orientation.LEFT_RIGHT
-        );
-        LayerDrawable layers = new LayerDrawable(new android.graphics.drawable.Drawable[]{
-                glow,
-                glass,
-                innerStroke,
-                topSheen
-        });
-        layers.setLayerInset(1, dp(1), dp(1), dp(1), dp(1));
-        layers.setLayerInset(2, dp(3), dp(3), dp(3), dp(3));
-        layers.setLayerInset(3, dp(16), dp(6), dp(16), dp(58));
-        return layers;
-    }
-
-    private GradientDrawable createRoundedGradientDrawable(
-            int[] colors,
-            int strokeColor,
-            int strokeDp,
-            int radiusDp,
-            GradientDrawable.Orientation orientation
-    ) {
-        GradientDrawable drawable = new GradientDrawable(orientation, colors);
-        drawable.setCornerRadius(dp(radiusDp));
-        if (strokeDp > 0) {
-            drawable.setStroke(dp(strokeDp), strokeColor);
-        }
-        return drawable;
-    }
-
     private GradientDrawable createRoundedDrawable(int fillColor, int strokeColor, int strokeDp, int radiusDp) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(fillColor);
@@ -1562,96 +917,6 @@ public class GameActivity extends AppCompatActivity {
         }
         return drawable;
     }
-
-    private void updateCampaignProgressHud(boolean animateStars) {
-        if (!campaignMode || campaignHudPanel == null) {
-            return;
-        }
-        int targetCount = Math.max(1, getCampaignTargetQuestionCount());
-        int shownQuestion = currentQuestion >= 0
-                ? Math.min(targetCount, currentQuestion + 1)
-                : Math.min(targetCount, campaignAnsweredQuestions + 1);
-        txtCampaignHudQuestion.setText("السؤال " + shownQuestion + "/" + targetCount);
-        txtCampaignHudCorrect.setText("الصحيح " + campaignCorrectAnswers);
-
-        if (campaignBossBattle && campaignBossOpponent != null) {
-            txtCampaignHudBattle.setVisibility(View.VISIBLE);
-            txtCampaignHudBattle.setText("مواجهة الزعيم\nأنت: " + gameScoreMe + " نقطة   VS   "
-                    + campaignBossOpponent.name + ": " + campaignBossOpponent.gameScore + " نقطة");
-        } else {
-            txtCampaignHudBattle.setVisibility(View.GONE);
-        }
-
-        int earnedStars = getCampaignEarnedStars();
-        for (int i = 0; i < campaignHudStars.size(); i++) {
-            TextView star = campaignHudStars.get(i);
-            boolean earned = i < earnedStars;
-            star.setTextColor(earned ? Color.rgb(255, 216, 74) : Color.argb(135, 255, 255, 255));
-            star.setShadowLayer(
-                    earned ? dp(5) : dp(3),
-                    0,
-                    earned ? 0 : dp(1),
-                    earned ? Color.argb(210, 255, 197, 45) : Color.argb(150, 0, 0, 0)
-            );
-            if (animateStars && earned && i >= campaignLastDisplayedStars) {
-                animateCampaignStar(star);
-            }
-        }
-        campaignLastDisplayedStars = earnedStars;
-        updateCampaignHudProgressBar();
-    }
-
-    private void updateCampaignHudProgressBar() {
-        if (campaignHudProgressTrack == null || campaignHudProgressFill == null) {
-            return;
-        }
-        campaignHudProgressTrack.post(new Runnable() {
-            @Override
-            public void run() {
-                int trackWidth = campaignHudProgressTrack.getWidth();
-                if (trackWidth <= 0) {
-                    return;
-                }
-                float ratio = Math.max(0f, Math.min(1f, campaignCorrectAnswers / 9f));
-                ViewGroup.LayoutParams params = campaignHudProgressFill.getLayoutParams();
-                params.width = Math.round(trackWidth * ratio);
-                campaignHudProgressFill.setLayoutParams(params);
-            }
-        });
-    }
-
-    private int getCampaignEarnedStars() {
-        if (campaignCorrectAnswers >= 9) return 3;
-        if (campaignCorrectAnswers >= 7) return 2;
-        if (campaignCorrectAnswers >= 5) return 1;
-        return 0;
-    }
-
-    private void animateCampaignStar(final TextView star) {
-        if (star == null) {
-            return;
-        }
-        star.setScaleX(0.65f);
-        star.setScaleY(0.65f);
-        star.setAlpha(0.65f);
-        star.animate()
-                .scaleX(1.35f)
-                .scaleY(1.35f)
-                .alpha(1f)
-                .setDuration(160)
-                .withEndAction(new Runnable() {
-                    @Override
-                    public void run() {
-                        star.animate()
-                                .scaleX(1f)
-                                .scaleY(1f)
-                                .setDuration(160)
-                                .start();
-                    }
-                })
-                .start();
-    }
-
     private String getCampaignOpeningMessage() {
         if (campaignBossBattle) {
             return "أمامك الزعيم. اهزمه لفتح الطريق التالي!";
@@ -1671,7 +936,7 @@ public class GameActivity extends AppCompatActivity {
             }
             return "لا بأس، الخطأ لا ينهي المرحلة لكنه يؤثر على النجوم.";
         }
-        int starsAfter = getCampaignEarnedStars();
+        int starsAfter = campaignHudController.getEarnedStars();
         if (starsAfter > starsBefore) {
             if (starsAfter == 1) return "ممتاز! حصلت على النجمة الأولى.";
             if (starsAfter == 2) return "رائع! نجمتان حتى الآن.";
@@ -1731,247 +996,6 @@ public class GameActivity extends AppCompatActivity {
         answerView.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
     }
 
-    private void styleStateCell(TextView textView, boolean eliminated) {
-        if (textView == null) {
-            return;
-        }
-
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) textView.getLayoutParams();
-        final int verticalInsetDp = Math.max(1, Math.min(5, (scoreboardRowHeightDp - 16) / 3));
-        params.height = eliminationMode ? dp(Math.max(16, scoreboardRowHeightDp - (verticalInsetDp * 2))) : ViewGroup.LayoutParams.MATCH_PARENT;
-        params.topMargin = eliminationMode ? dp(verticalInsetDp) : 0;
-        params.bottomMargin = eliminationMode ? dp(verticalInsetDp) : 0;
-        params.leftMargin = eliminationMode ? dp(2) : 0;
-        params.rightMargin = eliminationMode ? dp(2) : 0;
-        textView.setLayoutParams(params);
-        textView.setTextSize(TypedValue.COMPLEX_UNIT_SP, eliminationMode ? (scoreboardValueTextSp - 1f) : scoreboardValueTextSp);
-
-        if (!eliminationMode) {
-            textView.setTextColor(getResources().getColor(R.color.stepSelected));
-            textView.setBackground(null);
-            return;
-        }
-
-        GradientDrawable drawable = new GradientDrawable();
-        drawable.setCornerRadius(dp(12));
-        if (eliminated) {
-            drawable.setColor(android.graphics.Color.parseColor("#33B91C1C"));
-            drawable.setStroke(dp(1), android.graphics.Color.parseColor("#F87171"));
-            textView.setTextColor(android.graphics.Color.parseColor("#FECACA"));
-        } else {
-            drawable.setColor(android.graphics.Color.parseColor("#1A0EA5E9"));
-            drawable.setStroke(dp(1), android.graphics.Color.parseColor("#7DD3FC"));
-            textView.setTextColor(android.graphics.Color.parseColor("#E0F2FE"));
-        }
-        textView.setBackground(drawable);
-    }
-
-    private View createOpponentTopCard(MatchOpponent opponent) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(84), ViewGroup.LayoutParams.WRAP_CONTENT);
-        params.setMargins(dp(6), 0, dp(6), 0);
-        card.setLayoutParams(params);
-
-        CircleImageView imageView = new CircleImageView(this);
-        LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(dp(64), dp(64));
-        imageParams.gravity = android.view.Gravity.CENTER_HORIZONTAL;
-        imageView.setLayoutParams(imageParams);
-        imageView.setBorderWidth(dp(2));
-        imageView.setBorderColor(getResources().getColor(R.color.player2));
-        Data.setImageSource(this, imageView, opponent.photo);
-
-        TextView nameView = new TextView(this);
-        nameView.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        nameView.setTextColor(getResources().getColor(android.R.color.white));
-        nameView.setTextSize(12);
-        nameView.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
-        nameView.setMaxLines(2);
-        nameView.setText(opponent.name);
-
-        opponent.topImageView = imageView;
-        opponent.topNameView = nameView;
-
-        card.addView(imageView);
-        card.addView(nameView);
-        return card;
-    }
-
-    private View createOpponentScoreRow(MatchOpponent opponent) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(scoreboardHorizontalPaddingDp), dp(2), dp(scoreboardHorizontalPaddingDp), dp(2));
-        row.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(scoreboardRowHeightDp)
-        ));
-
-        // Avatar + name column
-        LinearLayout avatarCol = new LinearLayout(this);
-        avatarCol.setOrientation(LinearLayout.VERTICAL);
-        avatarCol.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
-        avatarCol.setLayoutParams(new LinearLayout.LayoutParams(
-                dp(scoreboardAvatarColumnWidthDp),
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-
-        CircleImageView imageView = new CircleImageView(this);
-        LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(
-                dp(scoreboardAvatarSizeDp),
-                dp(scoreboardAvatarSizeDp)
-        );
-        imageParams.setMargins(0, dp(1), 0, dp(1));
-        imageView.setLayoutParams(imageParams);
-        imageView.setBorderWidth(dp(scoreboardAvatarBorderDp));
-        imageView.setBorderColor(getResources().getColor(R.color.player2));
-        Data.setImageSource(this, imageView, opponent.photo);
-
-        TextView nameLabel = new TextView(this);
-        nameLabel.setLayoutParams(new LinearLayout.LayoutParams(
-                dp(scoreboardAvatarColumnWidthDp),
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
-        nameLabel.setGravity(android.view.Gravity.CENTER);
-        nameLabel.setTextColor(android.graphics.Color.WHITE);
-        nameLabel.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, scoreboardNameTextSp);
-        nameLabel.setMaxLines(1);
-        nameLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        nameLabel.setText(opponent.name);
-
-        avatarCol.addView(imageView);
-        avatarCol.addView(nameLabel);
-
-        TextView roundView = createScoreCell();
-        TextView setsView = createSetsCell();
-        TextView gameView = createGameScoreCell();
-
-        opponent.scoreImageView = imageView;
-        opponent.scoreNameView = nameLabel;
-        opponent.roundScoreView = roundView;
-        opponent.setsView = setsView;
-        opponent.gameScoreView = gameView;
-
-        row.addView(avatarCol);
-        row.addView(roundView);
-        row.addView(setsView);
-        row.addView(gameView);
-        return row;
-    }
-
-    private TextView createScoreCell() {
-        TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                1f
-        );
-        textView.setLayoutParams(params);
-        textView.setGravity(android.view.Gravity.CENTER);
-        textView.setTextColor(getResources().getColor(android.R.color.white));
-        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, scoreboardValueTextSp);
-        textView.setTypeface(null, android.graphics.Typeface.BOLD);
-        textView.setText("0");
-        return textView;
-    }
-
-    private TextView createSetsCell() {
-        TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                0,
-                eliminationMode ? dp(Math.max(26, scoreboardRowHeightDp - 12)) : ViewGroup.LayoutParams.MATCH_PARENT,
-                1f
-        );
-        if (eliminationMode) {
-            params.setMargins(dp(2), dp(5), dp(2), dp(5));
-        }
-        textView.setLayoutParams(params);
-        textView.setGravity(android.view.Gravity.CENTER);
-        textView.setTextColor(getResources().getColor(R.color.stepSelected));
-        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP,
-                eliminationMode ? (scoreboardValueTextSp - 1f) : scoreboardValueTextSp);
-        textView.setTypeface(null, android.graphics.Typeface.BOLD);
-        textView.setText("0");
-        return textView;
-    }
-
-    private TextView createGameScoreCell() {
-        TextView textView = new TextView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                1f
-        );
-        textView.setLayoutParams(params);
-        textView.setGravity(android.view.Gravity.CENTER);
-        textView.setTextColor(getResources().getColor(R.color.lightBlueApp));
-        textView.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, scoreboardValueTextSp);
-        textView.setTypeface(null, android.graphics.Typeface.BOLD);
-        textView.setText("0");
-        return textView;
-    }
-
-    private CircleImageView createAnswerThumbView(boolean overlapPrevious) {
-        CircleImageView imageView = new CircleImageView(this);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(14), dp(14));
-        params.setMargins(overlapPrevious ? dp(-9) : 0, dp(1), 0, dp(1));
-        imageView.setLayoutParams(params);
-        imageView.setBorderWidth(dp(1));
-        imageView.setBorderColor(getResources().getColor(R.color.player2));
-        imageView.setVisibility(View.INVISIBLE);
-        return imageView;
-    }
-
-    private void clearOpponentAnswerThumbs() {
-        for (LinearLayout container : opponentAnswerContainers) {
-            container.removeAllViews();
-        }
-        for (MatchOpponent opponent : opponents) {
-            opponent.answerThumbViews.clear();
-        }
-    }
-
-    private void refreshOpponentPanels() {
-        for (MatchOpponent opponent : opponents) {
-            if (opponent.topNameView != null) {
-                opponent.topNameView.setText(opponent.name);
-                opponent.topNameView.setAlpha(opponent.eliminated ? 0.45f : 1f);
-            }
-            if (opponent.topImageView != null) {
-                Data.setImageSource(this, opponent.topImageView, opponent.photo);
-                updatePlayerVisualState(opponent.topImageView, opponent.eliminated);
-            }
-            if (opponent.scoreImageView != null) {
-                Data.setImageSource(this, opponent.scoreImageView, opponent.photo);
-                updatePlayerVisualState(opponent.scoreImageView, opponent.eliminated);
-            }
-            if (opponent.scoreNameView != null) {
-                opponent.scoreNameView.setText(opponent.name);
-                opponent.scoreNameView.setAlpha(opponent.eliminated ? 0.45f : 1f);
-            }
-            if (opponent.roundScoreView != null) {
-                opponent.roundScoreView.setText(String.valueOf(opponent.roundScore));
-                opponent.roundScoreView.setAlpha(opponent.eliminated ? 0.45f : 1f);
-            }
-            if (opponent.setsView != null) {
-                opponent.setsView.setText(eliminationMode
-                        ? (opponent.eliminated ? "خارج" : "نشط")
-                        : String.valueOf(opponent.sets));
-                opponent.setsView.setAlpha(opponent.eliminated ? 0.45f : 1f);
-                styleStateCell(opponent.setsView, opponent.eliminated);
-            }
-            if (opponent.gameScoreView != null) {
-                opponent.gameScoreView.setText(String.valueOf(opponent.gameScore));
-                opponent.gameScoreView.setAlpha(opponent.eliminated ? 0.45f : 1f);
-            }
-            for (CircleImageView thumbView : opponent.answerThumbViews) {
-                Data.setImageSource(this, thumbView, opponent.photo);
-                thumbView.setVisibility(View.INVISIBLE);
-            }
-        }
-        refreshMePanelState();
-    }
-
     private boolean allOpponentsSubmitted() {
         for (MatchOpponent opponent : opponents) {
             if (!opponent.eliminated && !opponent.submitted) {
@@ -2008,33 +1032,6 @@ public class GameActivity extends AppCompatActivity {
         return false;
     }
 
-    private void refreshMePanelState() {
-        updatePlayerVisualState(imgMe, localPlayerEliminated);
-        if (txtMeName != null) txtMeName.setAlpha(localPlayerEliminated ? 0.45f : 1f);
-        if (txtScoreMe != null) txtScoreMe.setAlpha(localPlayerEliminated ? 0.45f : 1f);
-        if (txtScoreGameMe != null) txtScoreGameMe.setAlpha(localPlayerEliminated ? 0.45f : 1f);
-        if (txtSetsMe != null) {
-            txtSetsMe.setAlpha(localPlayerEliminated ? 0.45f : 1f);
-            if (eliminationMode) {
-                txtSetsMe.setText(localPlayerEliminated ? "خارج" : "نشط");
-            }
-            styleStateCell(txtSetsMe, localPlayerEliminated);
-        }
-    }
-
-    private void updatePlayerVisualState(ImageView view, boolean eliminated) {
-        if (view == null) {
-            return;
-        }
-        if (eliminated) {
-            setGreyscale(view);
-            view.setImageAlpha(140);
-        } else {
-            setColored(view);
-            view.setImageAlpha(255);
-        }
-    }
-
     private MatchOpponent findOpponentById(String playerId) {
         for (MatchOpponent opponent : opponents) {
             if (opponent.id.equals(playerId)) {
@@ -2044,7 +1041,7 @@ public class GameActivity extends AppCompatActivity {
         return null;
     }
 
-    private int dp(int value) {
+    int dp(int value) {
         return Math.round(getResources().getDisplayMetrics().density * value);
     }
 
@@ -2057,36 +1054,13 @@ public class GameActivity extends AppCompatActivity {
         }
         return resolved;
     }
-
     private BotProfile resolveBotProfile(String playerId) {
-        // Bot IDs follow: "bot_room_ROOMID_SLOT" where SLOT starts at 1
-        // Use SLOT for sequential (non-repeating) profile assignment
-        if (playerId != null) {
-            String[] parts = playerId.split("_");
-            if (parts.length >= 1) {
-                try {
-                    int slot = Integer.parseInt(parts[parts.length - 1]) - 1;
-                    if (slot >= 0 && slot < BOT_PROFILES.length) {
-                        return BOT_PROFILES[slot];
-                    }
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-        int seed = Math.abs(stableHash(playerId));
-        return BOT_PROFILES[seed % BOT_PROFILES.length];
+        return GameBotLogic.resolveBotProfile(playerId);
     }
 
     private void applyBotIdentity(MatchOpponent opponent, boolean replacingHuman) {
-        if (opponent == null) {
-            return;
-        }
-        BotProfile profile = resolveBotProfile(opponent.id);
-        opponent.bot = true;
-        opponent.name = profile.name;
-        opponent.photo = profile.photo;
-        opponent.intelligence = profile.intelligence;
-        opponent.level = Math.max(1, opponent.intelligence / 10);
-        if (replacingHuman) {
+        GameBotLogic.applyBotIdentity(opponent);
+        if (opponent != null && replacingHuman) {
             Toast.makeText(
                     this,
                     opponent.name + " يتابع اللعب الآن كخصم آلي",
@@ -2096,128 +1070,31 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private int getFictitiousRandomTime() {
-        int res = 5;
-        switch (questions.get(currentQuestion).Level) {
-            case "0":
-                res = (new Random()).nextInt(3) + 1;
-                break;
-            case "1":
-                res = (new Random()).nextInt(3) + 4;
-                break;
-            case "2":
-                res = (new Random()).nextInt(6) + 7;
-                break;
-            case "3":
-                res = (new Random()).nextInt(8) + 13;
-                break;
-        }
-        return 30 - res;
+        return GameBotLogic.getFictitiousRandomTime(getCurrentQuestionLevel());
     }
 
     private int getFictitiousRandomAnswer() {
-        int res = 1;
-        int x = (new Random()).nextInt(10) + 1;
-        switch (questions.get(currentQuestion).Level) {
-            case "0":
-                res = rightAnswer;
-                break;
-            case "1":
-                if (x < 9)
-                    res = rightAnswer;
-                else
-                    res = getWrongAnswer(rightAnswer);
-                break;
-            case "2":
-                if (x < 6)
-                    res = rightAnswer;
-                else
-                    res = getWrongAnswer(rightAnswer);
-                break;
-            case "3":
-                if (x < 4)
-                    res = rightAnswer;
-                else
-                    res = getWrongAnswer(rightAnswer);
-                break;
-        }
-        return res;
+        return GameBotLogic.getFictitiousRandomAnswer(getCurrentQuestionLevel(), rightAnswer);
     }
 
     private int getBotDelayMillis(MatchOpponent opponent) {
-        int intel = opponent.intelligence; // 0-100
-
-        // Phase 1 (Q1-5, idx 0-4):  smart=5.3s  dumb=10.4s  → base=4835 + (100-intel)*93
-        // Phase 2 (Q6-10, idx 5-9): smart=7.8s  dumb=15.4s  → base=7110 + (100-intel)*138
-        // Phase 3 (Q11-15, idx 10+): smart=9.3s dumb=25.4s  → base=7835 + (100-intel)*293
-        int baseMs;
-        if (currentQuestion < 5) {
-            baseMs = 4835 + (100 - intel) * 93;
-        } else if (currentQuestion < 10) {
-            baseMs = 7110 + (100 - intel) * 138;
-        } else {
-            baseMs = 7835 + (100 - intel) * 293;
-        }
-
-        // Difficulty of the current question adds extra thinking time
-        String level = "0";
-        if (currentQuestion >= 0 && currentQuestion < questions.size()) {
-            level = questions.get(currentQuestion).Level;
-        }
-        switch (level) {
-            case "1": baseMs += 400;  break;
-            case "2": baseMs += 1000; break;
-            case "3": baseMs += 2200; break;
-        }
-
-        // Deterministic personality seed (consistent per bot+question across games)
-        int seed = Math.abs(stableHash(opponent.id + "|q" + currentQuestion));
-        baseMs += (seed % 600) - 300; // ±300ms stable character offset
-
-        // Human-like random jitter ±350ms — different every game
-        baseMs += new Random().nextInt(700) - 350;
-
-        // Rare hesitation (8% chance): bot second-guesses itself +1-3 extra seconds
-        if (new Random().nextInt(100) < 8) {
-            baseMs += 1000 + new Random().nextInt(2000);
-        }
-
-        // Never answer in the first 900ms (too inhuman)
-        baseMs = Math.max(900, baseMs);
-
-        // Never run out of time (stop 3 seconds before timer ends)
-        int remainingMs = Math.max(1500, ((PROGRESS_VALUE / 10) - 3) * 1000);
-        return Math.min(remainingMs, baseMs);
+        return GameBotLogic.getBotDelayMillis(opponent, currentQuestion, getCurrentQuestionLevel(), PROGRESS_VALUE);
     }
 
     private int getBotDisplayedAnswer(MatchOpponent opponent) {
-        int levelPenalty = 0;
-        switch (questions.get(currentQuestion).Level) {
-            case "1": levelPenalty = 8;  break;
-            case "2": levelPenalty = 18; break;
-            case "3": levelPenalty = 26; break;
-            case "4": levelPenalty = 32; break;
-            case "5": levelPenalty = 38; break;
-            case "6": levelPenalty = 44; break;
-            case "7": levelPenalty = 50; break;
-            case "8": levelPenalty = 56; break;
-            default:  levelPenalty = 0;  break;
-        }
-        int successChance = Math.max(20, Math.min(97, opponent.intelligence - levelPenalty));
-        // Mix 80% stable hash (consistent character) + 20% random (human unpredictability)
-        int stablePart = Math.abs(stableHash(opponent.id + "|" + currentQuestion)) % 80;
-        int randomPart = new Random().nextInt(20);
-        int roll = (stablePart + randomPart) % 100;
-        return roll < successChance ? rightAnswer : getWrongAnswer(rightAnswer);
+        return GameBotLogic.getBotDisplayedAnswer(opponent, currentQuestion, getCurrentQuestionLevel(), rightAnswer);
     }
 
     private int getWrongAnswer(int rightAnswer) {
-        int res;
-        do {
-            res = (new Random()).nextInt(4) + 1;
-        } while (res == rightAnswer);
-        return res;
+        return GameBotLogic.getWrongAnswer(rightAnswer);
     }
 
+    private String getCurrentQuestionLevel() {
+        if (currentQuestion >= 0 && currentQuestion < questions.size()) {
+            return questions.get(currentQuestion).Level;
+        }
+        return "0";
+    }
     private void checkAnswer(final boolean timeout) {
         final int amount = modeOnline ? 0 : Integer.parseInt(getCurrentStepAmount().replace("$", ""));
         if (!timeout) {
@@ -2432,7 +1309,7 @@ public class GameActivity extends AppCompatActivity {
 
             txtScoreMe.setText(setScoreMe + "");
             txtScoreGameMe.setText(gameScoreMe + "");
-            refreshOpponentPanels();
+            opponentHudController.refreshOpponentPanels();
             return;
         }
 
@@ -2464,7 +1341,7 @@ public class GameActivity extends AppCompatActivity {
 
         txtScoreMe.setText(setScoreMe + "");
         txtScoreGameMe.setText(gameScoreMe + "");
-        refreshOpponentPanels();
+        opponentHudController.refreshOpponentPanels();
     }
 
     private boolean handleLocalTimeoutRemovalIfNeeded() {
@@ -2517,7 +1394,7 @@ public class GameActivity extends AppCompatActivity {
             }
         }
 
-        refreshOpponentPanels();
+        opponentHudController.refreshOpponentPanels();
 
         if (currentQuestion == 14) {
             String leaderId = getMatchLeaderId();
@@ -2929,7 +1806,7 @@ public class GameActivity extends AppCompatActivity {
                         convertOpponentToComputer(opponent);
                     } else if ("eliminated".equals(status)) {
                         opponent.eliminated = true;
-                        refreshOpponentPanels();
+                        opponentHudController.refreshOpponentPanels();
                     }
                 }
 
@@ -3025,8 +1902,7 @@ public class GameActivity extends AppCompatActivity {
         }
         opponentExitHandled = true;
         stopTimer(true);
-        stopSound(mpSound);
-        mpSound = null;
+        stopCurrentSound();
         detachOpponentStatusListener();
         showDialog("انسحب منافسك من المباراة.\nهل تريد أن تكمل مع الكمبيوتر؟", "OpponentLeftContinue", 1000, 0, R.drawable.mouth_05, false);
     }
@@ -3291,7 +2167,7 @@ public class GameActivity extends AppCompatActivity {
         }
         opponent.statusRef = null;
         opponent.statusListener = null;
-        refreshOpponentPanels();
+        opponentHudController.refreshOpponentPanels();
         if (currentQuestion >= 0 && !opponent.submitted) {
             scheduleBotAnswer(opponent);
         }
@@ -3349,7 +2225,7 @@ public class GameActivity extends AppCompatActivity {
         mySetAnswerTimeMs = 0L;
         txtSetsMe.setText(String.valueOf(setMe));
         txtScoreMe.setText("0");
-        refreshOpponentPanels();
+        opponentHudController.refreshOpponentPanels();
         String setNumLabelResolved = (currentQuestion == 4 ? "الأولى" : (currentQuestion == 9 ? "الثانية" : "الثالثة"));
         if (myID.equals(setWinnerId)) {
             person.like(1000);
@@ -3940,11 +2816,11 @@ public class GameActivity extends AppCompatActivity {
         return System.currentTimeMillis() + serverTimeOffsetMs;
     }
 
-    private String safeString(Object value) {
+    String safeString(Object value) {
         return value == null ? "" : String.valueOf(value);
     }
 
-    private String safeIntentString(String key, String fallback) {
+    String safeIntentString(String key, String fallback) {
         String value = getIntent().getStringExtra(key);
         if (value == null || value.trim().isEmpty()) {
             return fallback;
@@ -3983,7 +2859,7 @@ public class GameActivity extends AppCompatActivity {
         return Math.max(minAccuracy, Math.min(maxAccuracy, baseAccuracy + variation));
     }
 
-    private String normalizeCampaignMode(String mode) {
+    String normalizeCampaignMode(String mode) {
         String normalized = mode == null ? "" : mode.trim().replace("_", "").replace("-", "").toLowerCase(Locale.US);
         if ("speed".equals(normalized) || "blitz".equals(normalized)) return "blitz";
         if ("elimination".equals(normalized)) return "elimination";
@@ -3997,7 +2873,7 @@ public class GameActivity extends AppCompatActivity {
         return "classic";
     }
 
-    private String defaultCampaignWinCondition(String mode) {
+    String defaultCampaignWinCondition(String mode) {
         String normalized = normalizeCampaignMode(mode);
         if ("blitz".equals(normalized)) return "finishBeforeTime";
         if ("elimination".equals(normalized)) return "noMistakes";
@@ -4018,7 +2894,7 @@ public class GameActivity extends AppCompatActivity {
     private boolean isCampaignRivalMode() { return "rival".equals(campaignStageMode); }
     private boolean isCampaignSeriesMode() { return "series".equals(campaignStageMode); }
     private boolean isCampaignTeamBattleMode() { return "teamBattle".equals(campaignStageMode); }
-    private boolean isCampaignBossMode() { return "bossBattle".equals(campaignStageMode) || "boss".equals(campaignStageType); }
+    boolean isCampaignBossMode() { return "bossBattle".equals(campaignStageMode) || "boss".equals(campaignStageType); }
 
     private boolean isCampaignCompetitiveSimulationMode() {
         return isCampaignBattleMode() || isCampaignSeriesMode() || isCampaignTeamBattleMode();
@@ -4028,7 +2904,7 @@ public class GameActivity extends AppCompatActivity {
         return Math.max(min, Math.min(max, value));
     }
 
-    private void applyCampaignStageTypeDefaults() {
+    void applyCampaignStageTypeDefaults() {
         if (!campaignMode) {
             return;
         }
@@ -4099,7 +2975,7 @@ public class GameActivity extends AppCompatActivity {
             return;
         }
         view.setTag("0");
-        setGreyscale(view);
+        GameLifelineController.setGreyscale(view);
         view.setImageAlpha(120);
     }
 
@@ -4193,7 +3069,7 @@ public class GameActivity extends AppCompatActivity {
         campaignTeamScore = getCampaignPlayerScore() + campaignAllyScore;
     }
 
-    private int getCampaignPlayerScore() {
+    int getCampaignPlayerScore() {
         if (campaignBossBattle) {
             return Math.max(0, gameScoreMe);
         }
@@ -4272,10 +3148,10 @@ public class GameActivity extends AppCompatActivity {
         txtScoreMe.setText(setScoreMe + "");
         txtSetsMe.setText(myTotalCorrectAnswers + "");
         txtScoreGameMe.setText(gameScoreMe + "");
-        refreshOpponentPanels();
+        opponentHudController.refreshOpponentPanels();
     }
 
-    private int getCampaignTargetQuestionCount() {
+    int getCampaignTargetQuestionCount() {
         int requested = campaignQuestionCount > 0 ? campaignQuestionCount : 10;
         if (campaignMode && questions != null && !questions.isEmpty()) {
             return Math.min(requested, questions.size());
@@ -4288,7 +3164,7 @@ public class GameActivity extends AppCompatActivity {
         T_LIGHTS = 3;
         CAN_PLAY = false;
         final boolean correct = !timeout && myAnswer == rightAnswer;
-        final int starsBefore = getCampaignEarnedStars();
+        final int starsBefore = campaignHudController.getEarnedStars();
         myAnswerElapsedMs = timeout ? QUESTION_TIMEOUT_MS : getCurrentAnswerElapsedMs();
         if (campaignBossBattle) {
             ensureCampaignBossAnswered();
@@ -4300,7 +3176,7 @@ public class GameActivity extends AppCompatActivity {
             PlayerStats.recordCorrectAnswer(GameActivity.this);
             person.like(700);
             playSound(R.raw.correct_answer, false, false);
-            updateCampaignProgressHud(true);
+            campaignHudController.updateProgressHud(true);
             showDialog(getCampaignAnswerMessage(true, starsBefore), "", 700, 900, R.drawable.mouth_01, false);
         } else {
             recordCampaignWrongAnswer();
@@ -4308,11 +3184,11 @@ public class GameActivity extends AppCompatActivity {
             playSound(R.raw.wrong_answer, false, false);
             if (imgSelected != null && !timeout) imgSelected.setImageResource(R.drawable.frame_wrong);
             if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
-            updateCampaignProgressHud(false);
+            campaignHudController.updateProgressHud(false);
             showDialog(getCampaignAnswerMessage(false, starsBefore), "", 700, 900, R.drawable.mouth_05, false);
         }
         applyCampaignModeAfterAnswer(correct);
-        updateCampaignProgressHud(false);
+        campaignHudController.updateProgressHud(false);
 
         if (campaignBossBattle && campaignBossOpponent != null
                 && campaignBossOpponent.displayedAnswer > 0) {
@@ -4412,7 +3288,7 @@ public class GameActivity extends AppCompatActivity {
         campaignOpponentSeriesWins = playerWon ? Math.max(0, requiredWins - 1) : requiredWins;
     }
 
-    private boolean isCampaignBossDefeated() {
+    boolean isCampaignBossDefeated() {
         if (!campaignBossBattle || campaignBossOpponent == null) {
             return true;
         }
@@ -4530,13 +3406,13 @@ public class GameActivity extends AppCompatActivity {
             return;
         }
         Log.d("CampaignStage", "CAMP_FINISH_TO_FLUTTER");
-        stopSound(mpSound);
+            stopCurrentSound();
         if (cdtProgress != null) cdtProgress.cancel();
         stopCampaignStageTimer();
         finish();
     }
 
-    private void stopCampaignStageTimer() {
+    void stopCampaignStageTimer() {
         if (campaignStageTimer != null) {
             campaignStageTimer.cancel();
             campaignStageTimer = null;
@@ -4591,7 +3467,7 @@ public class GameActivity extends AppCompatActivity {
         }
     }
 
-    private boolean isDebuggableBuild() {
+    boolean isDebuggableBuild() {
         return (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
     }
 
@@ -4624,13 +3500,9 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void showInterstitialAd() {
-        AppPrefs.recordInterstitialOpportunity(this);
-        if (mInterstitialAd != null && AppPrefs.canShowInterstitialNow(this)) {
-            Log.d("TestAdmob", "Ad loaded");
-            AppPrefs.markInterstitialShown(this);
-            mInterstitialAd.show(this);
+        if (interstitialAdController != null) {
+            interstitialAdController.showOrRun(this::navigateToHome);
         } else {
-            Log.d("TestAdmob", "Ad not loaded");
             navigateToHome();
         }
     }
@@ -4707,7 +3579,7 @@ public class GameActivity extends AppCompatActivity {
 
     private void finishGame() {
         leaveOnlineMatchIfNeeded();
-        stopSound(mpSound);
+        stopCurrentSound();
         stopTimer(false);
         if (!txtAmount.getText().toString().equals("$0")) {
             person.like(1000);
@@ -4727,7 +3599,7 @@ public class GameActivity extends AppCompatActivity {
                     PlayerProgress.onGameFinished(GameActivity.this, false, prize, PlayerStats.getBestStreak(GameActivity.this), usedAllHelps(), usedAnyHelp());
                     persistPendingCampaignStageResult(false, prize, 0);
                 } catch (Exception ignored) {}
-                stopSound(mpSound);
+                stopCurrentSound();
                 if (cdtProgress != null) cdtProgress.cancel();
                 if (campaignMode) {
                     finishCampaignAndReturnToFlutter();
@@ -4738,7 +3610,7 @@ public class GameActivity extends AppCompatActivity {
         }, 2000);
     }
 
-    private void startTimer(boolean start) {
+    void startTimer(boolean start) {
         int randomTime = 15;
         if (!EXITING) {
             if (start) {
@@ -5001,22 +3873,6 @@ public class GameActivity extends AppCompatActivity {
             };
             handler.postDelayed(runnable, 3000);
         }*/
-
-
-    public static void  setGreyscale(ImageView v)
-    {
-        ColorMatrix matrix = new ColorMatrix();
-        matrix.setSaturation(0);  //0 means grayscale
-        ColorMatrixColorFilter cf = new ColorMatrixColorFilter(matrix);
-        v.setColorFilter(cf);
-    }
-
-    public static void  setColored(ImageView v)
-    {
-        v.setColorFilter(null);
-        v.setImageAlpha(255);
-    }
-
     private void initQuestion() {
         rightAnswer=0;
         txtQ.setText("");
@@ -5036,10 +3892,10 @@ public class GameActivity extends AppCompatActivity {
         imgVote2.setTag(0);
         imgVote3.setTag(0);
         imgVote4.setTag(0);
-        setVote(imgVote1);
-        setVote(imgVote2);
-        setVote(imgVote3);
-        setVote(imgVote4);
+        GameLifelineController.setVote(this, imgVote1);
+        GameLifelineController.setVote(this, imgVote2);
+        GameLifelineController.setVote(this, imgVote3);
+        GameLifelineController.setVote(this, imgVote4);
         if(modeOnline || campaignBossBattle) {
             imgAnswer1Player1.setVisibility(View.INVISIBLE);
             imgAnswer2Player1.setVisibility(View.INVISIBLE);
@@ -5066,7 +3922,7 @@ public class GameActivity extends AppCompatActivity {
                 opponent.roundPoints = 0;
                 opponent.answerElapsedMs = QUESTION_TIMEOUT_MS;
             }
-            refreshOpponentPanels();
+            opponentHudController.refreshOpponentPanels();
         }
         //imgHelp5050.setImageResource(R.drawable.help_5050);
         //imgHelpCall.setImageResource(R.drawable.help_call);
@@ -5097,7 +3953,7 @@ public class GameActivity extends AppCompatActivity {
     private void showQuestionNow(final int questionIndex) {
         if(!EXITING) {
             currentQuestion = questionIndex;
-            updateCampaignProgressHud(false);
+            campaignHudController.updateProgressHud(false);
             spectatorEliminationRound = eliminationMode && localPlayerEliminated;
             scheduledQuestionStartAt = 0L;
             pendingQuestionIndex = -1;
@@ -5182,7 +4038,7 @@ public class GameActivity extends AppCompatActivity {
         }
     }
 
-    private String getLetter(int index) {
+    String getLetter(int index) {
         String res = "";
         switch (index) {
             case 1: res = "أ"; break;
@@ -5194,163 +4050,38 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private ArrayList<Integer> getQuestionShuffled(Question question) {
-        ArrayList<Integer> list = new ArrayList<>();
-        list.add(ANSWER_KEY_RIGHT);
-        list.add(ANSWER_KEY_WRONG_1);
-        list.add(ANSWER_KEY_WRONG_2);
-        list.add(ANSWER_KEY_WRONG_3);
-        if (modeOnline) {
-            long seed = 17L;
-            seed = (31L * seed) + currentQuestion;
-            seed = (31L * seed) + (gameID == null ? 0 : gameID.hashCode());
-            seed = (31L * seed) + (question == null || question.Q == null ? 0 : question.Q.hashCode());
-            Collections.shuffle(list, new Random(seed));
-        } else {
-            Collections.shuffle(list);
-        }
-        return list;
+        return GameAnswerOptions.buildShuffledKeys(modeOnline, currentQuestion, gameID, question);
     }
 
     private String getAnswerText(Question question, int answerKey) {
-        switch (answerKey) {
-            case ANSWER_KEY_RIGHT:
-                return question.R;
-            case ANSWER_KEY_WRONG_1:
-                return question.W1;
-            case ANSWER_KEY_WRONG_2:
-                return question.W2;
-            case ANSWER_KEY_WRONG_3:
-                return question.W3;
-            default:
-                return "";
-        }
+        return GameAnswerOptions.getAnswerText(question, answerKey);
     }
 
     private int getAnswerKeyForDisplayedIndex(int displayedIndex) {
-        if (displayedIndex <= 0 || displayedIndex > currentAnswerOrder.size()) {
-            return 0;
-        }
-        return currentAnswerOrder.get(displayedIndex - 1);
+        return GameAnswerOptions.getAnswerKeyForDisplayedIndex(currentAnswerOrder, displayedIndex);
     }
 
     private int getDisplayedIndexForAnswerKey(int answerKey) {
-        for (int i = 0; i < currentAnswerOrder.size(); i++) {
-            if (currentAnswerOrder.get(i) == answerKey) {
-                return i + 1;
-            }
-        }
-        return 0;
+        return GameAnswerOptions.getDisplayedIndexForAnswerKey(currentAnswerOrder, answerKey);
     }
 
-    private int getRightAnswer() {
-        int id = txtRight.getId();
-        if (id == R.id.txtA1) {
-            return 1;
-        } else if (id == R.id.txtA2) {
-            return 2;
-        } else if (id == R.id.txtA3) {
-            return 3;
-        } else if (id == R.id.txtA4) {
-            return 4;
-        }
-        return -1;
+    int getRightAnswer() {
+        return GameAnswerOptions.getDisplayedIndexFromTextId(txtRight.getId());
     }
 
-    private void playSound(int resID, boolean fading, boolean looping) {
-        if(!EXITING) {
-            boolean targetIsMusic = isMusicTrack(resID, looping);
-            if (targetIsMusic) {
-                MUSIC_ON = AppPrefs.isMusicEnabled(this);
-                if (!MUSIC_ON) {
-                    stopSound(mpSound);
-                    mpSound = null;
-                    currentSoundIsMusic = false;
-                    return;
-                }
-            } else {
-                SOUND_ON = AppPrefs.isSoundEnabled(this);
-                if (!SOUND_ON) {
-                    return;
-                }
-            }
-            if (fading) {
-                if (targetIsMusic ? MUSIC_ON : SOUND_ON) {
-                    fadeSound(mpSound);
-                } else {
-                    stopSound(mpSound);
-                }
-            } else {
-                stopSound(mpSound);
-            }
-            //stopSound(mpSound);
-            mpSound = MediaPlayer.create(GameActivity.this, resID);
-            currentSoundIsMusic = targetIsMusic;
-            mpSound.setLooping(looping);
-            mpSound.start();
+    void playSound(int resID, boolean fading, boolean looping) {
+        if (soundController != null) {
+            soundController.play(resID, fading, looping, EXITING);
         }
     }
 
-    private boolean isMusicTrack(int resID, boolean looping) {
-        return looping
-                || resID == R.raw.main_theme_0
-                || resID == R.raw.main_theme_1
-                || resID == R.raw.main_theme_2
-                || resID == R.raw.main_theme_3
-                || resID == R.raw.main_theme_4
-                || resID == R.raw.main_theme_5
-                || resID == R.raw.commerical_break
-                || resID == R.raw.s_32000
-                || resID == R.raw.s_64000
-                || resID == R.raw.s_250000
-                || resID == R.raw.s_5000000
-                || resID == R.raw.s_1000000;
-    }
-
-    private void fadeSound(MediaPlayer mpSound) {
-        if(mpSound != null) {
-            try {
-                final MediaPlayer mps = mpSound;
-                final Handler handler = new Handler();
-                final Runnable runnable = new Runnable() {
-                    int currentVolumeStep = 10;
-                    float currentVolume;
-                    MediaPlayer mp = mps;
-
-                    @Override
-                    public void run() {
-                        currentVolumeStep--;
-                        currentVolume = (float) (1 - (Math.log(10 - currentVolumeStep) / Math.log(10)));
-                        mp.setVolume(currentVolume, currentVolume);
-                        if (currentVolumeStep > 0)
-                            handler.postDelayed(this, 100);
-                        else
-                            stopSound(mp);
-                    }
-                };
-                handler.postDelayed(runnable, 100);
-
-            } catch (Exception e) {
-
-            }
+    void stopCurrentSound() {
+        if (soundController != null) {
+            soundController.stopCurrent();
         }
     }
 
-    private void stopSound(MediaPlayer mp) {
-        if (mp != null) {
-            try {
-                if (mp.isPlaying()) {
-                    mp.stop();
-                }
-                mp.release();
-                if (mp == mpSound) {
-                    currentSoundIsMusic = false;
-                }
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
-    private void showDialog(final String message, final String tag, final int timeTalk, final int timeDialog, final int nextMouthId, final boolean gameStatusAfter) {
+    void showDialog(final String message, final String tag, final int timeTalk, final int timeDialog, final int nextMouthId, final boolean gameStatusAfter) {
         if(!EXITING) {
             btnDialogYes.setVisibility(View.INVISIBLE);
             btnDialogNo.setVisibility(View.INVISIBLE);
@@ -5415,284 +4146,14 @@ public class GameActivity extends AppCompatActivity {
             handler.postDelayed(runnable, 0);
         }
     }
-
-    public void phoneTalk(int duration) {
-        imgCallerMouth.setImageResource(R.drawable.smile_02);
-        CountDownTimer cdt = new CountDownTimer(duration, 100) {
-            int status_mouth = 0;
-            @Override
-            public void onTick(long l) {
-                switch (status_mouth) {
-                    case 0:
-                        imgCallerMouth.setImageResource(R.drawable.smile_02);
-                        status_mouth++;
-                        break;
-                    case 1:
-                        imgCallerMouth.setImageResource(R.drawable.smile_04);
-                        status_mouth++;
-                        break;
-                    case 2:
-                        imgCallerMouth.setImageResource(R.drawable.smile_03);
-                        status_mouth++;
-                        break;
-                    case 3:
-                        imgCallerMouth.setImageResource(R.drawable.smile_05);
-                        status_mouth = 0;
-                        break;
-                }
-            }
-
-            @Override
-            public void onFinish() {
-                imgCallerMouth.setImageResource(R.drawable.smile_01);
-            }
-        }.start();
-    }
-
-
-    private void help_hideTwoAnswers() {
-        ArrayList<Integer> idxs = new ArrayList<>();
-        int idx;
-        while (idxs.size()<2) {
-            do {
-                idx = (new Random()).nextInt(4);
-            } while ((idxs.contains(idx)) || (listAnswerViews.get(idx).getTag().toString().equals("1")));
-            idxs.add(idx);
-        }
-        listAnswerViews.get(idxs.get(0)).setVisibility(View.INVISIBLE);
-        listAnswerViews.get(idxs.get(1)).setVisibility(View.INVISIBLE);
-
-        CAN_PLAY = true;
-    }
-
-    private void help_getVoteAudience() {
-        playSound(R.raw.main_theme_2,true, false);
-        rlyVotes.setVisibility(View.VISIBLE);
-        boolean audienceSure = (currentQuestion < 5) ? true : (((new Random()).nextInt(2)+1) == 1);
-        int[] vote = new int[4];
-        int tmp;
-        if (audienceSure) {
-            vote[0] = (new Random()).nextInt(20)+70;
-            tmp=100-vote[0];
-            vote[1] = (new Random()).nextInt(tmp)+1;
-            tmp=100-(vote[0]+vote[1]);
-            if (tmp > 0) {
-                vote[2] = (new Random()).nextInt(tmp)+1;
-                tmp=100-(vote[0]+vote[1]+vote[2]);
-                if (tmp > 0) vote[3] = tmp;
-            }
-
-            int idVote;
-            int rightAnswer = getRightAnswer();
-            int idxVotes = 0;
-            ImageView imgVote;
-            for(int i=1;i<=4;i++){
-                idVote = getResources().getIdentifier("imgVote"+i,"id",this.getPackageName());
-                imgVote =(ImageView) findViewById(idVote);
-                if(i == rightAnswer) {
-                    imgVote.setTag(vote[0]);
-                } else {
-                    idxVotes ++;
-                    imgVote.setTag(vote[idxVotes]);
-                }
-            }
-        } else {
-            vote[0] = (new Random()).nextInt(20)+20;
-            tmp=(100-vote[0])/3;
-            vote[1] = (new Random()).nextInt(tmp)+1;
-            tmp=(100-(vote[0]+vote[1]))/2;
-            vote[2] = (new Random()).nextInt(tmp)+1;
-            vote[3]=100-(vote[0]+vote[1]+vote[2]);
-            imgVote1.setTag(vote[0]);
-            imgVote2.setTag(vote[1]);
-            imgVote3.setTag(vote[2]);
-            imgVote4.setTag(vote[3]);
-        }
-
-        setVote(imgVote1);
-        setVote(imgVote2);
-        setVote(imgVote3);
-        setVote(imgVote4);
-
-        (new Handler()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                btnCloseVote.setVisibility(View.VISIBLE);
-                playSound(R.raw.s_32000,true, false);
-                startTimer(false);
-                CAN_PLAY = true;
-                showDialog("ماهي إجابتك ؟", "", 1000, 2000, R.drawable.mouth_06, true);
-            }
-        }, 6000);
-
-    }
-
-    private void setVote(ImageView img) {
-        int vote = (Integer)img.getTag();
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) img.getLayoutParams();
-        final float scale = this.getResources().getDisplayMetrics().density;
-        int pVote = (int) (vote * scale + 0.5f);
-        params.height = pVote;
-        img.setLayoutParams(params);
-
-        TranslateAnimation anim = new TranslateAnimation(0, 0, pVote, 0);
-        anim.setFillAfter(true);
-        anim.setDuration(5000);
-        img.startAnimation(anim);
-    }
-
-    private void help_call() {
-
-        final LinearLayout llyWavesR, llyWavesL;
-        final ImageView imgWaveR1, imgWaveR2, imgWaveR3, imgWaveL1, imgWaveL2, imgWaveL3;
-
-        llyWavesR = findViewById(R.id.llyWavesR);
-        llyWavesL = findViewById(R.id.llyWavesL);
-        imgWaveR1 = findViewById(R.id.imgWaveR1);
-        imgWaveR2 = findViewById(R.id.imgWaveR2);
-        imgWaveR3 = findViewById(R.id.imgWaveR3);
-        imgWaveL1 = findViewById(R.id.imgWaveL1);
-        imgWaveL2 = findViewById(R.id.imgWaveL2);
-        imgWaveL3 = findViewById(R.id.imgWaveL3);
-
-
-        int rnd, idImage;
-        rnd = (new Random()).nextInt(6)+1;
-        idImage = this.getResources().getIdentifier("face_0"+rnd, "drawable", this.getPackageName());
-        imgCallerFace.setImageResource(idImage);
-        rnd = (new Random()).nextInt(3)+1;
-        idImage = this.getResources().getIdentifier("circle_body_0"+rnd, "drawable", this.getPackageName());
-        imgCallerBody.setImageResource(idImage);
-
-        playSound(R.raw.phone_friend, true, false);
-        setGreyscale(imgCallerBody);
-        setGreyscale(imgCallerFace);
-        setGreyscale(imgCallerMouth);
-        rlyCall.setVisibility(View.VISIBLE);
-        llyWavesR.setVisibility(View.VISIBLE);
-        llyWavesL.setVisibility(View.VISIBLE);
-        imgWaveR1.setImageAlpha(0);
-        imgWaveR2.setImageAlpha(0);
-        imgWaveR3.setImageAlpha(0);
-        imgWaveL1.setImageAlpha(0);
-        imgWaveL2.setImageAlpha(0);
-        imgWaveL3.setImageAlpha(0);
-        new CountDownTimer(20000, 200) {
-            int t=0;
-            @Override
-            public void onTick(long l) {
-                t++;
-                switch (t) {
-                    case 1:
-                    case 6:
-                    case 11:
-                        imgWaveR1.setImageAlpha(255);
-                        imgWaveL1.setImageAlpha(255);
-                        imgWaveR2.setImageAlpha(0);
-                        imgWaveL2.setImageAlpha(0);
-                        imgWaveR3.setImageAlpha(0);
-                        imgWaveL3.setImageAlpha(0);
-                        break;
-                    case 2:
-                    case 7:
-                    case 12:
-                        imgWaveR1.setImageAlpha(128);
-                        imgWaveL1.setImageAlpha(128);
-                        imgWaveR2.setImageAlpha(255);
-                        imgWaveL2.setImageAlpha(255);
-                        imgWaveR3.setImageAlpha(0);
-                        imgWaveL3.setImageAlpha(0);
-                        break;
-                    case 3:
-                    case 8:
-                    case 13:
-                        imgWaveR1.setImageAlpha(0);
-                        imgWaveL1.setImageAlpha(0);
-                        imgWaveR2.setImageAlpha(128);
-                        imgWaveL2.setImageAlpha(128);
-                        imgWaveR3.setImageAlpha(255);
-                        imgWaveL3.setImageAlpha(255);
-                        break;
-                    case 4:
-                    case 9:
-                    case 14:
-                        imgWaveR1.setImageAlpha(0);
-                        imgWaveL1.setImageAlpha(0);
-                        imgWaveR2.setImageAlpha(0);
-                        imgWaveL2.setImageAlpha(0);
-                        imgWaveR3.setImageAlpha(128);
-                        imgWaveL3.setImageAlpha(128);
-                        break;
-                    case 5:
-                    case 10:
-                    case 15:
-                        imgWaveR1.setImageAlpha(0);
-                        imgWaveL1.setImageAlpha(0);
-                        imgWaveR2.setImageAlpha(0);
-                        imgWaveL2.setImageAlpha(0);
-                        imgWaveR3.setImageAlpha(0);
-                        imgWaveL3.setImageAlpha(0);
-                        break;
-                    case 20:
-                        llyWavesR.setVisibility(View.INVISIBLE);
-                        llyWavesL.setVisibility(View.INVISIBLE);
-                        setColored(imgCallerBody);
-                        setColored(imgCallerFace);
-                        setColored(imgCallerMouth);
-                        break;
-                    case 25:
-                        int rndSure = (currentQuestion < 5) ? 10 : (new Random().nextInt(10)+1);
-                        String answer;
-                        if(rndSure > 7) {
-                            answer = "أنا متأكد أن الجواب هو "+getLetter(getRightAnswer());
-                        } else if (rndSure > 2) {
-                            int rnd = new Random().nextInt(4)+1;
-                            answer = "ممممم.. أعتقد أن الإجابة هي "+getLetter(rnd);
-                        } else {
-                            answer = "في الحقيقة لا أعرف الإجابة";
-                        }
-                        txtCallAnswer.setVisibility(View.VISIBLE);
-                        txtCallAnswer.setCharacterDelay(18);
-                        txtCallAnswer.animateText(answer);
-                        playSound(R.raw.blabla,false, false);
-                        phoneTalk(3000);
-                        break;
-                    case 40:
-                        mpSound.stop();
-                        txtCallAnswer.setVisibility(View.INVISIBLE);
-                        break;
-                    case 45:
-                        setGreyscale(imgCallerBody);
-                        setGreyscale(imgCallerFace);
-                        setGreyscale(imgCallerMouth);
-                        break;
-                    case 50:
-                        this.cancel();
-                        rlyCall.setVisibility(View.INVISIBLE);
-                        playSound(R.raw.s_32000,true, false);
-                        startTimer(false);
-                        CAN_PLAY = true;
-                        showDialog("ماهي إجابتك ؟", "", 1000, 2000, R.drawable.mouth_06, true);
-                        break;
-                }
-            }
-
-            @Override
-            public void onFinish() {}
-        }.start();
-    }
-
     @Override
     protected void onPause() {
-        if (gameBackgroundVideo != null && gameBackgroundVideo.isPlaying()) {
-            gameBackgroundVideo.pause();
-        }
+        if (backgroundVideoController != null) backgroundVideoController.pause();
         if(cdtProgress != null) cdtProgress.cancel();
-        releasePlayer(mpSound);
-        mpSound = null;
-        releasePlayer(mpBeep);
+        if (soundController != null) soundController.releaseCurrent();
+        GameSoundController.release(mpBeep);
         mpBeep = null;
-        releasePlayer(mpBeep1);
+        GameSoundController.release(mpBeep1);
         mpBeep1 = null;
         super.onPause();
     }
@@ -5709,16 +4170,13 @@ public class GameActivity extends AppCompatActivity {
         detachServerTimeOffsetListener();
         if(cdtProgress != null) cdtProgress.cancel();
         stopCampaignStageTimer();
-        releasePlayer(mpSound);
-        mpSound = null;
-        releasePlayer(mpBeep);
+        if (soundController != null) soundController.releaseCurrent();
+        GameSoundController.release(mpBeep);
         mpBeep = null;
-        releasePlayer(mpBeep1);
+        GameSoundController.release(mpBeep1);
         mpBeep1 = null;
-        if (gameBackgroundVideo != null) {
-            gameBackgroundVideo.stopPlayback();
-            gameBackgroundVideo = null;
-        }
+        if (backgroundVideoController != null) backgroundVideoController.stop();
+        backgroundVideoController = null;
         super.onDestroy();
     }
 
@@ -5754,143 +4212,17 @@ public class GameActivity extends AppCompatActivity {
     }
 
     private void initAdsIfNeeded() {
-        try {
-            if (mInterstitialAd == null) {
-                MobileAds.initialize(this, initializationStatus -> {});
-                InterstitialAd.load(this,
-                    getResources().getString(R.string.interstitial_ad_id),
-                    new AdRequest.Builder().build(),
-                    new InterstitialAdLoadCallback() {
-                        @Override
-                        public void onAdLoaded(InterstitialAd ad) {
-                            mInterstitialAd = ad;
-                            mInterstitialAd.setFullScreenContentCallback(new FullScreenContentCallback() {
-                                @Override
-                                public void onAdDismissedFullScreenContent() {
-                                    mInterstitialAd = null;
-                                    navigateToHome();
-                                }
-                            });
-                        }
-                        @Override
-                        public void onAdFailedToLoad(LoadAdError error) {
-                            mInterstitialAd = null;
-                        }
-                    });
-            }
-        } catch (Exception e) {
-            Log.w("GameActivity", "initAdsIfNeeded failed", e);
+        if (interstitialAdController != null) {
+            interstitialAdController.loadIfNeeded(this::navigateToHome);
         }
     }
-
     private void persistPendingCampaignStageResult(boolean completed, int money, int wrongAnswers) {
-        if (!campaignMode || campaignResultPersisted) {
-            return;
-        }
-        campaignResultPersisted = true;
-        stopCampaignStageTimer();
-        try {
-            JSONObject payload = new JSONObject();
-            int targetCount = getCampaignTargetQuestionCount();
-            int answeredCorrect = Math.max(0, Math.min(targetCount, campaignCorrectAnswers));
-            payload.put("mode", "campaign");
-            payload.put("campaignId", campaignId);
-            payload.put("stageId", campaignStageId);
-            payload.put("stageType", campaignStageType);
-            boolean bossDefeated = campaignBossBattle && isCampaignBossDefeated();
-            boolean effectiveCompleted = campaignBossBattle ? bossDefeated : completed;
-            int playerScore = getCampaignPlayerScore();
-            payload.put("completed", effectiveCompleted);
-            payload.put("score", playerScore);
-            payload.put("money", Math.max(0, money));
-            payload.put("correctAnswers", answeredCorrect);
-            payload.put("wrongAnswers", Math.max(campaignWrongAnswers, Math.max(0, wrongAnswers)));
-            payload.put("timeMs", Math.max(0L, System.currentTimeMillis() - campaignStartedAtMs));
-            payload.put("used5050", Math.max(0, campaignUsed5050));
-            payload.put("usedAudience", Math.max(0, campaignUsedAudience));
-            payload.put("usedCall", Math.max(0, campaignUsedCall));
-            payload.put("campaignMode", campaignStageMode);
-            payload.put("winCondition", campaignWinCondition);
-            payload.put("failureReason", effectiveCompleted ? "" : safeString(campaignFailureReason));
-            payload.put("lives", Math.max(0, campaignLives));
-            payload.put("livesRemaining", Math.max(0, campaignLivesRemaining));
-            payload.put("maxWrongAnswers", Math.max(0, campaignMaxWrongAnswers));
-            payload.put("targetScore", Math.max(0, campaignTargetScore));
-            payload.put("playerScore", Math.max(0, playerScore));
-            payload.put("opponentName", safeString(campaignOpponentName));
-            payload.put("opponentAccuracy", Math.max(0, campaignOpponentAccuracy));
-            payload.put("opponentScore", Math.max(0, campaignOpponentScore));
-            payload.put("opponentCorrectAnswers", Math.max(0, campaignOpponentCorrectAnswers));
-            payload.put("opponentWrongAnswers", Math.max(0, campaignOpponentWrongAnswers));
-            payload.put("bossName", campaignBossOpponent != null ? campaignBossOpponent.name : safeString(campaignBossBotName));
-            payload.put("bossDefeated", bossDefeated);
-            payload.put("bossBattleWon", bossDefeated);
-            payload.put("bossScore", campaignBossOpponent != null ? Math.max(0, campaignBossOpponent.gameScore) : 0);
-            payload.put("bossCorrectAnswers", campaignBossOpponent != null ? Math.max(0, campaignBossOpponent.totalCorrectAnswers) : 0);
-            payload.put("bossWrongAnswers", campaignBossOpponent != null ? Math.max(0, targetCount - campaignBossOpponent.totalCorrectAnswers) : 0);
-            payload.put("seriesRounds", Math.max(0, campaignSeriesRounds));
-            payload.put("seriesWinsRequired", Math.max(0, campaignSeriesWinsRequired));
-            payload.put("playerSeriesWins", Math.max(0, campaignPlayerSeriesWins));
-            payload.put("opponentSeriesWins", Math.max(0, campaignOpponentSeriesWins));
-            payload.put("teamAllyName", safeString(campaignTeamAllyName));
-            payload.put("teamEnemyName", safeString(campaignTeamEnemyName));
-            payload.put("allyScore", Math.max(0, campaignAllyScore));
-            payload.put("teamScore", Math.max(0, campaignTeamScore));
-            payload.put("enemyTeamScore", Math.max(0, campaignEnemyTeamScore));
-            if (campaignBossBattle && campaignBossOpponent != null) {
-                payload.put("bossName", campaignBossOpponent.name);
-                payload.put("bossIntelligence", campaignBossOpponent.intelligence);
-                payload.put("bossDefeated", bossDefeated);
-                payload.put("bossBattleWon", bossDefeated);
-                payload.put("playerScore", Math.max(0, gameScoreMe));
-                payload.put("bossScore", Math.max(0, campaignBossOpponent.gameScore));
-                payload.put("bossCorrectAnswers", Math.max(0, campaignBossOpponent.totalCorrectAnswers));
-                payload.put("bossWrongAnswers", Math.max(0, targetCount - campaignBossOpponent.totalCorrectAnswers));
-            }
-            AppPrefs.setPendingCampaignStageResult(this, payload.toString());
-            Log.d("CampaignStage", "CAMP_RESULT_SAVED stageId=" + campaignStageId
-                    + " completed=" + effectiveCompleted
-                    + " correct=" + answeredCorrect
-                    + " wrong=" + Math.max(campaignWrongAnswers, Math.max(0, wrongAnswers)));
-        } catch (Exception ignored) {
-        }
+        campaignResultStore.persistPendingStageResult(completed, money, wrongAnswers);
     }
 
     private void updateInventoryBadges() {
-        updateBadge(R.id.badge5050,    PlayerProgress.getInventory5050(this));
-        updateBadge(R.id.badgeCall,    PlayerProgress.getInventoryCall(this));
-        updateBadge(R.id.badgeAudience, PlayerProgress.getInventoryAudience(this));
+        InventoryBadgeUpdater.update(this);
     }
-
-    private void updateBadge(int badgeId, int count) {
-        android.widget.TextView badge = findViewById(badgeId);
-        if (badge == null) return;
-        if (count > 0) {
-            badge.setText(String.valueOf(count));
-            badge.setVisibility(View.VISIBLE);
-        } else {
-            badge.setVisibility(View.GONE);
-        }
-    }
-
-    private void releasePlayer(MediaPlayer player) {
-        if (player == null) return;
-        try {
-            if (player.isPlaying()) {
-                player.stop();
-            }
-        } catch (Exception ignored) {
-        }
-        try {
-            player.reset();
-        } catch (Exception ignored) {
-        }
-        try {
-            player.release();
-        } catch (Exception ignored) {
-        }
-    }
-
 
 }
 
