@@ -40,9 +40,15 @@ class StageResultScreen extends StatefulWidget {
 
 class _StageResultScreenState extends State<StageResultScreen>
     with WidgetsBindingObserver {
+  static const Duration _pendingResultRetryDelay = Duration(milliseconds: 350);
+  static const Duration _missingResultTimeout = Duration(seconds: 8);
+
   final CampaignQuestionSelector _questionSelector = CampaignQuestionSelector();
   bool _launchingStage = false;
   bool _waitingForResult = false;
+  bool _returnedFromNative = false;
+  bool _pendingResultRetryScheduled = false;
+  DateTime? _missingResultSince;
 
   CampaignStage get stage => widget.stage;
   StageSubmissionResult get submissionResult => widget.submissionResult;
@@ -71,8 +77,11 @@ class _StageResultScreenState extends State<StageResultScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      if (_launchingStage && !_waitingForResult && mounted) {
-        setState(() => _waitingForResult = true);
+      if (_launchingStage) {
+        _returnedFromNative = true;
+        if (!_waitingForResult && mounted) {
+          setState(() => _waitingForResult = true);
+        }
       }
       _consumePendingCampaignResult();
     }
@@ -86,6 +95,7 @@ class _StageResultScreenState extends State<StageResultScreen>
     );
     if (!mounted) return;
     if (handled && _launchingStage) {
+      _resetPendingResultWait();
       setState(() {
         _launchingStage = false;
         _waitingForResult = false;
@@ -93,15 +103,55 @@ class _StageResultScreenState extends State<StageResultScreen>
       return;
     }
     if (!handled && _launchingStage) {
+      if (_shouldStopWaitingForMissingResult()) {
+        _stopWaitingForMissingResult();
+        return;
+      }
       _retryPendingResultSoon();
     }
   }
 
   void _retryPendingResultSoon() {
-    Future<void>.delayed(const Duration(milliseconds: 350), () {
+    if (_pendingResultRetryScheduled) return;
+    _pendingResultRetryScheduled = true;
+    Future<void>.delayed(_pendingResultRetryDelay, () {
+      _pendingResultRetryScheduled = false;
       if (!mounted || !_launchingStage) return;
       _consumePendingCampaignResult();
     });
+  }
+
+  bool _shouldStopWaitingForMissingResult() {
+    if (!_returnedFromNative) return false;
+    final now = DateTime.now();
+    _missingResultSince ??= now;
+    return now.difference(_missingResultSince!) >= _missingResultTimeout;
+  }
+
+  void _stopWaitingForMissingResult() {
+    _resetPendingResultWait();
+    if (!mounted) return;
+    setState(() {
+      _launchingStage = false;
+      _waitingForResult = false;
+    });
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text(
+            'لم تصل نتيجة المرحلة. حاول بدء المرحلة مرة أخرى.',
+            textAlign: TextAlign.right,
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+      );
+  }
+
+  void _resetPendingResultWait() {
+    _returnedFromNative = false;
+    _pendingResultRetryScheduled = false;
+    _missingResultSince = null;
   }
 
   @override
@@ -376,6 +426,7 @@ class _StageResultScreenState extends State<StageResultScreen>
 
   Future<void> _launchStageAgain(BuildContext context) async {
     if (_launchingStage) return;
+    _resetPendingResultWait();
     setState(() {
       _launchingStage = true;
       _waitingForResult = false;
@@ -446,6 +497,7 @@ class _StageResultScreenState extends State<StageResultScreen>
           ),
         );
       if (mounted) {
+        _resetPendingResultWait();
         setState(() {
           _launchingStage = false;
           _waitingForResult = false;

@@ -19,6 +19,7 @@ class CampaignResultHandler {
   static Future<bool> consumeAndHandlePendingCampaignResult({
     required BuildContext context,
   }) async {
+    if (!_isCurrentRoute(context)) return false;
     if (_processing) return false;
     _processing = true;
     try {
@@ -180,6 +181,11 @@ class CampaignResultHandler {
     } finally {
       _processing = false;
     }
+  }
+
+  static bool _isCurrentRoute(BuildContext context) {
+    final route = ModalRoute.of(context);
+    return route == null || route.isCurrent;
   }
 
   static const String _loggedOutSaveMessage =

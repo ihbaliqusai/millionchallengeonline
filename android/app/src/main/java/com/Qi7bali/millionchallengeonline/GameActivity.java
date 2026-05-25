@@ -61,6 +61,11 @@ import static net.androidgaming.millionaire2024.GameRules.ONLINE_SPEED_POINTS;
 import static net.androidgaming.millionaire2024.GameRules.QUESTION_TIMEOUT_MS;
 
 public class GameActivity extends AppCompatActivity {
+    private static final int DIALOG_CHARACTER_DELAY_MS = 18;
+    private static final int CAMPAIGN_FEEDBACK_TALK_MS = 900;
+    private static final int CAMPAIGN_FEEDBACK_MIN_READ_MS = 2200;
+    private static final int CAMPAIGN_FEEDBACK_TRANSITION_GAP_MS = 450;
+
     ArrayList<Question> questions = new ArrayList<>();
     ArrayList<TextView> listAnswerViews = new ArrayList<>();
     ArrayList<LinearLayout> steps = new ArrayList<>();
@@ -951,6 +956,12 @@ public class GameActivity extends AppCompatActivity {
             }
         }
         return "إجابة رائعة! اقتربت من النجمة التالية.";
+    }
+
+    private static int getReadableDialogDurationMs(String message, int minimumReadMs) {
+        int msgLen = message == null ? 0 : message.replace("\n", "").length();
+        int typewriterMs = (msgLen + 2) * DIALOG_CHARACTER_DELAY_MS;
+        return typewriterMs + minimumReadMs;
     }
 
     private boolean isShortGameScreen() {
@@ -3165,6 +3176,8 @@ public class GameActivity extends AppCompatActivity {
         CAN_PLAY = false;
         final boolean correct = !timeout && myAnswer == rightAnswer;
         final int starsBefore = campaignHudController.getEarnedStars();
+        final String campaignAnswerMessage;
+        final int campaignAnswerDialogMs;
         myAnswerElapsedMs = timeout ? QUESTION_TIMEOUT_MS : getCurrentAnswerElapsedMs();
         if (campaignBossBattle) {
             ensureCampaignBossAnswered();
@@ -3177,7 +3190,9 @@ public class GameActivity extends AppCompatActivity {
             person.like(700);
             playSound(R.raw.correct_answer, false, false);
             campaignHudController.updateProgressHud(true);
-            showDialog(getCampaignAnswerMessage(true, starsBefore), "", 700, 900, R.drawable.mouth_01, false);
+            campaignAnswerMessage = getCampaignAnswerMessage(true, starsBefore);
+            campaignAnswerDialogMs = getReadableDialogDurationMs(campaignAnswerMessage, CAMPAIGN_FEEDBACK_MIN_READ_MS);
+            showDialog(campaignAnswerMessage, "", CAMPAIGN_FEEDBACK_TALK_MS, campaignAnswerDialogMs, R.drawable.mouth_01, false);
         } else {
             recordCampaignWrongAnswer();
             PlayerStats.recordWrongAnswer(GameActivity.this);
@@ -3185,8 +3200,11 @@ public class GameActivity extends AppCompatActivity {
             if (imgSelected != null && !timeout) imgSelected.setImageResource(R.drawable.frame_wrong);
             if (imgRight != null) imgRight.setImageResource(R.drawable.frame_right);
             campaignHudController.updateProgressHud(false);
-            showDialog(getCampaignAnswerMessage(false, starsBefore), "", 700, 900, R.drawable.mouth_05, false);
+            campaignAnswerMessage = getCampaignAnswerMessage(false, starsBefore);
+            campaignAnswerDialogMs = getReadableDialogDurationMs(campaignAnswerMessage, CAMPAIGN_FEEDBACK_MIN_READ_MS);
+            showDialog(campaignAnswerMessage, "", CAMPAIGN_FEEDBACK_TALK_MS, campaignAnswerDialogMs, R.drawable.mouth_05, false);
         }
+        final int campaignNextQuestionDelayMs = campaignAnswerDialogMs + CAMPAIGN_FEEDBACK_TRANSITION_GAP_MS;
         applyCampaignModeAfterAnswer(correct);
         campaignHudController.updateProgressHud(false);
 
@@ -3217,7 +3235,7 @@ public class GameActivity extends AppCompatActivity {
                 // classic side/intermediate money screen between questions.
                 nextQuestion();
             }
-        }, correct ? 1500 : 1800);
+        }, campaignNextQuestionDelayMs);
     }
 
     private void completeCampaignStage() {
@@ -4105,7 +4123,7 @@ public class GameActivity extends AppCompatActivity {
                             txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
                         else
                             txtDialog.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
-                        txtDialog.setCharacterDelay(18);
+                        txtDialog.setCharacterDelay(DIALOG_CHARACTER_DELAY_MS);
                         txtDialog.animateText(message);
                         rlyDialog.setVisibility(View.VISIBLE);
                         rlyDialog.bringToFront();
