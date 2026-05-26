@@ -12,6 +12,7 @@ import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
+import android.text.TextPaint;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
@@ -988,23 +989,92 @@ public class GameActivity extends AppCompatActivity {
         txtQ.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
     }
 
-    private void applyAnswerTextSize(TextView answerView, String text) {
-        if (answerView == null) {
-            return;
+    private void applyAnswerTextSizes(ArrayList<String> answerTexts) {
+        final float sizeSp = resolveUniformAnswerTextSizeSp(answerTexts);
+        for (TextView answerView : listAnswerViews) {
+            if (answerView != null) {
+                answerView.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
+            }
         }
+    }
+
+    private float resolveAnswerTextSizeSp(String text) {
         final int aLen = text == null ? 0 : text.length();
         final boolean shortScreen = isShortGameScreen();
-        final float sizeSp;
         if (aLen <= 20) {
-            sizeSp = shortScreen ? 13f : 14f;
+            return shortScreen ? 13f : 14f;
         } else if (aLen <= 30) {
-            sizeSp = shortScreen ? 11.5f : 12f;
+            return shortScreen ? 11.5f : 12f;
         } else if (aLen <= 45) {
-            sizeSp = shortScreen ? 9.5f : 10f;
-        } else {
-            sizeSp = 8f;
+            return shortScreen ? 9.5f : 10f;
         }
-        answerView.setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp);
+        return 8f;
+    }
+
+    private float resolveUniformAnswerTextSizeSp(ArrayList<String> answerTexts) {
+        final boolean shortScreen = isShortGameScreen();
+        final float maxSizeSp = shortScreen ? 13f : 14f;
+        final float minSizeSp = 8f;
+        for (float sizeSp = maxSizeSp; sizeSp >= minSizeSp; sizeSp -= 0.5f) {
+            if (allAnswerTextsFit(answerTexts, sizeSp)) {
+                return sizeSp;
+            }
+        }
+
+        int longest = 0;
+        for (String answerText : answerTexts) {
+            longest = Math.max(longest, answerText == null ? 0 : answerText.length());
+        }
+        return resolveAnswerTextSizeSp(makeLengthProbe(longest));
+    }
+
+    private boolean allAnswerTextsFit(ArrayList<String> answerTexts, float sizeSp) {
+        if (answerTexts == null || answerTexts.isEmpty()) {
+            return true;
+        }
+        final float textSizePx = TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP,
+                sizeSp,
+                getResources().getDisplayMetrics()
+        );
+        for (int i = 0; i < answerTexts.size() && i < listAnswerViews.size(); i++) {
+            TextView answerView = listAnswerViews.get(i);
+            if (answerView == null) {
+                continue;
+            }
+            final int availableWidth = getAnswerTextAvailableWidth(answerView);
+            if (availableWidth <= 0) {
+                return false;
+            }
+            TextPaint paint = new TextPaint(answerView.getPaint());
+            paint.setTextSize(textSizePx);
+            if (paint.measureText(answerTexts.get(i) == null ? "" : answerTexts.get(i)) > availableWidth) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private int getAnswerTextAvailableWidth(TextView answerView) {
+        int width = answerView.getWidth();
+        if (width <= 0 && answerView.getParent() instanceof View) {
+            width = ((View) answerView.getParent()).getWidth();
+            ViewGroup.LayoutParams layoutParams = answerView.getLayoutParams();
+            if (layoutParams instanceof ViewGroup.MarginLayoutParams) {
+                ViewGroup.MarginLayoutParams marginParams =
+                        (ViewGroup.MarginLayoutParams) layoutParams;
+                width -= marginParams.leftMargin + marginParams.rightMargin;
+            }
+        }
+        return width - answerView.getPaddingLeft() - answerView.getPaddingRight();
+    }
+
+    private String makeLengthProbe(int length) {
+        StringBuilder builder = new StringBuilder(Math.max(0, length));
+        for (int i = 0; i < length; i++) {
+            builder.append('W');
+        }
+        return builder.toString();
     }
 
     private boolean allOpponentsSubmitted() {
@@ -4000,6 +4070,13 @@ public class GameActivity extends AppCompatActivity {
                 final ArrayList<Integer> answerOrder = getQuestionShuffled(question);
                 currentAnswerOrder.clear();
                 currentAnswerOrder.addAll(answerOrder);
+                final ArrayList<String> answerDisplayTexts = new ArrayList<>();
+                for (int i = 0; i < answerOrder.size(); i++) {
+                    int answerKey = answerOrder.get(i);
+                    String answerText = getAnswerText(question, answerKey);
+                    answerDisplayTexts.add(getLetter(i + 1) + " - " + answerText);
+                }
+                applyAnswerTextSizes(answerDisplayTexts);
 
                 final Handler handler = new Handler();
                 Runnable runnable = new Runnable() {
@@ -4015,9 +4092,7 @@ public class GameActivity extends AppCompatActivity {
                                 case 2:
                                 case 3:
                                     int answerKey = answerOrder.get(i);
-                                    String answerText = getAnswerText(question, answerKey);
-                                    listAnswerViews.get(i).setText(getLetter(i + 1) + " - " + answerText);
-                                    applyAnswerTextSize(listAnswerViews.get(i), answerText);
+                                    listAnswerViews.get(i).setText(answerDisplayTexts.get(i));
                                     if (answerKey == ANSWER_KEY_RIGHT) {
                                         rightAnswer = i+1;
                                         listAnswerViews.get(i).setTag("1");

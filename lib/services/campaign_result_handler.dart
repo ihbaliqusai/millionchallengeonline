@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -77,7 +79,7 @@ class CampaignResultHandler {
           result: preview,
         );
         if (!context.mounted) return true;
-        await Navigator.of(context).pushReplacement(
+        unawaited(Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
             builder: (_) => StageResultScreen(
               stage: stage,
@@ -85,7 +87,7 @@ class CampaignResultHandler {
               rawNativeResult: payload,
             ),
           ),
-        );
+        ));
         return true;
       }
 
@@ -121,7 +123,7 @@ class CampaignResultHandler {
           result: preview,
         );
         if (!context.mounted) return true;
-        await Navigator.of(context).pushReplacement(
+        unawaited(Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
             builder: (_) => StageResultScreen(
               stage: stage,
@@ -129,7 +131,7 @@ class CampaignResultHandler {
               rawNativeResult: payload,
             ),
           ),
-        );
+        ));
         return true;
       }
 
@@ -152,7 +154,7 @@ class CampaignResultHandler {
       );
 
       if (!context.mounted) return true;
-      await Navigator.of(context).pushReplacement(
+      unawaited(Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => StageResultScreen(
             stage: stage,
@@ -161,7 +163,7 @@ class CampaignResultHandler {
             currencyRewardApplied: rewardApplied,
           ),
         ),
-      );
+      ));
       return true;
     } catch (error, stackTrace) {
       if (kDebugMode) {

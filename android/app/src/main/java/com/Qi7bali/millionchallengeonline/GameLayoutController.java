@@ -25,14 +25,14 @@ final class GameLayoutController {
             if (answerView == null) {
                 continue;
             }
-            answerView.setHorizontallyScrolling(false);
-            TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+            TextViewCompat.setAutoSizeTextTypeWithDefaults(
                     answerView,
-                    8,
-                    14,
-                    1,
-                    TypedValue.COMPLEX_UNIT_SP
+                    TextViewCompat.AUTO_SIZE_TEXT_TYPE_NONE
             );
+            answerView.setHorizontallyScrolling(false);
+            answerView.setSingleLine(false);
+            answerView.setMaxLines(1);
+            answerView.setIncludeFontPadding(false);
         }
     }
 
