@@ -374,6 +374,7 @@ class NativeBridgeService {
       'sfx': result?['sfx'] as bool? ?? true,
       'music': result?['music'] as bool? ?? true,
       'haptic': result?['haptic'] as bool? ?? true,
+      'hapticAvailable': result?['hapticAvailable'] as bool? ?? true,
       'notifications': result?['notifications'] as bool? ?? true,
       'systemNotifications': result?['systemNotifications'] as bool? ?? true,
       'dialogs': result?['dialogs'] as bool? ?? true,
@@ -389,8 +390,20 @@ class NativeBridgeService {
     await _channel.invokeMethod<void>('setMusicEnabled', {'enabled': enabled});
   }
 
-  Future<void> setHapticEnabled(bool enabled) async {
-    await _channel.invokeMethod<void>('setHapticEnabled', {'enabled': enabled});
+  Future<bool> setHapticEnabled(bool enabled) async {
+    final result = await _channel.invokeMethod<bool>(
+      'setHapticEnabled',
+      {'enabled': enabled},
+    );
+    return result ?? false;
+  }
+
+  Future<bool> playHaptic({String style = 'light'}) async {
+    final result = await _channel.invokeMethod<bool>(
+      'playHaptic',
+      {'style': style},
+    );
+    return result ?? false;
   }
 
   Future<void> setNotificationsEnabled(bool enabled) async {

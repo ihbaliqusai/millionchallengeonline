@@ -23,7 +23,6 @@ import android.text.style.ForegroundColorSpan;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
-import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -608,7 +607,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                         break;
                     case 2:
                         person.moveShowHand(1000);
-                        showDialog("هل تريد معرفة قوانين اللعبة ؟", "ConfirmRules", 1000, 0, R.drawable.mouth_05, false);
+                        showConfirmationDialog("هل تريد معرفة قوانين اللعبة ؟", "ConfirmRules", 1000, 0, R.drawable.mouth_05, false);
                         break;
                 }
             }
@@ -628,7 +627,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                     txtSelected = (TextView) rlySelected.getChildAt(1);
                     if (txtSelected.getVisibility() == View.VISIBLE) {
                         imgSelected.setImageResource(R.drawable.frame_selected);
-                        showDialog("جواب نهائي ؟", "ConfirmAnswer", 500, 0, R.drawable.mouth_05, false);
+                        showConfirmationDialog("جواب نهائي ؟", "ConfirmAnswer", 500, 0, R.drawable.mouth_05, false);
                         person.bend(1000, R.drawable.person_02);
                         person.raiseEyeBrowsUp(1000, false, true);
                     }
@@ -860,10 +859,10 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 if (CAN_PLAY) {
                     if (imgHelp5050.getTag().toString().equals("1")) {
                         stopTimer(true);
-                        showDialog("هل تريد حذف إجابتين ؟", "ConfirmHelp5050", 2000, 0, R.drawable.mouth_05, false);
+                        showConfirmationDialog("هل تريد حذف إجابتين ؟", "ConfirmHelp5050", 2000, 0, R.drawable.mouth_05, false);
                     } else if (PlayerProgress.getInventory5050(BaseGameActivity.this) > 0) {
                         stopTimer(true);
-                        showDialog("استخدام 50:50 إضافية من المخزون؟", "ConfirmExtraHelp5050", 1500, 0, R.drawable.mouth_05, false);
+                        showConfirmationDialog("استخدام 50:50 إضافية من المخزون؟", "ConfirmExtraHelp5050", 1500, 0, R.drawable.mouth_05, false);
                     }
                 }
             }
@@ -877,10 +876,10 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 if (CAN_PLAY) {
                     if (imgHelpAudience.getTag().toString().equals("1")) {
                         stopTimer(true);
-                        showDialog("هل تريد طلب مساعدة الجمهور ؟", "ConfirmHelpAudience", 2000, 0, R.drawable.mouth_05, false);
+                        showConfirmationDialog("هل تريد طلب مساعدة الجمهور ؟", "ConfirmHelpAudience", 2000, 0, R.drawable.mouth_05, false);
                     } else if (PlayerProgress.getInventoryAudience(BaseGameActivity.this) > 0) {
                         stopTimer(true);
-                        showDialog("استخدام مساعدة جمهور إضافية من المخزون؟", "ConfirmExtraHelpAudience", 1500, 0, R.drawable.mouth_05, false);
+                        showConfirmationDialog("استخدام مساعدة جمهور إضافية من المخزون؟", "ConfirmExtraHelpAudience", 1500, 0, R.drawable.mouth_05, false);
                     }
                 }
             }
@@ -903,10 +902,10 @@ public abstract class BaseGameActivity extends AppCompatActivity {
                 if (CAN_PLAY) {
                     if (imgHelpCall.getTag().toString().equals("1")) {
                         stopTimer(true);
-                        showDialog("هل تريد الاتصال بصديق ؟", "ConfirmHelpCall", 2000, 0, R.drawable.mouth_05, false);
+                        showConfirmationDialog("هل تريد الاتصال بصديق ؟", "ConfirmHelpCall", 2000, 0, R.drawable.mouth_05, false);
                     } else if (PlayerProgress.getInventoryCall(BaseGameActivity.this) > 0) {
                         stopTimer(true);
-                        showDialog("استخدام اتصال إضافي من المخزون؟", "ConfirmExtraHelpCall", 1500, 0, R.drawable.mouth_05, false);
+                        showConfirmationDialog("استخدام اتصال إضافي من المخزون؟", "ConfirmExtraHelpCall", 1500, 0, R.drawable.mouth_05, false);
                     }
                 }
             }
@@ -964,7 +963,7 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     private void gameHaptic(View view) {
         if (view != null && AppPrefs.isHapticEnabled(this)) {
-            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+            AppHaptics.light(this);
         }
     }
 
@@ -4963,9 +4962,9 @@ public abstract class BaseGameActivity extends AppCompatActivity {
 
     private void confirmExit() {
         if (!txtAmount.getText().toString().equals("$0")) {
-            showDialog("هل تريد الخروج والاكتفاء بالمبلغ الحالي ؟", "ConfirmHome", 2000, 0, R.drawable.mouth_05, false);
+            showConfirmationDialog("هل تريد الخروج والاكتفاء بالمبلغ الحالي ؟", "ConfirmHome", 2000, 0, R.drawable.mouth_05, false);
         } else {
-            showDialog("هل تريد الانسحاب من المباراة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
+            showConfirmationDialog("هل تريد الانسحاب من المباراة ؟", "ConfirmExit", 2000, 0, R.drawable.mouth_05, false);
         }
     }
 
@@ -5727,6 +5726,28 @@ public abstract class BaseGameActivity extends AppCompatActivity {
             } catch (Exception ignored) {
             }
         }
+    }
+
+    private void showConfirmationDialog(final String message, final String tag, final int timeTalk, final int timeDialog, final int nextMouthId, final boolean gameStatusAfter) {
+        if (shouldSkipConfirmation(tag)) {
+            acceptSkippedConfirmation(tag);
+            return;
+        }
+        showDialog(message, tag, timeTalk, timeDialog, nextMouthId, gameStatusAfter);
+    }
+
+    private boolean shouldSkipConfirmation(String tag) {
+        return tag != null && tag.startsWith("Confirm") && !AppPrefs.isDialogsEnabled(this);
+    }
+
+    private void acceptSkippedConfirmation(String tag) {
+        if ("ConfirmRules".equals(tag)) {
+            startMatchFlow();
+            return;
+        }
+        currentDialog = tag;
+        CAN_CLICK = true;
+        btnDialogYes.performClick();
     }
 
     private void showDialog(final String message, final String tag, final int timeTalk, final int timeDialog, final int nextMouthId, final boolean gameStatusAfter) {

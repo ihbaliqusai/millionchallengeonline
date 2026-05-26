@@ -117,9 +117,7 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _haptic() async {
-    if (context.read<AppSettings>().haptic) {
-      await HapticFeedback.lightImpact();
-    }
+    await context.read<AppSettings>().playHaptic();
   }
 
   Future<void> _loadInventory() async {

@@ -2,6 +2,7 @@ package net.androidgaming.millionaire2024
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -19,6 +20,12 @@ class MainActivity : FlutterActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         pendingLaunchAction = intent.getStringExtra("launchAction")
+        syncDailyReminderSchedule()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        syncDailyReminderSchedule()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -278,6 +285,7 @@ class MainActivity : FlutterActivity() {
                             "sfx"                 to AppPrefs.isSoundEnabled(this),
                             "music"               to AppPrefs.isMusicEnabled(this),
                             "haptic"              to AppPrefs.isHapticEnabled(this),
+                            "hapticAvailable"     to AppHaptics.hasVibrator(this),
                             "notifications"       to AppPrefs.isNotificationsEnabled(this),
                             "systemNotifications" to NotificationManagerCompat.from(this).areNotificationsEnabled(),
                             "dialogs"             to AppPrefs.isDialogsEnabled(this),
@@ -297,7 +305,20 @@ class MainActivity : FlutterActivity() {
                     "setHapticEnabled" -> {
                         val enabled = call.argument<Boolean>("enabled") ?: true
                         AppPrefs.setHapticEnabled(this, enabled)
-                        result.success(true)
+                        var played = false
+                        if (enabled) {
+                            played = AppHaptics.medium(this)
+                        }
+                        result.success(played)
+                    }
+                    "playHaptic" -> {
+                        val style = call.argument<String>("style") ?: "light"
+                        val played = if (AppPrefs.isHapticEnabled(this)) {
+                            AppHaptics.play(this, style)
+                        } else {
+                            false
+                        }
+                        result.success(played)
                     }
                     "setNotificationsEnabled" -> {
                         val enabled = call.argument<Boolean>("enabled") ?: true
@@ -323,10 +344,7 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "openNotificationSettings" -> {
-                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-                        }
-                        startActivity(intent)
+                        openAppNotificationSettings()
                         result.success(true)
                     }
                     "resetLocalProgress" -> {
@@ -520,8 +538,30 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                     else -> result.notImplemented()
-                }
             }
+    }
+    }
+
+    private fun openAppNotificationSettings() {
+        val notificationIntent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        }
+        try {
+            startActivity(notificationIntent)
+        } catch (ignored: Exception) {
+            val appSettingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            startActivity(appSettingsIntent)
+        }
+    }
+
+    private fun syncDailyReminderSchedule() {
+        if (AppPrefs.isNotificationsEnabled(this)) {
+            NotificationScheduler.scheduleDailyReminder(this)
+        } else {
+            NotificationScheduler.cancelDailyReminder(this)
+        }
     }
 
     private fun isValidPowerUp(type: String): Boolean {

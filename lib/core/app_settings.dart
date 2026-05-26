@@ -11,6 +11,7 @@ class AppSettings extends ChangeNotifier {
   bool sfx = true;
   bool music = true;
   bool haptic = true;
+  bool hapticAvailable = true;
   bool notifications = true;
   bool systemNotifications = true;
   bool dialogs = true;
@@ -21,18 +22,15 @@ class AppSettings extends ChangeNotifier {
 
   Future<void> load() async {
     try {
-      final settings = await _nativeBridgeService.getSettings();
-      sfx = settings['sfx'] as bool? ?? true;
-      music = settings['music'] as bool? ?? true;
-      haptic = settings['haptic'] as bool? ?? true;
-      notifications = settings['notifications'] as bool? ?? true;
-      systemNotifications = settings['systemNotifications'] as bool? ?? true;
-      dialogs = settings['dialogs'] as bool? ?? true;
-      languageCode = _normalizeLanguage(settings['language'] as String?);
+      await _refreshFromNative(notify: false);
     } finally {
       loading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> refresh() {
+    return _refreshFromNative();
   }
 
   Future<void> setSfx(bool value) async {
@@ -47,17 +45,36 @@ class AppSettings extends ChangeNotifier {
     await _nativeBridgeService.setMusicEnabled(value);
   }
 
-  Future<void> setHaptic(bool value) async {
+  Future<bool> setHaptic(bool value) async {
     haptic = value;
     notifyListeners();
-    await _nativeBridgeService.setHapticEnabled(value);
+    final played = await _nativeBridgeService.setHapticEnabled(value);
+    if (value) {
+      hapticAvailable = played;
+      notifyListeners();
+    }
+    return played;
+  }
+
+  Future<bool> playHaptic({String style = 'light', bool force = false}) async {
+    if (!force && !haptic) return false;
+    final played = await _nativeBridgeService.playHaptic(style: style);
+    hapticAvailable = played;
+    notifyListeners();
+    return played;
   }
 
   Future<void> setNotifications(bool value) async {
     notifications = value;
     notifyListeners();
     await _nativeBridgeService.setNotificationsEnabled(value);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await refreshNotificationStatus();
+  }
+
+  Future<void> refreshNotificationStatus() async {
     final refreshed = await _nativeBridgeService.getSettings();
+    notifications = refreshed['notifications'] as bool? ?? notifications;
     systemNotifications =
         refreshed['systemNotifications'] as bool? ?? systemNotifications;
     notifyListeners();
@@ -82,5 +99,20 @@ class AppSettings extends ChangeNotifier {
 
   String _normalizeLanguage(String? value) {
     return value == 'en' ? 'en' : 'ar';
+  }
+
+  Future<void> _refreshFromNative({bool notify = true}) async {
+    final settings = await _nativeBridgeService.getSettings();
+    sfx = settings['sfx'] as bool? ?? true;
+    music = settings['music'] as bool? ?? true;
+    haptic = settings['haptic'] as bool? ?? true;
+    hapticAvailable = settings['hapticAvailable'] as bool? ?? true;
+    notifications = settings['notifications'] as bool? ?? true;
+    systemNotifications = settings['systemNotifications'] as bool? ?? true;
+    dialogs = settings['dialogs'] as bool? ?? true;
+    languageCode = _normalizeLanguage(settings['language'] as String?);
+    if (notify) {
+      notifyListeners();
+    }
   }
 }

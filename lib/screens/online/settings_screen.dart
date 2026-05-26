@@ -14,18 +14,30 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+    context.read<AppSettings>().refreshNotificationStatus();
   }
 
   Future<void> _feedback([AppSettings? settings]) async {
     final appSettings = settings ?? context.read<AppSettings>();
-    if (appSettings.haptic) {
-      await HapticFeedback.lightImpact();
-    }
+    await appSettings.playHaptic();
   }
 
   String _text(AppSettings settings, String ar, String en) {
@@ -36,6 +48,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = context.read<AppSettings>();
     await _feedback(settings);
     await settings.setLanguage(code);
+  }
+
+  Future<void> _goBack() async {
+    await _feedback();
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   Future<void> _toggleSfx(bool value) async {
@@ -52,9 +70,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _toggleHaptic(bool value) async {
     final settings = context.read<AppSettings>();
-    await settings.setHaptic(value);
+    final togglePlayed = await settings.setHaptic(value);
     if (value) {
-      await HapticFeedback.mediumImpact();
+      await HapticFeedback.heavyImpact();
+      final testPlayed = await settings.playHaptic(style: 'heavy', force: true);
+      if (!mounted) return;
+      if (!togglePlayed && !testPlayed) {
+        _showSnack(
+          settings,
+          'لم يؤكد Android وجود اهتزاز في هذا الجهاز. تأكد من إعدادات الاهتزاز في الهاتف أو جرّب على جهاز حقيقي.',
+          'Android did not report a working vibrator. Check phone vibration settings or try a real device.',
+          error: true,
+        );
+      }
     }
   }
 
@@ -82,6 +110,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settings = context.read<AppSettings>();
     await _feedback(settings);
     await settings.openNotificationSettings();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    await settings.refreshNotificationStatus();
   }
 
   void _openPrivacyPolicy() {
@@ -121,9 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _deleteAccount() async {
     final settings = context.read<AppSettings>();
     final appState = context.read<AppState>();
-    if (settings.haptic) {
-      await HapticFeedback.heavyImpact();
-    }
+    await settings.playHaptic(style: 'heavy');
 
     final user = appState.user;
     if (user == null) return;
@@ -342,7 +371,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'تحكم فعلي بالصوت، اللغة، التذكيرات وتجربة اللعب',
                       'Real controls for sound, language, reminders, and gameplay',
                     ),
-                    onBack: () => Navigator.of(context).pop(),
+                    onBack: _goBack,
                   ),
                   Expanded(
                     child: settings.loading
@@ -639,8 +668,8 @@ class _SwitchBoard extends StatelessWidget {
         icon: Icons.record_voice_over_rounded,
         color: const Color(0xFF34D399),
         title: _t('تأكيدات اللعب', 'Game Confirmations'),
-        subtitle: _t('حوار بدء لعبة جديدة والخروج في اللعب الأصلي',
-            'New game and exit confirmations in native play'),
+        subtitle: _t('الإجابة، المساعدات، القوانين والخروج في اللعب الأصلي',
+            'Answer, lifeline, rules, and exit prompts in native play'),
         value: settings.dialogs,
         onChanged: onDialogs,
       ),
