@@ -15,6 +15,7 @@ import 'services/native_bridge_service.dart';
 import 'services/profile_service.dart'; // still needed by other screens
 import 'services/room_service.dart';
 import 'services/ad_service.dart';
+import 'services/cross_promo_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -56,6 +57,11 @@ class MillionaireOnlineApp extends StatelessWidget {
               AppSettings(context.read<NativeBridgeService>())..load(),
         ),
         Provider<RoomService>(create: (_) => RoomService()),
+        ChangeNotifierProvider<CrossPromoService>(
+          create: (context) => CrossPromoService(
+            nativeBridge: context.read<NativeBridgeService>(),
+          )..checkInstallation(),
+        ),
         ChangeNotifierProxyProvider2<AuthService, NativeBridgeService,
             AppState>(
           create: (context) => AppState(

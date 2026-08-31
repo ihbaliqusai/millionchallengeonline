@@ -267,8 +267,17 @@ class NativeBridgeService {
     await _channel.invokeMethod('launchSettings');
   }
 
-  Future<void> launchSpeedBattle() async {
-    await _channel.invokeMethod('launchSpeedBattle');
+  Future<void> launchSpeedBattle({String? matchMode, String? friendCode}) async {
+    await _channel.invokeMethod('launchSpeedBattle', <String, dynamic>{
+      'matchMode': matchMode ?? '',
+      'friendCode': friendCode ?? '',
+    });
+  }
+
+  Future<void> launchFriendChallenge({required String friendCode}) async {
+    await _channel.invokeMethod('launchFriendChallenge', <String, dynamic>{
+      'friendCode': friendCode,
+    });
   }
 
   /// يُعيد إحصائيات اللاعب الحقيقية من PlayerStats
@@ -492,6 +501,32 @@ class NativeBridgeService {
       'quantity': quantity,
     });
     return result ?? false;
+  }
+
+  Future<bool> isAppInstalled(String packageName) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('isAppInstalled', {
+        'packageName': packageName,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> launchAppOrPlayStore({
+    required String packageName,
+    String? url,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('launchAppOrPlayStore', {
+        'packageName': packageName,
+        if (url != null) 'url': url,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
   Map<String, dynamic>? _decodeCampaignResult(dynamic raw) {

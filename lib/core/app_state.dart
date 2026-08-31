@@ -360,9 +360,26 @@ class AppState extends ChangeNotifier {
     await _nativeBridgeService.launchNativeSettings();
   }
 
-  Future<void> openSpeedBattle() async {
+  String get friendCode {
+    final uid = currentUser?.uid;
+    if (uid == null || uid.isEmpty) return '';
+    final normalized =
+        uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    if (normalized.isEmpty) return '';
+    return normalized.length > 10 ? normalized.substring(0, 10) : normalized;
+  }
+
+  Future<void> openSpeedBattle({String? matchMode, String? friendCode}) async {
     await _syncLegacyUser();
-    await _nativeBridgeService.launchSpeedBattle();
+    await _nativeBridgeService.launchSpeedBattle(
+      matchMode: matchMode,
+      friendCode: friendCode,
+    );
+  }
+
+  Future<void> openFriendChallenge(String friendCode) async {
+    await _syncLegacyUser();
+    await _nativeBridgeService.launchFriendChallenge(friendCode: friendCode);
   }
 
   Future<void> loadCurrency() async {

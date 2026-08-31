@@ -1,0 +1,60 @@
+﻿    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: compact ? 7 : 9,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFD700).withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.vpn_key_rounded, color: Color(0xFFFFD700), size: 14),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              displayCode,
+              style: TextStyle(
+                color: const Color(0xFFFDE68A),
+                fontSize: compact ? 10 : 11,
+                fontWeight: FontWeight.w800,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          GestureDetector(
+            onTap: friendCode.isNotEmpty
+                ? () {
+                    Clipboard.setData(ClipboardData(text: friendCode));
+                    HapticFeedback.selectionClick();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('ØªÙ… Ù†Ø³Ø® ÙƒÙˆØ¯ Ø§Ù„ØªØ­Ø¯ÙŠ: $friendCode'),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                : null,
+            child: const Icon(
+              Icons.copy_rounded,
+              size: 14,
+              color: Color(0xFFFFD700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniBadge extends StatelessWidget {
+  const _MiniBadge({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+

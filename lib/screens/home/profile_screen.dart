@@ -1167,7 +1167,12 @@ class _AccountStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shortId = uid.length > 18 ? '${uid.substring(0, 18)}...' : uid;
+    final friendCode = context.watch<AppState>().friendCode;
+    final displayCode = friendCode.isNotEmpty
+        ? 'كود التحدي: $friendCode'
+        : (uid.isEmpty
+            ? 'حساب محلي'
+            : (uid.length > 18 ? '${uid.substring(0, 18)}...' : uid));
 
     return Container(
       width: double.infinity,
@@ -1176,20 +1181,22 @@ class _AccountStrip extends StatelessWidget {
         vertical: compact ? 7 : 9,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: const Color(0xFFFFD700).withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border:
+            Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.link_rounded, color: Color(0xFFEC4899), size: 15),
+          const Icon(Icons.vpn_key_rounded,
+              color: Color(0xFFFFD700), size: 14),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              shortId.isEmpty ? 'حساب محلي' : shortId,
+              displayCode,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.68),
-                fontSize: compact ? 9 : 10,
+                color: const Color(0xFFFDE68A),
+                fontSize: compact ? 10 : 11,
                 fontWeight: FontWeight.w800,
               ),
               maxLines: 1,
@@ -1197,13 +1204,23 @@ class _AccountStrip extends StatelessWidget {
             ),
           ),
           GestureDetector(
-            onTap: uid.isEmpty
-                ? null
-                : () => Clipboard.setData(ClipboardData(text: uid)),
-            child: Icon(
+            onTap: friendCode.isNotEmpty
+                ? () {
+                    Clipboard.setData(ClipboardData(text: friendCode));
+                    HapticFeedback.selectionClick();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('تم نسخ كود التحدي: $friendCode'),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                : null,
+            child: const Icon(
               Icons.copy_rounded,
               size: 14,
-              color: Colors.white.withValues(alpha: uid.isEmpty ? 0.20 : 0.48),
+              color: Color(0xFFFFD700),
             ),
           ),
         ],

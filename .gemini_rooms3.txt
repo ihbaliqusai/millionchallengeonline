@@ -1,0 +1,70 @@
+﻿import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/app_state.dart';
+import '../../models/player_profile.dart';
+import '../../models/room.dart';
+import '../../services/profile_service.dart';
+import '../../services/room_service.dart';
+import 'room_lobby_screen.dart';
+
+class RoomsScreen extends StatefulWidget {
+  const RoomsScreen({super.key, this.initialRoomCode});
+
+  final String? initialRoomCode;
+
+  @override
+  State<RoomsScreen> createState() => _RoomsScreenState();
+}
+
+class _RoomsScreenState extends State<RoomsScreen>
+    with SingleTickerProviderStateMixin {
+  final TextEditingController _roomCodeController = TextEditingController();
+  int _maxPlayers = 4;
+  String _mode = 'battle';
+  int _roundDurationSeconds = 60;
+  int _seriesTarget = 2;
+  bool _isPrivate = false;
+  bool _creatingRoom = false;
+  bool _joiningRoom = false;
+  late final AnimationController _pulseCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    if (widget.initialRoomCode != null && widget.initialRoomCode!.isNotEmpty) {
+      _roomCodeController.text = widget.initialRoomCode!;
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkClipboardAutoFill());
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<RoomService>().purgeStaleRooms();
+    });
+  }
+
+  Future<void> _checkClipboardAutoFill() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text != null && data!.text!.trim().isNotEmpty && mounted) {
+        final text = data.text!.trim();
+        final match = RegExp(
+          r'(?:Ø±Ù…Ø² Ø§Ù„ØºØ±ÙØ©|ÙƒÙˆØ¯ Ø§Ù„ØºØ±ÙØ©|ÙƒÙˆØ¯|code)[:\s\n`]*([A-Za-z0-9_-]{8,25})',
+          caseSensitive: false,
+        ).firstMatch(text);
+        final extracted = match?.group(1) ??
+            (RegExp(r'^[A-Za-z0-9_-]{8,25}$').hasMatch(text) ? text : '');
+        if (extracted.isNotEmpty && _roomCodeController.text.isEmpty) {
+          setState(() {
+            _roomCodeController.text = extracted;
+          });
+        }
+      }
+    } catch (_) {}
+  }

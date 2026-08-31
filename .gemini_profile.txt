@@ -1,0 +1,43 @@
+﻿
+    final String uid;
+    final bool compact;
+  
+    @override
+    Widget build(BuildContext context) {
+>     final friendCode = context.watch<AppState>().friendCode;
+>     final displayCode = friendCode.isNotEmpty
+>         ? 'ÙƒÙˆØ¯ Ø§Ù„ØªØ­Ø¯ÙŠ: $friendCode'
+          : (uid.isEmpty
+              ? 'Ø­Ø³Ø§Ø¨ Ù…Ø­Ù„ÙŠ'
+              : (uid.length > 18 ? '${uid.substring(0, 18)}...' : uid));
+  
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: compact ? 7 : 9,
+        ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            GestureDetector(
+>             onTap: friendCode.isNotEmpty
+                  ? () {
+>                     Clipboard.setData(ClipboardData(text: friendCode));
+                      HapticFeedback.selectionClick();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+>                         content: Text('ØªÙ… Ù†Ø³Ø® ÙƒÙˆØ¯ Ø§Ù„ØªØ­Ø¯ÙŠ: $friendCode'),
+                          duration: const Duration(seconds: 2),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  : null,
+              child: const Icon(
+                Icons.copy_rounded,
+                size: 14,
+                color: Color(0xFFFFD700),
+
+

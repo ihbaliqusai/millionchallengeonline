@@ -7,10 +7,13 @@ import '../../models/player_profile.dart';
 import '../../models/room.dart';
 import '../../services/profile_service.dart';
 import '../../services/room_service.dart';
+import '../../widgets/friend_challenge_modal.dart';
 import 'room_lobby_screen.dart';
 
 class RoomsScreen extends StatefulWidget {
-  const RoomsScreen({super.key});
+  const RoomsScreen({super.key, this.initialRoomCode});
+
+  final String? initialRoomCode;
 
   @override
   State<RoomsScreen> createState() => _RoomsScreenState();
@@ -36,10 +39,36 @@ class _RoomsScreenState extends State<RoomsScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
+    if (widget.initialRoomCode != null && widget.initialRoomCode!.isNotEmpty) {
+      _roomCodeController.text = widget.initialRoomCode!;
+    } else {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _checkClipboardAutoFill());
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<RoomService>().purgeStaleRooms();
     });
+  }
+
+  Future<void> _checkClipboardAutoFill() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text != null && data!.text!.trim().isNotEmpty && mounted) {
+        final text = data.text!.trim();
+        final match = RegExp(
+          r'(?:رمز الغرفة|كود الغرفة|كود|code)[:\s\n`]*([A-Za-z0-9_-]{8,25})',
+          caseSensitive: false,
+        ).firstMatch(text);
+        final extracted = match?.group(1) ??
+            (RegExp(r'^[A-Za-z0-9_-]{8,25}$').hasMatch(text) ? text : '');
+        if (extracted.isNotEmpty && _roomCodeController.text.isEmpty) {
+          setState(() {
+            _roomCodeController.text = extracted;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -364,6 +393,68 @@ class _CreateJoinPanel extends StatelessWidget {
 
     return Column(
       children: [
+        // ── 1v1 Friend Challenge Banner ─────────────────────────
+        _Card(
+          gradient: const [Color(0xFF2E1065), Color(0xFF1E1B4B)],
+          borderColor: const Color(0xFFC084FC),
+          child: InkWell(
+            onTap: () => FriendChallengeModal.show(context),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF59E0B), Color(0xFFEC4899)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFEC4899).withValues(alpha: 0.35),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.sports_kabaddi_rounded,
+                        color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'تحدي صديق 1 ضد 1 ⚔️',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'إنشاء كود سريع والمشاركة بلمسة عبر الواتساب',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFF472B6),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded,
+                      color: Color(0xFFF472B6), size: 16),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         // ── Create Room card ────────────────────────────────────
         _Card(
           gradient: const [Color(0xFF1E3A8A), Color(0xFF1E1B4B)],
@@ -788,20 +879,46 @@ class _CreateJoinPanel extends StatelessWidget {
                       fontSize: 14),
                   prefixIcon: Icon(Icons.tag_rounded,
                       color: const Color(0xFFFACC15).withValues(alpha: 0.8)),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.paste_rounded,
+                        color: Color(0xFFFACC15), size: 20),
+                    tooltip: 'لصق الرمز',
+                    onPressed: () async {
+                      try {
+                        final data =
+                            await Clipboard.getData(Clipboard.kTextPlain);
+                        if (data?.text != null &&
+                            data!.text!.trim().isNotEmpty) {
+                          final text = data.text!.trim();
+                          final match = RegExp(
+                            r'(?:رمز الغرفة|كود الغرفة|كود|code)[:\s\n]*([A-Za-z0-9_-]{4,25})',
+                            caseSensitive: false,
+                          ).firstMatch(text);
+                          final extracted = match?.group(1) ??
+                              text.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+                          if (extracted.isNotEmpty) {
+                            roomCodeController.text = extracted;
+                            HapticFeedback.selectionClick();
+                          }
+                        }
+                      } catch (_) {}
+                    },
+                  ),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.06),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                        color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                        color:
+                            const Color(0xFFF59E0B).withValues(alpha: 0.4)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        const BorderSide(color: Color(0xFFFACC15), width: 1.5),
+                    borderSide: const BorderSide(
+                        color: Color(0xFFFACC15), width: 1.5),
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 12),

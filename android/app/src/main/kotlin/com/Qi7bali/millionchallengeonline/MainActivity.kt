@@ -68,8 +68,21 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
                     "launchSpeedBattle" -> {
-                        // يفتح شاشة البحث عن خصم عشوائي مباشرة
-                        val intent = Intent(this, OpponentActivity::class.java)
+                        val matchMode = call.argument<String>("matchMode") ?: ""
+                        val friendCode = call.argument<String>("friendCode") ?: ""
+                        val intent = Intent(this, OpponentActivity::class.java).apply {
+                            if (matchMode.isNotEmpty()) putExtra("matchMode", matchMode)
+                            if (friendCode.isNotEmpty()) putExtra("friendCode", friendCode)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    }
+                    "launchFriendChallenge" -> {
+                        val friendCode = call.argument<String>("friendCode") ?: ""
+                        val intent = Intent(this, OpponentActivity::class.java).apply {
+                            putExtra("matchMode", "friend")
+                            putExtra("friendCode", friendCode)
+                        }
                         startActivity(intent)
                         result.success(true)
                     }
@@ -536,6 +549,56 @@ class MainActivity : FlutterActivity() {
                             PlayerProgress.grantInventory(this, type, quantity)
                             result.success(true)
                         }
+                    }
+                    "isAppInstalled" -> {
+                        val targetPkg = call.argument<String>("packageName") ?: ""
+                        if (targetPkg.isBlank()) {
+                            result.success(false)
+                        } else {
+                            try {
+                                packageManager.getPackageInfo(targetPkg, 0)
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.success(false)
+                            }
+                        }
+                    }
+                    "launchAppOrPlayStore" -> {
+                        val targetPkg = call.argument<String>("packageName") ?: ""
+                        val fallbackUrl = call.argument<String>("url") ?: "https://play.google.com/store/apps/details?id=$targetPkg"
+                        var launched = false
+                        if (targetPkg.isNotBlank()) {
+                            try {
+                                val launchIntent = packageManager.getLaunchIntentForPackage(targetPkg)
+                                if (launchIntent != null) {
+                                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    startActivity(launchIntent)
+                                    launched = true
+                                }
+                            } catch (e: Exception) {
+                                Log.w("MainActivity", "Failed to launch installed app: $targetPkg", e)
+                            }
+                        }
+                        if (!launched) {
+                            try {
+                                val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$targetPkg")).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(marketIntent)
+                                launched = true
+                            } catch (e: Exception) {
+                                try {
+                                    val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    startActivity(webIntent)
+                                    launched = true
+                                } catch (e2: Exception) {
+                                    Log.e("MainActivity", "Failed to open Play Store / fallback URL", e2)
+                                }
+                            }
+                        }
+                        result.success(launched)
                     }
                     else -> result.notImplemented()
             }

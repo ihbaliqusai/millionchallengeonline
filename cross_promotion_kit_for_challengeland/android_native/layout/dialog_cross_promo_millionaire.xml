@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="600dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_cross_promo_gold"
+    android:padding="16dp"
+    android:layout_gravity="center">
+
+    <!-- Header -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_toStartOf="@+id/btn_close_promo">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_dialog_info"
+                android:contentDescription="Icon" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginStart="10dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="تحدي المليونير - أونلاين 🏆"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="أضخم لعبة معلومات عربية! أكثر من 50,000 سؤال ومباريات جماعية حية"
+                    android:textColor="#B3FFFFFF"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btn_close_promo"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignParentEnd="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:contentDescription="Close" />
+    </RelativeLayout>
+
+    <!-- Features Banner / Text -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🌟 مميزات اللعبة:\n• أكثر من 50,000 سؤال متنوع في جميع المجالات\n• غرف وتحديات أونلاين مباشرة مع أصدقائك\n• رحلة المراحل والعوالم مع مسابقات يومية\n• وسائل مساعدة كلاسيكية ولعب كامل بدون إنترنت"
+        android:textColor="#E0E7FF"
+        android:textSize="13sp"
+        android:lineSpacingMultiplier="1.2"
+        android:layout_marginBottom="16dp"
+        android:padding="8dp" />
+
+    <!-- Action Button -->
+    <Button
+        android:id="@+id/btn_promo_action"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="@drawable/btn_gold_gradient"
+        android:text="تثبيت مجاناً من Google Play 🚀"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

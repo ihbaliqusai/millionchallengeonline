@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:millionaire_flutter_exact/screens/online/rooms_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
@@ -18,11 +17,15 @@ import 'profile_screen.dart';
 import '../online/settings_screen.dart';
 import '../online/stats_screen.dart';
 import '../online/achievements_screen.dart';
+import '../online/rooms_screen.dart';
+import '../online/room_lobby_screen.dart';
 import '../../services/room_service.dart';
 import '../../widgets/currency_reward_overlay.dart';
 import '../../services/ad_service.dart';
 import '../../services/campaign_result_handler.dart';
 import '../../services/native_bridge_service.dart';
+import '../../widgets/cross_promo_challengeland_badge.dart';
+import '../../widgets/friend_challenge_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -38,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final AnimationController _bgCtrl;
   bool _syncingPendingRoomMatchResult = false;
   bool _handlingNativeLaunchAction = false;
+  String? _lastPromptedClipboardCode;
 
   @override
   void initState() {
@@ -55,6 +59,9 @@ class _HomeScreenState extends State<HomeScreen>
         context: context,
       );
       _consumeNativeLaunchAction();
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) _checkClipboardForIncomingInvite();
+      });
     });
     _idleCtrl = AnimationController(
       vsync: this,
@@ -82,7 +89,332 @@ class _HomeScreenState extends State<HomeScreen>
         context: context,
       );
       _consumeNativeLaunchAction();
+      _checkClipboardForIncomingInvite();
     }
+  }
+
+  Future<void> _checkClipboardForIncomingInvite() async {
+    if (!mounted) return;
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text == null || data!.text!.trim().isEmpty || !mounted) return;
+      final text = data.text!.trim();
+      final myCode = context.read<AppState>().friendCode;
+
+      // Extract friend challenge code
+      final isFriendMsg = text.contains('تحدي') ||
+          text.contains('كود') ||
+          text.contains('Million') ||
+          text.contains('مليون') ||
+          RegExp(r'^[A-Za-z0-9]{6,12}$').hasMatch(text);
+
+      if (isFriendMsg) {
+        final codeMatch = RegExp(
+          r'(?:كود التحدي(?: الخاص بي)?|كود|code)[:\s\n`]*([A-Za-z0-9]{4,15})',
+          caseSensitive: false,
+        ).firstMatch(text);
+        final code = codeMatch?.group(1)?.trim().toUpperCase() ??
+            (RegExp(r'^[A-Za-z0-9]{6,12}$').hasMatch(text)
+                ? text.toUpperCase()
+                : '');
+
+        if (code.isNotEmpty &&
+            code != myCode &&
+            code != _lastPromptedClipboardCode) {
+          _lastPromptedClipboardCode = code;
+          if (!mounted) return;
+          _showIncomingChallengePrompt(code);
+          return;
+        }
+      }
+
+      // Extract Room invite
+      if (text.contains('غرف') || text.contains('room')) {
+        final roomMatch = RegExp(
+          r'(?:رمز الغرفة|كود الغرفة|room)[:\s\n`]*([A-Za-z0-9_-]{8,25})',
+          caseSensitive: false,
+        ).firstMatch(text);
+        final roomId = roomMatch?.group(1)?.trim();
+        if (roomId != null &&
+            roomId.isNotEmpty &&
+            roomId != _lastPromptedClipboardCode) {
+          _lastPromptedClipboardCode = roomId;
+          if (!mounted) return;
+          _showIncomingRoomPrompt(roomId);
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _showIncomingChallengePrompt(String code) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          constraints: const BoxConstraints(maxWidth: 400),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0F1E4A), Color(0xFF080D24)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+                blurRadius: 24,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+                  ),
+                ),
+                child: const Icon(
+                  Icons.sports_esports_rounded,
+                  color: Color(0xFF0B1437),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '⚔️ تم اكتشاف دعوة تحدي من صديق!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF070F28),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Text(
+                  code,
+                  style: const TextStyle(
+                    color: Color(0xFFFFD700),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text('تجاهل'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFD700), Color(0xFFF59E0B)],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          context.read<AppState>().openFriendChallenge(code);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          foregroundColor: const Color(0xFF0B1437),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          'بدء التحدي الآن',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showIncomingRoomPrompt(String roomId) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          constraints: const BoxConstraints(maxWidth: 400),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0F1E4A), Color(0xFF080D24)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF38BDF8), Color(0xFF0284C7)],
+                  ),
+                ),
+                child: const Icon(
+                  Icons.groups_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                '🏆 تم اكتشاف دعوة غرفة جماعية!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'رمز الغرفة: $roomId',
+                style: const TextStyle(
+                  color: Color(0xFF93C5FD),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      child: const Text('تجاهل'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Navigator.of(ctx).pop();
+                        final userId = context.read<AppState>().user?.uid;
+                        if (userId != null) {
+                          try {
+                            final joinResult = await context
+                                .read<RoomService>()
+                                .joinRoom(
+                                  roomId: roomId,
+                                  userId: userId,
+                                );
+                            if (!mounted) return;
+                            await Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => RoomLobbyScreen(
+                                  roomId: roomId,
+                                  isJoiningMidGame: joinResult.joinedMidGame,
+                                ),
+                              ),
+                            );
+                            return;
+                          } catch (_) {}
+                        }
+                        if (!mounted) return;
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                RoomsScreen(initialRoomCode: roomId),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'انضمام للغرفة',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _consumeNativeLaunchAction() async {
@@ -91,11 +423,27 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       final action =
           await context.read<NativeBridgeService>().consumeLaunchAction();
-      if (!mounted || action != 'open_online_rooms') return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const RoomsScreen()),
-        (route) => route.isFirst,
-      );
+      if (!mounted || action == null || action.isEmpty) return;
+      if (action == 'open_online_rooms') {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(builder: (_) => const RoomsScreen()),
+          (route) => route.isFirst,
+        );
+      } else if (action.startsWith('challenge:')) {
+        final code = action.substring('challenge:'.length).trim();
+        if (code.isNotEmpty) {
+          await context.read<AppState>().openFriendChallenge(code);
+        }
+      } else if (action.startsWith('room:')) {
+        final roomId = action.substring('room:'.length).trim();
+        if (roomId.isNotEmpty) {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => RoomsScreen(initialRoomCode: roomId),
+            ),
+          );
+        }
+      }
     } finally {
       _handlingNativeLaunchAction = false;
     }
@@ -576,12 +924,20 @@ class _LeftSidebar extends StatelessWidget {
               ),
             ),
             _SideCard(
+              label: 'تحدي صديق',
+              icon: Icons.people_alt_rounded,
+              iconColor: const Color(0xFF38BDF8),
+              enabled: isOnline,
+              onTap: () => FriendChallengeModal.show(context),
+            ),
+            _SideCard(
               label: 'أوفلاين',
               icon: Icons.sports_esports_rounded,
               iconColor: const Color(0xFF60A5FA),
               onTap: () => context.read<AppState>().openOfflineGame(),
             ),
             _WatchAdCard(),
+            const CrossPromoChallengeLandBadge(),
           ];
 
           final contentHeight = constraints.maxHeight;

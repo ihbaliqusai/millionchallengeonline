@@ -375,11 +375,45 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
     );
   }
 
+  Future<void> _copyRoomCode(String code) async {
+    if (code.isEmpty) return;
+    try {
+      await Clipboard.setData(ClipboardData(text: code));
+      HapticFeedback.mediumImpact();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Color(0xFF34D399)),
+              const SizedBox(width: 8),
+              Text('تم نسخ رمز الغرفة: $code'),
+            ],
+          ),
+          backgroundColor: const Color(0xFF1E293B),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _shareOnlyRoomCode(String code) async {
+    if (code.isEmpty) return;
+    try {
+      await Share.share(code, subject: 'رمز الغرفة في تحدي المليون');
+    } catch (_) {}
+  }
+
   Future<void> _shareRoom(Room room) async {
     try {
       await Share.share(
-        'انضم إلى غرفتي في تحدي المليون.\nرمز الغرفة: ${room.id}\nافتح اللعب الجماعي وأدخل الرمز للانضمام.',
-        subject: 'دعوة إلى غرفة جماعية',
+        '🏆 *انضم إلى غرفتي في لعبة تحدي المليون (Million Challenge)!*\n\n'
+        '🔑 *رمز الغرفة:*\n`${room.id}`\n\n'
+        '📲 *رابط تحميل وفتح اللعبة مباشرة (Google Play):*\n'
+        'https://play.google.com/store/apps/details?id=com.Qi7bali.millionchallengeonline\n\n'
+        '🎮 افتح "تحدي جماعي" واختر "انضمام بكود" والصق الرمز للانضمام!',
+        subject: 'دعوة إلى غرفة جماعية في تحدي المليون',
       );
     } catch (_) {
       if (!mounted) return;
@@ -390,6 +424,131 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
         ),
       );
     }
+  }
+
+  void _showShareOptionsModal(Room room) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(
+            color: const Color(0xFF38BDF8).withValues(alpha: 0.3),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.share_rounded, color: Color(0xFF38BDF8), size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'مشاركة رمز الغرفة',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF070F28),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      room.id,
+                      style: const TextStyle(
+                        color: Color(0xFF38BDF8),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _copyRoomCode(room.id);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E3A8A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    icon: const Icon(Icons.copy_rounded, size: 14),
+                    label: const Text('نسخ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _shareRoom(room);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF38BDF8),
+                      side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.share_rounded, size: 15),
+                    label: const Text('مشاركة الدعوة كاملة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _shareOnlyRoomCode(room.id);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFFFD700),
+                      side: BorderSide(color: const Color(0xFFFFD700).withValues(alpha: 0.4)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.send_rounded, size: 15),
+                    label: const Text('إرسال الرمز فقط', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<bool> _confirmLeave() async {
@@ -658,7 +817,7 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen>
                                   onToggleReady: (v) => _toggleReady(room, v),
                                   onStartRoom: () => _startRoom(room),
                                   onStartNextRound: () => _startNextRound(room),
-                                  onShareRoom: () => _shareRoom(room),
+                                  onShareRoom: () => _showShareOptionsModal(room),
                                   onLeaveRoom: _confirmLeave,
                                 );
 
@@ -861,12 +1020,46 @@ class _LobbyHeader extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                       color: Colors.white),
                 ),
-                Text(
-                  'رمز الغرفة: ${room.id}',
-                  style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w600),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: room.id));
+                    HapticFeedback.mediumImpact();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded,
+                                color: Color(0xFF34D399)),
+                            const SizedBox(width: 8),
+                            Text('تم نسخ رمز الغرفة: ${room.id}'),
+                          ],
+                        ),
+                        backgroundColor: const Color(0xFF1E293B),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'رمز الغرفة: ${room.id}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(Icons.copy_rounded,
+                          color: Colors.white.withValues(alpha: 0.5),
+                          size: 13),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Wrap(
